@@ -17,9 +17,14 @@ import CommunicationView from "./CommunicationView"
 import ModbusTools from "./ModbusTools"
 import DeviceLedgerView from "./DeviceLedgerView"
 import FrameDrawer from "./FrameDrawer"
-import EnergyFlow, { sumByKeywords, type DispatchInfo } from "./EnergyFlow"
+import EnergyFlow, { type DispatchInfo } from "./EnergyFlow"
 import AssistantPanel from "./AssistantPanel"
 import Icon, { type IconName } from "./Icons"
+import KpiStrip, { loadKpiConfig, saveKpiConfig, type KpiConfig } from "./KpiStrip"
+import KpiConfigPanel from "./KpiConfigPanel"
+import HealthSummary from "./HealthSummary"
+import ShiftHandover from "./ShiftHandover"
+import CommonCommands from "./CommonCommands"
 import {
   ApiError,
   businessId,
@@ -102,43 +107,6 @@ function channelState(node: Node) {
   }
   if (errors > 0) return { key: "degraded", label: "不稳定", detail: `${errors} 次通信错误` }
   return { key: "online", label: "在线", detail: `${Math.max(1, Math.round(age))} 秒前成功轮询` }
-}
-
-function KpiStrip({ points, alarmCount, activeRules, rules, errors, tariff, onOpen }: {
-  points: Node[]; alarmCount: number; activeRules: number; rules: number; errors: number; tariff: number | null
-  onOpen: (keywords: string[], fallback: Page) => void
-}) {
-  const chargeEnergy = sumByKeywords(points, ["储能充电", "充电量"], "kWh")
-  const dischargeEnergy = sumByKeywords(points, ["储能放电", "放电量"], "kWh")
-  const todayLoad = sumByKeywords(points, ["今日用电", "用电量"], "kWh")
-  const feePoint = sumByKeywords(points, ["今日电费"], "元")
-  const computedFee = todayLoad !== null && tariff !== null ? todayLoad * tariff : null
-  const todayFee = feePoint ?? computedFee
-  const feeNote = feePoint !== null ? "按已接入电费点位" : computedFee !== null ? `${tariff?.toFixed(2)} 元/kWh × 今日用电` : tariff === null ? "未设置电价" : "无今日用电点位"
-  const number = (value: number | null, digits = 2) => value === null ? "—" : value.toFixed(digits)
-  const cards: { key: string; icon: IconName; label: string; value: number | null; digits: number; unit: string; note: string; keywords: string[]; fallback: Page; compact?: boolean }[] = [
-    { key: "revenue", icon: "coin", label: "总收益", value: sumByKeywords(points, ["总收益", "累计收益"], "元"), digits: 0, unit: "元", note: "按已接入收益点位", keywords: ["总收益", "累计收益"], fallback: "channels" },
-    { key: "ess-revenue", icon: "yuan", label: "储能收益", value: sumByKeywords(points, ["储能收益"], "元"), digits: 0, unit: "元", note: "放电收益 − 充电成本", keywords: ["储能收益"], fallback: "channels" },
-    { key: "efficiency", icon: "efficiency", label: "转换效率", value: sumByKeywords(points, ["转换效率", "综合效率"], "%"), digits: 1, unit: "%", note: "综合 / 当日", keywords: ["转换效率", "综合效率"], fallback: "channels" },
-    { key: "fee", icon: "bolt", label: "今日电费", value: todayFee, digits: 2, unit: "元", note: feeNote, keywords: ["今日电费", "今日用电", "用电量"], fallback: "channels" },
-    { key: "throughput", icon: "battery", label: "储能吞吐", value: null, digits: 0, unit: "", note: `充 ${number(chargeEnergy)} / 放 ${number(dischargeEnergy)} kWh`, keywords: ["储能充电", "储能放电"], fallback: "channels", compact: true },
-    { key: "energy", icon: "solar", label: "光伏发电量", value: sumByKeywords(points, ["光伏发电量", "发电量"], "kWh"), digits: 2, unit: "kWh", note: "", keywords: ["光伏发电量", "发电量"], fallback: "channels" },
-    { key: "today-load", icon: "home", label: "今日用电", value: sumByKeywords(points, ["今日用电", "用电量"], "kWh"), digits: 2, unit: "kWh", note: "", keywords: ["今日用电", "用电量"], fallback: "channels" },
-    { key: "demand", icon: "bars", label: "最大需量", value: sumByKeywords(points, ["最大需量", "需量"], "kW"), digits: 1, unit: "kW", note: "", keywords: ["最大需量", "需量"], fallback: "channels" },
-  ]
-  return <section className="kpi-strip" aria-label="站点关键指标">
-    {cards.map((card) => <button
-      type="button"
-      key={card.key}
-      className={`kpi-card ${card.key} ${card.compact ? "compact" : ""}`}
-      onClick={() => onOpen(card.keywords, card.fallback)}
-      title={card.keywords.length ? `查看${card.label}点位` : `打开${card.label}页面`}
-    >
-      <span className="kpi-icon" aria-hidden="true"><Icon name={card.icon} size={38} /></span>
-      <span className="kpi-copy"><span className="kpi-label">{card.label}</span>{!card.compact && <strong className="kpi-value">{card.value === null || card.value === undefined ? "—" : card.value.toFixed(card.digits)}<small> {card.unit}</small></strong>}</span>
-      <span className="kpi-note">{card.note}</span>
-    </button>)}
-  </section>
 }
 
 function latestDispatch(rules: Node[], nodes: Node[]): DispatchInfo | null {
@@ -225,6 +193,10 @@ export default function App() {
   const [alarms, setAlarms] = useState<EmsAlarm[]>([])
   const [assistantOpen, setAssistantOpen] = useState(false)
   const [tariffDraft, setTariffDraft] = useState("")
+  const [kpiConfig, setKpiConfig] = useState<KpiConfig>(loadKpiConfig)
+  const [kpiConfigOpen, setKpiConfigOpen] = useState(false)
+  const [shiftOpen, setShiftOpen] = useState(false)
+  const [commandsOpen, setCommandsOpen] = useState(false)
   const [stageScale, setStageScale] = useState(() => window.innerWidth >= 1000 ? Math.min((window.innerWidth - 8) / 1632, (window.innerHeight - 8) / 1000) : 1)
 
   const refresh = useCallback(async () => {
@@ -395,12 +367,12 @@ export default function App() {
     const poll = point(channel, "pollPeriod")?.value || 1000
     const timeout = point(channel, "timeout")?.value || 1000
     return !last || clock.getTime() / 1000 - last > Math.max(5, poll * 5 / 1000, timeout * 3 / 1000)
-  }).length
+  })
   const stalePoints = points.filter((node) => {
     const value = point(node, "value")
     const time = value?.time ? new Date(value.time).getTime() : NaN
     return value?.value === undefined || !Number.isFinite(time) || clock.getTime() - time > 15000
-  }).length
+  })
   const errors = view.nodes.filter((node) => point(node, "error")?.text || (point(node, "errorCount")?.value || 0) > 0 || ["unknown", "failed"].includes(commandStatus(node)))
   const currentRule = selectedRule ? rules.find((rule) => rule.id === selectedRule) : rules[0]
 
@@ -512,13 +484,21 @@ export default function App() {
     <main className="console-main">
       <div className={`console-page-head ${page === "devices" ? "overview-heading" : ""}`}>
         <h1>{currentInfo.title}</h1>
-        {page === "devices" && <div className="health-summary">
-          <span>告警 <b>{alarmCount}</b></span><i>·</i><span>核心设备离线 <b>{offlineChannels}</b></span><i>·</i><span>核心测点陈旧 <b>{stalePoints}</b></span>
-          <button className="head-link" onClick={() => setPage("channels")}>查看健康 <span>›</span></button>
-        </div>}
+        {page === "devices" && <HealthSummary
+          alarmCount={alarmCount}
+          offlineChannels={offlineChannels}
+          stalePoints={stalePoints}
+          onOpenChannels={() => setPage("channels")}
+          onOpenAlarms={() => setPage("alarms")}
+        />}
         {page !== "devices" && <p>{currentInfo.subtitle}</p>}
         <div className="console-head-actions">
           <span className="site-pill">站点 {Math.max(1, snapshot.roots.indexOf(view.roots[0]) + 1)} / {snapshot.roots.length}</span>
+          {page === "devices" && <>
+            <button className="secondary-button head-action" onClick={() => setCommandsOpen(true)}>常用命令</button>
+            <button className="secondary-button head-action" onClick={() => setShiftOpen(true)}>班次交接</button>
+            <button className="secondary-button head-action" onClick={() => setKpiConfigOpen(true)}>配置 KPI</button>
+          </>}
           {page !== "devices" && <div className="live-status"><span className="pulse" />数据每 2 秒更新</div>}
         </div>
       </div>
@@ -529,6 +509,7 @@ export default function App() {
         snapshot={view} points={points} groups={groups} rules={rules.length} activeRules={activeRules.length} errors={errors.length}
         alarmCount={alarmCount} busy={busy} isAdmin={canConfigure} canOperate={canOperate} run={run} openPoint={openPoint}
         goRules={() => setPage("rules")} goHistory={() => setPage("history")} goChannels={() => setPage("channels")} dispatch={dispatch} latestAlarm={latestAlarm} tariff={tariff}
+        kpiConfig={kpiConfig}
       />}
 
       {page === "screen" && <ScreenView
@@ -610,16 +591,21 @@ export default function App() {
         stationName={stationName} open={assistantOpen} onClose={() => setAssistantOpen(false)}
       />
     </>}
+
+    {kpiConfigOpen && <KpiConfigPanel config={kpiConfig} onSave={(next) => { setKpiConfig(next); saveKpiConfig(next) }} onClose={() => setKpiConfigOpen(false)} />}
+    {shiftOpen && <ShiftHandover onClose={() => setShiftOpen(false)} />}
+    {commandsOpen && <CommonCommands token={token} canOperate={canOperate} onError={setError} onClose={() => setCommandsOpen(false)} />}
   </div></div></IonContent></IonApp>
 }
 
 type Run = (action: () => Promise<unknown>) => Promise<boolean>
 
-function DevicesView({ snapshot, points, groups, rules, activeRules, errors, alarmCount, busy, isAdmin, canOperate, run, openPoint, goRules, goHistory, goChannels, dispatch, latestAlarm, tariff }: {
+function DevicesView({ snapshot, points, groups, rules, activeRules, errors, alarmCount, busy, isAdmin, canOperate, run, openPoint, goRules, goHistory, goChannels, dispatch, latestAlarm, tariff, kpiConfig }: {
   snapshot: Snapshot; points: Node[]; groups: Node[]; rules: number; activeRules: number; errors: number; alarmCount: number
   busy: boolean; isAdmin: boolean; canOperate: boolean; run: Run; goRules: () => void; goHistory: () => void; goChannels: () => void; dispatch: DispatchInfo | null
   latestAlarm: EmsAlarm | null
   tariff: number | null
+  kpiConfig: KpiConfig
   openPoint: (keywords: string[], fallback?: Page) => void
 }) {
   const [showAdd, setShowAdd] = useState(false)
@@ -638,7 +624,7 @@ function DevicesView({ snapshot, points, groups, rules, activeRules, errors, ala
     .sort((a, b) => b.item.time.localeCompare(a.item.time)).slice(0, 6), [snapshot])
 
   return <>
-    <KpiStrip points={points} alarmCount={alarmCount} activeRules={activeRules} rules={rules} errors={errors} tariff={tariff} onOpen={openPoint} />
+    <KpiStrip points={points} tariff={tariff} config={kpiConfig} onOpen={openPoint} />
 
     <EnergyFlow points={points} onOpenPoint={openPoint} onOpenTrends={goHistory} dispatch={dispatch} event={{
       activeRules, rules, alarmCount, errors, pointCount: points.length, onOpenRules: goRules,

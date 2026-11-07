@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { writable } from "./writable"
 import ConfirmDialog from "./ConfirmDialog"
+import ScreenTemplates, { recordVersion } from "./ScreenTemplates"
 import {
   EmsAlarm,
   fetchAlarms,
@@ -68,6 +69,8 @@ export default function ScreenView({ token, snapshot, points, groups, isAdmin, c
   const [editing, setEditing] = useState(false)
   const [alarmCount, setAlarmCount] = useState(0)
   const [topAlarm, setTopAlarm] = useState<EmsAlarm | null>(null)
+  const [alarms, setAlarms] = useState<EmsAlarm[]>([])
+  const [templatesOpen, setTemplatesOpen] = useState(false)
   const [values, setValues] = useState<Record<string, number>>({})
   const [pendingWrite, setPendingWrite] = useState<{ node: Node; value: number } | null>(null)
 
@@ -109,6 +112,7 @@ export default function ScreenView({ token, snapshot, points, groups, isAdmin, c
         const active = (result.alarms || []).filter((alarm) => alarm.active)
         setAlarmCount(active.length)
         setTopAlarm(active[0] || null)
+        setAlarms(active)
       } catch {
         // 报警摘要失败不阻塞画面；错误由报警页负责展示
       }
@@ -119,6 +123,15 @@ export default function ScreenView({ token, snapshot, points, groups, isAdmin, c
   }, [token])
 
   const tiles = config ? config.point_ids.map((id) => points.find((item) => item.id === id)).filter((item): item is Node => Boolean(item)) : []
+
+  const alarmCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const alarm of alarms) {
+      const id = alarm.point_id || alarm.device_id || ""
+      if (id) counts.set(id, (counts.get(id) || 0) + 1)
+    }
+    return counts
+  }, [alarms])
 
   function togglePoint(id: string, checked: boolean) {
     if (!draft) return
@@ -133,7 +146,7 @@ export default function ScreenView({ token, snapshot, points, groups, isAdmin, c
       setConfig(draft)
       setEditing(false)
     })
-    if (!ok) return
+    if (ok) recordVersion(nodeID, draft)
   }
 
   return <section className="screen-page">
@@ -144,6 +157,7 @@ export default function ScreenView({ token, snapshot, points, groups, isAdmin, c
         </select>
       </label>
       {isAdmin && <button className="secondary-button" onClick={() => { setEditing(!editing); setDraft(config) }}>{editing ? "退出编辑" : "配置画面"}</button>}
+      {isAdmin && <button className="secondary-button" onClick={() => setTemplatesOpen(true)}>模板 / 版本</button>}
       <span className="screen-hint">配置保存在业务节点上，跟随节点权限</span>
     </div>
 
@@ -179,8 +193,9 @@ export default function ScreenView({ token, snapshot, points, groups, isAdmin, c
         const value = values[node.id] ?? current?.value
         const updated = current?.time ? new Date(current.time) : null
         const stale = !updated || Date.now() - updated.getTime() > 15000
+        const tileAlarm = alarmCounts.get(node.id) || 0
         return <article className="panel screen-tile" key={node.id}>
-          <div className="screen-tile-head"><strong>{config.title && tiles.length === 1 ? config.title : nameOf(node)}</strong><span className={`screen-quality ${stale ? "stale" : ""}`}>{stale ? "数据过期" : "正常"}</span></div>
+          <div className="screen-tile-head"><strong>{config.title && tiles.length === 1 ? config.title : nameOf(node)}</strong><span className="screen-tile-badges"><span className={`screen-quality ${stale ? "stale" : ""}`}>{stale ? "数据过期" : "正常"}</span>{tileAlarm > 0 && <span className="screen-tile-alarm" title={`${tileAlarm} 项活动报警`}>报警 {tileAlarm}</span>}</span></div>
           <div className="screen-value">{value ?? "—"}<small>{units}</small></div>
           <div className="screen-meta">{updated ? updated.toLocaleTimeString("zh-CN", { hour12: false }) : "尚未采集"}</div>
           <TileTrend token={token} nodeId={node.id} />
@@ -215,6 +230,13 @@ export default function ScreenView({ token, snapshot, points, groups, isAdmin, c
         setPendingWrite(null)
         void run(() => request(token, `/nodes/${target.node.id}/value`, "POST", { value: target.value, point_type: "valueSet" }))
       }}
+    />}
+
+    {templatesOpen && config && <ScreenTemplates
+      nodeId={nodeID}
+      draft={draft || config}
+      onApply={(next) => { setDraft(next); setEditing(true) }}
+      onClose={() => setTemplatesOpen(false)}
     />}
   </section>
 }
