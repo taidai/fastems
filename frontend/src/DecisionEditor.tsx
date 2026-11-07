@@ -12,6 +12,9 @@ import {
   point,
   request,
   Row,
+  Scenario,
+  ScenarioResult,
+  TimeCheck,
 } from "./api"
 import SafetyModal from "./SafetyModal"
 import ConfirmDialog from "./ConfirmDialog"
@@ -80,6 +83,37 @@ function conditionValueText(condition: Condition) {
   if (condition.kind === "enum") return condition.text || "—"
   if (condition.kind === "bool") return condition.value ? "是" : "否"
   return String(condition.value)
+}
+
+// Weekday bits follow Go's time.Weekday: bit 0 = Sunday ... bit 6 = Saturday.
+const weekdayOptions: [string, number][] = [
+  ["一", 1], ["二", 2], ["三", 3], ["四", 4], ["五", 5], ["六", 6], ["日", 0],
+]
+
+function weekdayText(mask?: number) {
+  if (!mask || mask === 127) return "每天"
+  return weekdayOptions.filter(([, bit]) => mask & (1 << bit)).map(([label]) => `周${label}`).join("、")
+}
+
+function timeWindowText(start?: string, end?: string) {
+  if (!start || !end) return "全天"
+  return start > end ? `${start}–次日${end}` : `${start}–${end}`
+}
+
+function timeConditionText(condition: { start?: string; end?: string; weekday_mask?: number }) {
+  return `${weekdayText(condition.weekday_mask)} ${timeWindowText(condition.start, condition.end)}`
+}
+
+function timeCheckText(check: TimeCheck) {
+  return `时间条件 ${timeConditionText(check)}：${check.satisfied ? "满足" : "不满足"}`
+}
+
+// The engine reports a time condition as the synthetic input "time:start-end/mask".
+function timeInputLabel(id: string) {
+  const body = id.slice("time:".length)
+  const slash = body.lastIndexOf("/")
+  const [start, end] = body.slice(0, slash).split("-")
+  return `时间条件 ${timeConditionText({ start, end, weekday_mask: Number(body.slice(slash + 1)) })}`
 }
 
 function NumberInput({ value, onChange, label }: { value: number; onChange: (value: number) => void; label: string }) {
@@ -172,6 +206,10 @@ export default function DecisionEditor({ token, rule, nodes, onRefresh, onError,
   const [textInputs, setTextInputs] = useState<Record<string, string>>(() =>
     Object.fromEntries(available.map((node) => [businessId(node), point(node, "value")?.text || ""])),
   )
+  const [simAt, setSimAt] = useState("")
+  const [scenarioName, setScenarioName] = useState("")
+  const [scenarioExpect, setScenarioExpect] = useState("")
+  const [scenarioResults, setScenarioResults] = useState<Record<string, ScenarioResult>>({})
   const rowsEnd = useRef<HTMLDivElement>(null)
   const simulationRef = useRef<HTMLDivElement>(null)
   const resultRef = useRef<HTMLDivElement>(null)
@@ -197,6 +235,7 @@ export default function DecisionEditor({ token, rule, nodes, onRefresh, onError,
     setDocument({ ...document, table: { rows: next } })
     setDirty(true)
     setResult(null)
+    setScenarioResults({})
   }
   function updateRow(index: number, row: Row) {
     setRows(rows.map((current, i) => (i === index ? row : current)))
@@ -279,6 +318,7 @@ export default function DecisionEditor({ token, rule, nodes, onRefresh, onError,
         setResult(await request<Evaluation>(token, `/rules/${rule.id}/test`, "POST", {
           document: current, inputs,
           text_inputs: Object.fromEntries(Object.entries(textInputs).filter(([, text]) => text !== "")),
+          at: simAt || undefined,
         }))
       } else {
         await request(token, `/rules/${rule.id}/enable`, "POST", { enabled: enabledValue })
@@ -319,9 +359,59 @@ export default function DecisionEditor({ token, rule, nodes, onRefresh, onError,
     }
   }
 
-  const referencedInputs = [...new Set(rows.flatMap((row) => row.conditions.map((condition) => condition.point_id)))]
+  const referencedInputs = [...new Set(rows.flatMap((row) => row.conditions.filter((condition) => condition.kind !== "time").map((condition) => condition.point_id)))]
   const referencedActions = [...new Set(rows.flatMap((row) => row.actions.map((action) => action.action_id)))]
   const lastCheck = useMemo(() => parseLastCheck(rule), [rule])
+  const scenarios = document.scenarios || []
+
+  function rowLabel(rowID?: string) {
+    if (!rowID) return "不命中任何行"
+    const index = rows.findIndex((row) => row.row_id === rowID)
+    return index >= 0 ? `第 ${index + 1} 行` : "已删除的行"
+  }
+  function setScenarios(next: Scenario[]) {
+    setDocument({ ...document, scenarios: next })
+    setDirty(true)
+    setScenarioResults({})
+  }
+  function addScenario() {
+    const row = rows.find((item) => item.row_id === scenarioExpect)
+    const scenario: Scenario = {
+      scenario_id: crypto.randomUUID(),
+      name: scenarioName.trim() || `场景 ${scenarios.length + 1}`,
+      inputs: Object.fromEntries(referencedInputs.map((id) => [id, inputs[id] ?? 0])),
+      text_inputs: Object.fromEntries(referencedInputs.map((id) => [id, textInputs[id] || ""]).filter(([, text]) => text !== "")),
+      at: simAt || undefined,
+      expect_row: scenarioExpect || undefined,
+      expect_actions: row && row.actions.length ? row.actions.map((action) => ({ ...action })) : undefined,
+    }
+    setScenarios([...scenarios, scenario])
+    setScenarioName("")
+  }
+  function loadScenario(scenario: Scenario) {
+    setInputs({ ...inputs, ...scenario.inputs })
+    setTextInputs({ ...textInputs, ...scenario.text_inputs })
+    setSimAt(scenario.at || "")
+  }
+  async function runScenarios() {
+    setBusy("scenarios")
+    onError("")
+    try {
+      const current = { ...document, bindings: bindingsFor(available, document.bindings) }
+      const response = await request<{ results: ScenarioResult[] }>(token, `/rules/${rule.id}/scenarios`, "POST", { document: current })
+      setScenarioResults(Object.fromEntries(response.results.map((item) => [item.scenario_id, item])))
+    } catch (error) {
+      onError(error instanceof Error ? error.message : "操作失败")
+    } finally {
+      setBusy("")
+    }
+  }
+  function scenarioVerdictText(scenario: Scenario, result: ScenarioResult) {
+    if (result.passed) return `通过 · 实际${rowLabel(result.row_id)}`
+    if (result.reason === "row_mismatch") return `失败 · 期望${rowLabel(scenario.expect_row)}，实际${rowLabel(result.row_id)}`
+    if (result.reason === "action_mismatch") return `失败 · 输出与期望不一致（实际 ${result.actions?.map((action) => `${displayName(action.action_id)}=${action.value}`).join("、") || "无输出"}）`
+    return `失败 · ${result.detail || "无法模拟"}`
+  }
 
   return <section className="rule-editor">
     <div className="editor-heading">
@@ -361,7 +451,7 @@ export default function DecisionEditor({ token, rule, nodes, onRefresh, onError,
             }}>
             <td>{rowIndex + 1}</td>
             <td><div className="rule-chips">
-              {row.conditions.length === 0 ? <span className="rule-chip default">默认行</span> : row.conditions.map((condition, index) => <span className="rule-chip" key={index}>{displayName(condition.point_id)} {operatorLabel(condition.operator)} {conditionValueText(condition)}</span>)}
+              {row.conditions.length === 0 ? <span className="rule-chip default">默认行</span> : row.conditions.map((condition, index) => <span className="rule-chip" key={index}>{condition.kind === "time" ? `时间 ${timeConditionText(condition)}` : `${displayName(condition.point_id)} ${operatorLabel(condition.operator)} ${conditionValueText(condition)}`}</span>)}
             </div></td>
             <td><div className="rule-chips">
               {row.actions.length === 0 ? <span className="rule-chip muted">不执行动作</span> : row.actions.map((action, index) => <span className="rule-chip" key={index}>{displayName(action.action_id)} = {action.value}</span>)}
@@ -405,33 +495,61 @@ export default function DecisionEditor({ token, rule, nodes, onRefresh, onError,
             {row.conditions.map((condition, conditionIndex) => {
               const kind = condition.kind || "number"
               return <div className="logic-line condition-line" key={conditionIndex}>
-                <select aria-label="输入点位" value={condition.point_id} onChange={(event) => updateCondition(rowIndex, conditionIndex, { point_id: event.target.value })}>
+                {kind !== "time" && <select aria-label="输入点位" value={condition.point_id} onChange={(event) => updateCondition(rowIndex, conditionIndex, { point_id: event.target.value })}>
                   {available.map((node) => <option key={node.id} value={businessId(node)}>{nameOf(node)}</option>)}
-                </select>
+                </select>}
                 <select aria-label="条件类型" value={kind} onChange={(event) => {
-                  const next = event.target.value as "number" | "bool" | "enum"
+                  const next = event.target.value as "number" | "bool" | "enum" | "time"
+                  if (next === "time") {
+                    updateCondition(rowIndex, conditionIndex, {
+                      kind: "time", point_id: "", operator: "", value: 0, text: "",
+                      start: condition.start || "08:00", end: condition.end || "20:00",
+                      weekday_mask: condition.weekday_mask || 0,
+                    })
+                    return
+                  }
                   updateCondition(rowIndex, conditionIndex, {
                     kind: next,
-                    operator: next === "number" ? condition.operator : "eq",
+                    point_id: condition.point_id || (available[0] ? businessId(available[0]) : ""),
+                    operator: next === "number" ? (kind === "time" ? "gt" : condition.operator) : "eq",
                     value: next === "bool" ? 0 : condition.value,
                     text: next === "enum" ? (condition.text || "") : "",
+                    start: "", end: "", weekday_mask: 0,
                   })
                 }}>
                   <option value="number">数值</option>
                   <option value="bool">开关</option>
                   <option value="enum">枚举</option>
+                  <option value="time">时间</option>
                 </select>
-                <select aria-label="比较逻辑" value={condition.operator} onChange={(event) => updateCondition(rowIndex, conditionIndex, { operator: event.target.value })}>
-                  {operatorsFor(kind).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                </select>
-                {kind === "bool"
-                  ? <select aria-label="条件值" value={condition.value ? 1 : 0} onChange={(event) => updateCondition(rowIndex, conditionIndex, { value: Number(event.target.value) })}>
-                    <option value={1}>是</option><option value={0}>否</option>
-                  </select>
-                  : kind === "enum"
-                    ? <input aria-label="枚举值" value={condition.text || ""} placeholder="如 grid / 故障" onChange={(event) => updateCondition(rowIndex, conditionIndex, { text: event.target.value })} />
-                    : <NumberInput label="条件值" value={condition.value} onChange={(value) => updateCondition(rowIndex, conditionIndex, { value })} />}
+                {kind === "time"
+                  ? <>
+                    <input aria-label="开始时间" type="time" value={condition.start || ""} onChange={(event) => updateCondition(rowIndex, conditionIndex, { start: event.target.value })} />
+                    <span className="set-label">至</span>
+                    <input aria-label="结束时间" type="time" value={condition.end || ""} onChange={(event) => updateCondition(rowIndex, conditionIndex, { end: event.target.value })} />
+                    <span className="weekday-picks" role="group" aria-label="星期">
+                      {weekdayOptions.map(([label, bit]) => <label key={bit}>
+                        <input type="checkbox" checked={Boolean((condition.weekday_mask || 0) & (1 << bit))} onChange={(event) => {
+                          const mask = condition.weekday_mask || 0
+                          updateCondition(rowIndex, conditionIndex, { weekday_mask: event.target.checked ? mask | (1 << bit) : mask & ~(1 << bit) })
+                        }} />{label}
+                      </label>)}
+                    </span>
+                  </>
+                  : <>
+                    <select aria-label="比较逻辑" value={condition.operator} onChange={(event) => updateCondition(rowIndex, conditionIndex, { operator: event.target.value })}>
+                      {operatorsFor(kind).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                    </select>
+                    {kind === "bool"
+                      ? <select aria-label="条件值" value={condition.value ? 1 : 0} onChange={(event) => updateCondition(rowIndex, conditionIndex, { value: Number(event.target.value) })}>
+                        <option value={1}>是</option><option value={0}>否</option>
+                      </select>
+                      : kind === "enum"
+                        ? <input aria-label="枚举值" value={condition.text || ""} placeholder="如 grid / 故障" onChange={(event) => updateCondition(rowIndex, conditionIndex, { text: event.target.value })} />
+                        : <NumberInput label="条件值" value={condition.value} onChange={(value) => updateCondition(rowIndex, conditionIndex, { value })} />}
+                  </>}
                 <button className="icon-button" aria-label="删除条件" onClick={() => updateRow(rowIndex, { ...row, conditions: row.conditions.filter((_, i) => i !== conditionIndex) })}>×</button>
+                {kind === "time" && <small className="time-hint">站点本地时间；开始晚于结束表示跨午夜（{timeConditionText(condition)}）；不勾选星期即每天。</small>}
               </div>
             })}
           </div>
@@ -505,7 +623,9 @@ export default function DecisionEditor({ token, rule, nodes, onRefresh, onError,
           <b>输入</b>
           {lastCheck.inputs.length === 0 && <span>无输入</span>}
           {lastCheck.inputs.map((input, index) => <span key={`${input.input}-${index}`}>
-            {displayName(input.input)} = {input.kind === "enum" ? (input.text || "—") : input.value} <em>{input.quality}</em>
+            {input.input.startsWith("time:")
+              ? <>{timeInputLabel(input.input)} = {input.value ? "满足" : "不满足"}</>
+              : <>{displayName(input.input)} = {input.kind === "enum" ? (input.text || "—") : input.value} <em>{input.quality}</em></>}
             {input.source_time ? ` · ${new Date(input.source_time).toLocaleTimeString("zh-CN", { hour12: false })}` : ""}
           </span>)}
         </div>
@@ -535,12 +655,58 @@ export default function DecisionEditor({ token, rule, nodes, onRefresh, onError,
         })}
         {referencedInputs.length === 0 && <span>当前只有默认行，可直接模拟。</span>}
         {referencedInputs.length > 0 && <button type="button" className="text-button" onClick={useLiveInputs}>用当前值</button>}
+        <label>模拟时刻
+          <input aria-label="模拟时刻" type="datetime-local" value={simAt} onChange={(event) => setSimAt(event.target.value)} />
+        </label>
+        {simAt && <button type="button" className="text-button" onClick={() => setSimAt("")}>用现在</button>}
         <button className="secondary-button" disabled={busy !== ""} onClick={() => run("test")}>{busy === "test" ? "计算中…" : "开始模拟"}</button>
       </div>
       {result && <div className="simulation-result" role="status" ref={resultRef}>
         {result.row_id ? <>命中第 {rows.findIndex((row) => row.row_id === result.row_id) + 1} 行 <button type="button" className="inline-link" onClick={() => locate(result.row_id)}>定位该行</button></> : "没有命中规则"}
         <span>{result.actions?.length ? result.actions.map((action) => `${displayName(action.action_id)} 设为 ${action.value}`).join("；") : "不执行任何操作"}</span>
+        {result.time_checks?.length ? <span>{result.time_checks.map(timeCheckText).join("；")}</span> : null}
       </div>}
+
+      <div className="scenario-panel">
+        <div className="logic-title"><span>场景测试集 · 存在草稿里，不影响发布版本</span></div>
+        {!readOnly && <div className="scenario-form">
+          <input aria-label="场景名称" placeholder="场景名称" value={scenarioName} onChange={(event) => setScenarioName(event.target.value)} />
+          <label>期望结果
+            <select aria-label="期望结果" value={scenarioExpect} onChange={(event) => setScenarioExpect(event.target.value)}>
+              <option value="">不命中任何行</option>
+              {rows.map((row, index) => <option key={row.row_id} value={row.row_id}>第 {index + 1} 行</option>)}
+            </select>
+          </label>
+          <button type="button" className="secondary-button" onClick={addScenario}>把当前输入和时刻存为场景</button>
+        </div>}
+        {scenarios.length === 0 && <small>先在上面设好输入与模拟时刻，再保存为场景；一键全部运行可回归检查整张表。</small>}
+        {scenarios.length > 0 && <>
+          <div className="scenario-list">
+            {scenarios.map((scenario) => {
+              const result = scenarioResults[scenario.scenario_id]
+              return <div className="scenario-line" key={scenario.scenario_id}>
+                <div className="scenario-main">
+                  <strong>{scenario.name || "未命名场景"}</strong>
+                  <span>{[
+                    ...Object.entries(scenario.inputs || {}).map(([id, value]) => `${displayName(id)}=${scenario.text_inputs?.[id] ?? value}`),
+                    ...(scenario.at ? [`时刻 ${scenario.at.replace("T", " ")}`] : []),
+                  ].join("、") || "无输入"}</span>
+                  <span>期望：{rowLabel(scenario.expect_row)}{scenario.expect_actions?.length ? `；${scenario.expect_actions.map((action) => `${displayName(action.action_id)}=${action.value}`).join("、")}` : ""}</span>
+                </div>
+                {result && <span className={result.passed ? "scenario-pass" : "scenario-fail"} role="status">{scenarioVerdictText(scenario, result)}</span>}
+                <span className="scenario-actions">
+                  <button type="button" className="text-button" onClick={() => loadScenario(scenario)}>载入</button>
+                  {!readOnly && <button type="button" className="text-button danger-text" onClick={() => setScenarios(scenarios.filter((item) => item.scenario_id !== scenario.scenario_id))}>删除</button>}
+                </span>
+              </div>
+            })}
+          </div>
+          <div className="scenario-run">
+            <button type="button" className="secondary-button" disabled={busy !== ""} onClick={() => void runScenarios()}>{busy === "scenarios" ? "运行中…" : "运行全部场景"}</button>
+            {Object.keys(scenarioResults).length > 0 && <span role="status">{scenarios.filter((scenario) => scenarioResults[scenario.scenario_id]?.passed).length}/{scenarios.length} 通过 · 模拟运行，不会操作设备</span>}
+          </div>
+        </>}
+      </div>
     </div>
 
     {runtimeError && <div className="inline-error">运行异常：{runtimeError}</div>}

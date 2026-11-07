@@ -105,6 +105,41 @@ try {
     throw new Error("Simulation wrote device targets")
   }
 
+  // Time window (cross-midnight) at a fixed simulated moment: 2026-01-05 is a Monday.
+  await page.getByRole("button", { name: "+ 条件", exact: true }).click()
+  await page.getByLabel("条件类型").nth(2).selectOption("time")
+  await page.getByLabel("开始时间").fill("22:00")
+  await page.getByLabel("结束时间").fill("06:00")
+  await page.getByLabel("模拟时刻").fill("2026-01-05T23:30")
+  await page.getByRole("button", { name: "开始模拟" }).click()
+  await page.getByText(/时间条件 .*：满足/).waitFor()
+  await page.getByText(/命中第 1 行/).waitFor()
+  await page.getByLabel("模拟时刻").fill("2026-01-05T12:00")
+  await page.getByRole("button", { name: "开始模拟" }).click()
+  await page.getByText("没有命中规则").waitFor()
+  await page.getByText(/时间条件 .*：不满足/).waitFor()
+
+  // Scenario set: save two expectations and run them in one click; pure simulation.
+  await page.getByLabel("模拟时刻").fill("2026-01-05T23:30")
+  await page.getByLabel("场景名称").fill("夜间命中")
+  await page.getByLabel("期望结果").selectOption({ label: "第 1 行" })
+  await page.getByRole("button", { name: "把当前输入和时刻存为场景" }).click()
+  await page.getByLabel("模拟时刻").fill("2026-01-05T12:00")
+  await page.getByLabel("场景名称").fill("白天不命中")
+  await page.getByLabel("期望结果").selectOption({ label: "不命中任何行" })
+  await page.getByRole("button", { name: "把当前输入和时刻存为场景" }).click()
+  const beforeScenarios = await snapshot()
+  await page.getByRole("button", { name: "运行全部场景" }).click()
+  await page.getByText("2/2 通过").waitFor()
+  const afterScenarios = await snapshot()
+  if (targetValue(afterScenarios, "风机") !== targetValue(beforeScenarios, "风机") || targetValue(afterScenarios, "风阀") !== targetValue(beforeScenarios, "风阀")) {
+    throw new Error("Scenario run wrote device targets")
+  }
+  await page.screenshot({ path: path.join(evidence, "easyems-decision-scenarios.png"), fullPage: true })
+  // The published demo table must not depend on the wall clock: drop the time condition.
+  await page.getByLabel("删除条件").nth(2).click()
+  await page.getByLabel("模拟时刻").fill("")
+
   await page.getByRole("button", { name: "发布当前规则" }).click()
   await page.getByRole("button", { name: "确认发布" }).click()
   await page.getByText("已有发布版本", { exact: true }).waitFor()
@@ -148,7 +183,7 @@ try {
   if (unexpectedErrors.length) throw new Error(`Browser console errors: ${unexpectedErrors.join(" | ")}`)
   await writeFile(path.join(evidence, "browser-smoke.json"), JSON.stringify({
     passed: true,
-    checks: ["login", "group", "four points", "two-input AND", "two ordered outputs", "dry-run without writes", "publish", "enable", "manual takeover and resume", "rule copy/history/restore", "resource rename/disable/delete/move", "Modbus read/write/edit", "CSV import/export", "device template save/apply", "delivery check", "desktop", "mobile", "no console errors"],
+    checks: ["login", "group", "four points", "two-input AND", "two ordered outputs", "dry-run without writes", "cross-midnight time window at simulated moment", "scenario set run without writes", "publish", "enable", "manual takeover and resume", "rule copy/history/restore", "resource rename/disable/delete/move", "Modbus read/write/edit", "CSV import/export", "device template save/apply", "delivery check", "desktop", "mobile", "no console errors"],
   }, null, 2) + "\n")
   console.log("Browser smoke passed: login, points, decision table, dry-run, publish, outputs, mobile")
 } catch (error) {

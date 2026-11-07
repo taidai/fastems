@@ -125,6 +125,25 @@ func (h *Handler) publishDocument(w http.ResponseWriter, identity Identity, rule
 	writeJSON(w, map[string]any{"saved": true})
 }
 
+// runScenarios evaluates every saved scenario of the submitted document. It is
+// pure simulation and never sends points.
+func (h *Handler) runScenarios(w http.ResponseWriter, r *http.Request, identity Identity, id string) {
+	if _, ok := h.rule(w, identity, id); !ok {
+		return
+	}
+	var input struct {
+		Document decision.Document `json:"document"`
+	}
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	if err := input.Document.Validate(); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, map[string]any{"results": input.Document.RunScenarios(time.Now())})
+}
+
 func (h *Handler) restoreRule(w http.ResponseWriter, r *http.Request, identity Identity, id string) {
 	if !canConfigure(identity) {
 		writeError(w, http.StatusForbidden, "admin_required")

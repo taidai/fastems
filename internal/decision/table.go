@@ -3,6 +3,7 @@ package decision
 import (
 	"fmt"
 	"math"
+	"time"
 )
 
 type Table struct {
@@ -23,10 +24,18 @@ type Condition struct {
 	PointID  string  `json:"point_id"`
 	Operator string  `json:"operator"`
 	Value    float64 `json:"value"`
-	// Kind is "number" (default), "bool" or "enum". Bool uses Value 0/1;
-	// enum compares Text as a label.
+	// Kind is "number" (default), "bool", "enum" or "time". Bool uses Value
+	// 0/1; enum compares Text as a label; time ignores PointID and compares
+	// the evaluation clock against Start/End/Weekdays.
 	Kind string `json:"kind,omitempty"`
 	Text string `json:"text,omitempty"`
+	// Start and End ("HH:MM", site-local) bound a time condition. Start after
+	// End crosses midnight; both empty restricts by weekday only.
+	Start string `json:"start,omitempty"`
+	End   string `json:"end,omitempty"`
+	// Weekdays is a bitmask (bit 0 = Sunday ... bit 6 = Saturday); zero means
+	// every day. A cross-midnight window belongs to the day it started.
+	Weekdays int `json:"weekday_mask,omitempty"`
 }
 
 type Action struct {
@@ -43,8 +52,14 @@ func (d Document) Validate() error {
 	if err := d.Table.Validate(); err != nil {
 		return err
 	}
+	if err := d.validateScenarios(); err != nil {
+		return err
+	}
 	for _, row := range d.Table.Rows {
 		for _, condition := range row.Conditions {
+			if condition.Kind == "time" {
+				continue
+			}
 			target, ok := d.Bindings.Points[condition.PointID]
 			if !ok || target.NodeID == "" {
 				return fmt.Errorf("row %s: point %s is not bound", row.ID, condition.PointID)
@@ -74,6 +89,12 @@ func (t Table) Validate() error {
 			return fmt.Errorf("row %s: hold and cooldown must not be negative", row.ID)
 		}
 		for _, condition := range row.Conditions {
+			if condition.Kind == "time" {
+				if err := validateTimeCondition(condition); err != nil {
+					return fmt.Errorf("row %s: %w", row.ID, err)
+				}
+				continue
+			}
 			if condition.PointID == "" {
 				return fmt.Errorf("row %s: missing point_id", row.ID)
 			}
@@ -131,6 +152,13 @@ func Evaluate(t Table, values map[string]float64) (Result, error) {
 	for _, row := range t.Rows {
 		matched := true
 		for _, condition := range row.Conditions {
+			if condition.Kind == "time" {
+				if !timeMatches(condition, time.Now()) {
+					matched = false
+					break
+				}
+				continue
+			}
 			value, ok := values[condition.PointID]
 			if !ok || !finite(value) {
 				matched = false

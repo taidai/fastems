@@ -169,6 +169,15 @@ func TestDecisionTableOnSimpleIoT(t *testing.T) {
 	if got := pointValue(t, nc, "fan", data.PointTypeValueSet); got != 1 {
 		t.Fatalf("old brand source was written after rebinding: %v", got)
 	}
+
+	// A time condition needs no point binding: the runtime feeds the engine a
+	// synthetic clock input. An every-day mask is deterministically true, and a
+	// changed action value proves this row (not the next one) matched.
+	document.Table.Rows[0].Conditions = append(document.Table.Rows[0].Conditions, Condition{Kind: "time", Weekdays: 127})
+	document.Table.Rows[0].Actions = []Action{{ActionID: "start-fan", Value: 2}}
+	publish(t, nc, "comfort-policy", "applied", marshal(t, document))
+	waitForValue(t, nc, "replacement-fan", 2)
+	waitForMatch(t, nc, "hot-fallback")
 }
 
 func runManager(t *testing.T, nc *nats.Conn) (*siotclient.Manager[DecisionTable], func()) {

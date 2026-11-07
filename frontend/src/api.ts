@@ -15,20 +15,49 @@ export type Node = {
   points: Point[]
 }
 
-export type Condition = { point_id: string; operator: string; value: number; kind?: "number" | "bool" | "enum"; text?: string }
+export type Condition = {
+  point_id: string
+  operator: string
+  value: number
+  kind?: "number" | "bool" | "enum" | "time"
+  text?: string
+  start?: string
+  end?: string
+  weekday_mask?: number
+}
 export type Action = { action_id: string; value: number }
 export type Row = { row_id: string; conditions: Condition[]; actions: Action[]; hold_ms?: number; cooldown_ms?: number }
 export type Target = { node_id: string; point_type?: string; key?: string }
+export type Scenario = {
+  scenario_id: string
+  name?: string
+  inputs?: Record<string, number>
+  text_inputs?: Record<string, string>
+  at?: string
+  expect_row?: string
+  expect_actions?: Action[]
+}
+export type ScenarioResult = {
+  scenario_id: string
+  name?: string
+  passed: boolean
+  row_id?: string
+  actions?: { action_id: string; value: number; blocked?: boolean; reason?: string }[]
+  reason?: string
+  detail?: string
+}
 export type Document = {
   table: { rows: Row[] }
   bindings: { points: Record<string, Target>; actions: Record<string, Target> }
+  scenarios?: Scenario[]
 }
 export type Snapshot = {
   user: { user_id: string; policy: { admin: boolean; role: string } }
   roots: string[]
   nodes: Node[]
 }
-export type Evaluation = { row_id?: string; actions?: Action[] }
+export type TimeCheck = { start?: string; end?: string; weekday_mask?: number; satisfied: boolean }
+export type Evaluation = { row_id?: string; actions?: Action[]; time_checks?: TimeCheck[] }
 
 export class ApiError extends Error {
   constructor(message: string, public status: number) {

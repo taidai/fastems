@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"maps"
 	"sort"
 	"strings"
 	"time"
@@ -33,6 +34,8 @@ type DecisionTable struct {
 type Document struct {
 	Table    Table      `json:"table"`
 	Bindings BindingSet `json:"bindings"`
+	// Scenarios are saved simulations; the running engine ignores them.
+	Scenarios []Scenario `json:"scenarios,omitempty"`
 }
 
 type BindingSet struct {
@@ -267,6 +270,9 @@ func (c *Client) start() (*activeTable, error) {
 	requiredActions := make(map[string]Target)
 	for _, row := range table.Rows {
 		for _, condition := range row.Conditions {
+			if condition.Kind == "time" {
+				continue
+			}
 			target, ok := bindings.Points[condition.PointID]
 			if !ok {
 				return fail(fmt.Errorf("row %s: point %s is not bound", row.ID, condition.PointID))
@@ -417,7 +423,13 @@ func (c *Client) evaluate(active *activeTable) error {
 		return nil
 	}
 	now := time.Now()
-	outcome, err := active.engine.Evaluate(now, active.values)
+	samples := active.values
+	if timeSamples := TimeSamples(active.table, now); len(timeSamples) > 0 {
+		samples = make(map[string]signal.Sample, len(active.values)+len(timeSamples))
+		maps.Copy(samples, active.values)
+		maps.Copy(samples, timeSamples)
+	}
+	outcome, err := active.engine.Evaluate(now, samples)
 	if err != nil {
 		return err
 	}

@@ -25,6 +25,13 @@ func (d Document) RuleTable() (rule.Table, error) {
 	for _, row := range d.Table.Rows {
 		conditions := make([]rule.Condition, 0, len(row.Conditions))
 		for _, condition := range row.Conditions {
+			if condition.Kind == "time" {
+				// The clock is a synthetic input; TimeSamples provides it.
+				conditions = append(conditions, rule.Condition{
+					Input: timeConditionID(condition), Op: "eq", Value: signal.Flag(true),
+				})
+				continue
+			}
 			value := signal.Num(condition.Value)
 			switch condition.Kind {
 			case "bool":
@@ -162,10 +169,14 @@ func buildCheck(outcome rule.Outcome, now time.Time) CheckReport {
 	for _, sample := range outcome.Snapshot {
 		value := 0.0
 		text := ""
-		if sample.Value.Kind == signal.Number {
+		switch sample.Value.Kind {
+		case signal.Number:
 			value = sample.Value.Num
-		}
-		if sample.Value.Kind == signal.Enum {
+		case signal.Bool:
+			if sample.Value.Bool {
+				value = 1
+			}
+		case signal.Enum:
 			text = sample.Value.Enum
 		}
 		report.Inputs = append(report.Inputs, CheckInput{
@@ -205,6 +216,14 @@ type SimulationAction struct {
 	Reason   string  `json:"reason,omitempty"`
 }
 
+// TimeCheck reports one time condition's result at the simulated moment.
+type TimeCheck struct {
+	Start     string `json:"start,omitempty"`
+	End       string `json:"end,omitempty"`
+	Weekdays  int    `json:"weekday_mask,omitempty"`
+	Satisfied bool   `json:"satisfied"`
+}
+
 // SimulationResult reports the matching row and what would be requested. It
 // never creates a command.
 type SimulationResult struct {
@@ -212,20 +231,39 @@ type SimulationResult struct {
 	Actions []SimulationAction `json:"actions,omitempty"`
 	State   string             `json:"state"`
 	Blocked []string           `json:"blocked,omitempty"`
+	Times   []TimeCheck        `json:"time_checks,omitempty"`
 }
 
-// Simulate evaluates the document with the real engine. Held and cooldown
-// state are ignored: it answers "which row matches right now".
+// Simulate evaluates the document with the real engine at now, which may be a
+// simulated moment. Held and cooldown state are ignored: it answers "which row
+// matches at that moment".
 func (d Document) Simulate(inputs map[string]float64, texts map[string]string, now time.Time) (SimulationResult, error) {
 	table, err := d.RuleTable()
 	if err != nil {
 		return SimulationResult{}, err
 	}
-	outcome, err := rule.Simulate(table, now, SamplesFromValues(inputs, texts, now), nil)
+	samples := SamplesFromValues(inputs, texts, now)
+	for id, sample := range TimeSamples(d.Table, now) {
+		samples[id] = sample
+	}
+	outcome, err := rule.Simulate(table, now, samples, nil)
 	if err != nil {
 		return SimulationResult{}, err
 	}
 	result := SimulationResult{RowID: outcome.MatchedRow, State: string(outcome.State)}
+	seenTimes := make(map[string]bool)
+	for _, row := range d.Table.Rows {
+		for _, condition := range row.Conditions {
+			if condition.Kind != "time" || seenTimes[timeConditionID(condition)] {
+				continue
+			}
+			seenTimes[timeConditionID(condition)] = true
+			result.Times = append(result.Times, TimeCheck{
+				Start: condition.Start, End: condition.End, Weekdays: condition.Weekdays,
+				Satisfied: timeMatches(condition, now),
+			})
+		}
+	}
 	for _, action := range outcome.Actions {
 		value := 0.0
 		if action.Applied.Kind == signal.Number {
