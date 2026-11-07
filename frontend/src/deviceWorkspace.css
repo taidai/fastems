@@ -185,13 +185,6 @@
 .point-role.protection { background:rgba(177,75,83,.11); color:#8a3b41; }
 .point-quality-reason { display:block; margin-top:2px; color:var(--faint); font-size:9.5px; }
 .point-sparkline { margin:8px 0 2px; padding:5px 7px; border:1px solid var(--line); border-radius:8px; background:rgba(255,255,255,.4); }
-.point-role { display:inline-flex; min-height:20px; align-items:center; padding:0 7px; border-radius:999px; background:rgba(47,111,159,.1); color:#235b86; font-size:10.5px; }
-.point-role.status { background:rgba(45,143,120,.12); color:#2d7b68; }
-.point-role.energy { background:rgba(176,122,42,.12); color:#8a5a1d; }
-.point-role.setpoint { background:rgba(47,111,159,.12); color:#235b86; }
-.point-role.protection { background:rgba(177,75,83,.11); color:#8a3b41; }
-.point-quality-reason { display:block; margin-top:2px; color:var(--faint); font-size:9.5px; }
-.point-sparkline { margin:8px 0 2px; padding:5px 7px; border:1px solid var(--line); border-radius:8px; background:rgba(255,255,255,.4); }
 .point-sparkline svg { width:100%; height:64px; display:block; }
 .point-sparkline.empty { color:var(--faint); font-size:10.5px; padding:8px; }
 @media (max-width:1150px) { .point-role { min-height:24px; font-size:11.5px; } .point-quality-reason { font-size:11px; } .point-sparkline svg { height:82px; } }

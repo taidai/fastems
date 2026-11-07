@@ -15,7 +15,6 @@ import PointsView from "./PointsView"
 import AggregatesView from "./AggregatesView"
 import CommunicationView from "./CommunicationView"
 import ModbusTools from "./ModbusTools"
-import DeviceQueryView from "./DeviceQueryView"
 import DeviceLedgerView from "./DeviceLedgerView"
 import FrameDrawer from "./FrameDrawer"
 import EnergyFlow, { sumByKeywords, type DispatchInfo } from "./EnergyFlow"
@@ -38,7 +37,7 @@ import {
 
 const emptyDocument: Document = { table: { rows: [] }, bindings: { points: {}, actions: {} } }
 const roleNames: Record<string, string> = { admin: "管理员", implementer: "实施", operator: "操作员", viewer: "查看者" }
-type Page = "devices" | "screen" | "ledger" | "points" | "channels" | "aggregate" | "deploy" | "allocators" | "alarms" | "history" | "query" | "rules" | "users" | "audit" | "delivery"
+type Page = "devices" | "screen" | "ledger" | "points" | "channels" | "aggregate" | "deploy" | "allocators" | "alarms" | "history" | "rules" | "users" | "audit" | "delivery"
 type DisplaySettings = { background: number; glass: number }
 const defaultDisplay: DisplaySettings = { background: 78, glass: 62 }
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
@@ -564,8 +563,6 @@ export default function App() {
       {page === "alarms" && <AlarmsView token={token} rootID={view.roots[0]} nodes={view.nodes} canOperate={canOperate} canConfigure={canConfigure} onError={setError} openHistory={(id) => { setHistoryPoint(id); setPage("history") }} />}
 
       {page === "history" && <HistoryView key={historyPoint || "history"} token={token} points={points} initialPoint={historyPoint || undefined} onError={setError} isAdmin={canConfigure} />}
-
-      {page === "query" && <DeviceQueryView token={token} nodes={view.nodes} roots={view.roots} groups={groups} onError={setError} />}
 
       {page === "rules" && <section className="rules-page">
         <div className="page-toolbar">
