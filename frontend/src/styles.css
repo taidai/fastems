@@ -2418,6 +2418,11 @@ body::after {
 .modbus-tool-panel .template-actions { margin-bottom: 10px; }
 .modbus-tool-panel .empty-state { flex: 1; }
 .comm-test { display: grid; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.channel-tool-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.channel-tool-row label { display: grid; gap: 5px; color: var(--muted); font-size: 11.5px; }
+.channel-tool-row input { width: 96px; min-height: 36px; }
+.channel-tool-result { display: grid; gap: 8px; margin-top: 8px; }
+.channel-tool-list { display: flex; flex-wrap: wrap; gap: 6px; }
 @media (max-width: 1150px) {
   .modbus-tool-fields label { font-size: 14px; }
   .modbus-tool-fields input, .modbus-tool-fields select { min-height: 42px; font-size: 16px; }

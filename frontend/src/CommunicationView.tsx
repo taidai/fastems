@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { createPortal } from "react-dom"
-import { downloadCSV, nameOf, Node, point, request } from "./api"
+import { ApiError, downloadCSV, nameOf, Node, point, request } from "./api"
 
 type Run = (action: () => Promise<unknown>) => Promise<boolean>
 
@@ -122,6 +122,12 @@ type CommandState = {
   reason?: string
 }
 
+type LineTestStation = { server_id: number; responded: boolean; latency_ms: number; probe: string; error: string }
+type LineTestResult = { connected: boolean; latency_ms: number; probed: number; stations: LineTestStation[] }
+type ScanFound = { server_id: number; responded: boolean; latency_ms: number; probe: string; error: string }
+type ScanResult = { scanned: number; found: ScanFound[]; errors: string[] }
+type PortTemplate = { name: string; protocol: string; uri: string; port: string; baud: string; data_bits: number; parity: string; stop_bits: number; poll_period: number; timeout: number; disabled: boolean }
+
 type PointForm = {
   parent: string
   description: string
@@ -165,6 +171,47 @@ function defaultPoint(parent: string, serverID: number): PointForm {
   }
 }
 
+const portTemplatesKey = "easyems-port-templates"
+
+function portTemplateOf(form: PortForm): PortTemplate {
+  return {
+    name: "", protocol: form.protocol, uri: form.uri, port: form.port, baud: form.baud,
+    data_bits: form.data_bits, parity: form.parity, stop_bits: form.stop_bits,
+    poll_period: form.poll_period, timeout: form.timeout, disabled: form.disabled,
+  }
+}
+
+function portDiff(original: PortForm, current: PortForm): { label: string; before: string; after: string }[] {
+  const diffs: { label: string; before: string; after: string }[] = []
+  const changed = (label: string, before: string, after: string) => { if (before !== after) diffs.push({ label, before, after }) }
+  changed("端口名称", original.description, current.description)
+  changed("协议", original.protocol, current.protocol)
+  if (current.protocol === "TCP") {
+    changed("目标地址", original.uri, current.uri)
+  } else {
+    changed("串口", original.port, current.port)
+    changed("波特率", original.baud, current.baud)
+    changed("数据位", String(original.data_bits), String(current.data_bits))
+    changed("校验位", original.parity, current.parity)
+    changed("停止位", String(original.stop_bits), String(current.stop_bits))
+  }
+  changed("轮询周期", `${original.poll_period} ms`, `${current.poll_period} ms`)
+  changed("超时", `${original.timeout} ms`, `${current.timeout} ms`)
+  changed("停用", original.disabled ? "是" : "否", current.disabled ? "是" : "否")
+  return diffs
+}
+
+function channelScanParams(channel: Node) {
+  const isRTU = (point(channel, "protocol")?.text || "TCP").toUpperCase() === "RTU"
+  if (!isRTU) return { protocol: "tcp", address: point(channel, "uri")?.text || "", baud: 9600 }
+  const port = point(channel, "port")?.text || ""
+  const baudText = point(channel, "baud")?.text || String(point(channel, "baud")?.value || 9600)
+  const dataBits = point(channel, "dataBits")?.value || 8
+  const parity = point(channel, "parity")?.text || "N"
+  const stopBits = point(channel, "stopBits")?.value || 1
+  return { protocol: "rtu", address: `${port}@${baudText}@${dataBits}@${parity}@${stopBits}`, baud: Number(baudText) || 9600 }
+}
+
 export default function CommunicationView({ token, nodes, roots, groups, canConfigure, canOperate, run, onError, goPoints }: {
   token: string
   nodes: Node[]
@@ -195,11 +242,31 @@ export default function CommunicationView({ token, nodes, roots, groups, canConf
   const [modelNotice, setModelNotice] = useState("")
   const [commandResults, setCommandResults] = useState<Record<string, CommandState>>({})
   const [commandValues, setCommandValues] = useState<Record<string, Record<string, number>>>({})
+  const [portOriginal, setPortOriginal] = useState<PortForm | null>(null)
+  const [portTemplates, setPortTemplates] = useState<PortTemplate[]>(() => {
+    try { return JSON.parse(localStorage.getItem(portTemplatesKey) || "[]") as PortTemplate[] } catch { return [] }
+  })
+  const [portTemplateName, setPortTemplateName] = useState("")
+  const [lineTest, setLineTest] = useState<LineTestResult | null>(null)
+  const [lineTestBusy, setLineTestBusy] = useState(false)
+  const [lineTestError, setLineTestError] = useState("")
+  const [scanFrom, setScanFrom] = useState(1)
+  const [scanTo, setScanTo] = useState(16)
+  const [scanResult, setScanResult] = useState<ScanResult | null>(null)
+  const [scanBusy, setScanBusy] = useState(false)
+  const [scanError, setScanError] = useState("")
 
   useEffect(() => {
     if (!selectedID && channels[0]) setSelectedID(channels[0].id)
     if (selectedID && !channels.some((channel) => channel.id === selectedID)) setSelectedID(channels[0]?.id || "")
   }, [channels, selectedID])
+
+  useEffect(() => {
+    setLineTest(null)
+    setLineTestError("")
+    setScanResult(null)
+    setScanError("")
+  }, [selectedID])
 
   const selected = channels.find((channel) => channel.id === selectedID) || channels[0]
   const channelPoints = selected ? points.filter((node) => node.parent === selected.id) : []
@@ -221,6 +288,7 @@ export default function CommunicationView({ token, nodes, roots, groups, canConf
   function openAddPort() {
     setPortEditing("")
     setPortForm(defaultPort(roots[0] || groups[0]?.id || ""))
+    setPortOriginal(null)
     setTest({ server_id: 1, address: 0, io_type: "modbusHoldingRegister" })
     setTestResult("")
   }
@@ -228,7 +296,7 @@ export default function CommunicationView({ token, nodes, roots, groups, canConf
   function openEditPort() {
     if (!selected) return
     setPortEditing(selected.id)
-    setPortForm({
+    const form: PortForm = {
       parent: selected.parent,
       description: nameOf(selected),
       protocol: (point(selected, "protocol")?.text || "TCP").toUpperCase() === "RTU" ? "RTU" : "TCP",
@@ -241,7 +309,9 @@ export default function CommunicationView({ token, nodes, roots, groups, canConf
       poll_period: point(selected, "pollPeriod")?.value || 1000,
       timeout: point(selected, "timeout")?.value || 1000,
       disabled: (point(selected, "disabled")?.value || 0) !== 0,
-    })
+    }
+    setPortForm(form)
+    setPortOriginal({ ...form })
     setTest({ server_id: 1, address: 0, io_type: "modbusHoldingRegister" })
     setTestResult("")
   }
@@ -387,6 +457,66 @@ export default function CommunicationView({ token, nodes, roots, groups, canConf
     return ({ accepted: "已接受", executing: "执行中", confirmed: "已回读", failed: "失败", unknown: "结果未知" } as Record<string, string>)[state] || state
   }
 
+  async function runLineTest() {
+    if (!selected) return
+    setLineTestBusy(true)
+    setLineTestError("")
+    setLineTest(null)
+    try {
+      const result = await request<LineTestResult>(token, `/modbus/${encodeURIComponent(selected.id)}/line-test`, "POST", { from: scanFrom, to: scanTo })
+      setLineTest(result)
+    } catch (cause) {
+      setLineTestError(cause instanceof Error ? cause.message : "线路测试失败")
+    } finally {
+      setLineTestBusy(false)
+    }
+  }
+
+  async function runScanInline() {
+    if (!selected) return
+    setScanBusy(true)
+    setScanError("")
+    setScanResult(null)
+    try {
+      const params = channelScanParams(selected)
+      const result = await request<ScanResult>(token, "/ems/scan", "POST", {
+        protocol: params.protocol, address: params.address, baud: params.baud,
+        from: scanFrom, to: scanTo, timeout_ms: 300,
+      })
+      setScanResult(result)
+    } catch (cause) {
+      if (cause instanceof ApiError && cause.message === "channel_busy") {
+        setScanError("该通道正在运行，无法扫描；下方单元列表即为已轮询站号。")
+      } else {
+        setScanError(cause instanceof Error ? cause.message : "扫描失败")
+      }
+    } finally {
+      setScanBusy(false)
+    }
+  }
+
+  function savePortTemplate() {
+    if (!portForm || !portTemplateName.trim()) {
+      onError("模板名称不能为空")
+      return
+    }
+    const template: PortTemplate = { ...portTemplateOf(portForm), name: portTemplateName.trim() }
+    const next = [...portTemplates.filter((item) => item.name !== template.name), template]
+    setPortTemplates(next)
+    localStorage.setItem(portTemplatesKey, JSON.stringify(next))
+    setPortTemplateName("")
+  }
+
+  function applyPortTemplate(name: string) {
+    const template = portTemplates.find((item) => item.name === name)
+    if (!template || !portForm) return
+    setPortForm({
+      ...portForm, protocol: template.protocol as "TCP" | "RTU", uri: template.uri, port: template.port,
+      baud: template.baud, data_bits: template.data_bits, parity: template.parity, stop_bits: template.stop_bits,
+      poll_period: template.poll_period, timeout: template.timeout, disabled: template.disabled,
+    })
+  }
+
   const modelProfile = modelData?.profiles.find((item) => item.id === modelDraft?.profile_id)
   const modelPoints = modelData?.points.filter((item) => item.server_id === modelUnit) || []
   const modelRequiredPoints = new Set((modelProfile?.command_specs || []).map((command) => command.point))
@@ -485,6 +615,30 @@ export default function CommunicationView({ token, nodes, roots, groups, canConf
             </tbody>
           </table>
         </div>
+
+        {canConfigure && <div className="comm-test">
+          <div className="form-section-title"><strong>通道线路测试与扫描</strong><span>只读探测连通性与站号可读性，不写入设备、不改配置；1–247，最多 64 个站号。</span></div>
+          <div className="channel-tool-row">
+            <label>起始站号<input type="number" min={1} max={247} value={scanFrom} onChange={(event) => setScanFrom(Number(event.target.value))} /></label>
+            <label>结束站号<input type="number" min={1} max={247} value={scanTo} onChange={(event) => setScanTo(Number(event.target.value))} /></label>
+            <button className="secondary-button" disabled={lineTestBusy || scanBusy} onClick={() => void runLineTest()}>{lineTestBusy ? "测试中…" : "线路测试"}</button>
+            <button className="secondary-button" disabled={scanBusy || lineTestBusy} onClick={() => void runScanInline()}>{scanBusy ? "扫描中…" : "扫描站号"}</button>
+          </div>
+          {lineTestError && <div className="inline-error" role="alert">{lineTestError}</div>}
+          {lineTest && <div className="channel-tool-result">
+            <span className={`unit-map-state ${lineTest.connected ? "ok" : "warn"}`}>{lineTest.connected ? `已连接 · ${lineTest.stations.filter((s) => s.responded).length}/${lineTest.probed} 站号响应` : "连接失败"}</span>
+            <div className="channel-tool-list">
+              {lineTest.stations.map((s) => <span key={s.server_id} className={`unit-map-state ${s.responded ? "ok" : ""}`}>站号 {s.server_id}：{s.responded ? `${s.latency_ms} ms · ${s.probe}` : (s.error || "无响应")}</span>)}
+            </div>
+          </div>}
+          {scanError && <div className="inline-error" role="alert">{scanError}</div>}
+          {scanResult && <div className="channel-tool-result">
+            <span className="unit-map-state ok">扫描 {scanResult.scanned} 个站号，{scanResult.found.filter((s) => s.responded).length} 个响应</span>
+            <div className="channel-tool-list">
+              {scanResult.found.map((s) => <span key={s.server_id} className={`unit-map-state ${s.responded ? "ok" : ""}`}>站号 {s.server_id}：{s.responded ? `${s.latency_ms} ms · ${s.probe}` : "无响应"}</span>)}
+            </div>
+          </div>}
+        </div>}
       </div>}
 
       {modelUnit !== null && createPortal(<>
@@ -607,6 +761,26 @@ export default function CommunicationView({ token, nodes, roots, groups, canConf
               })}>测试只读连接</button>
             </div>
             {testResult && <div className="success-message" role="status">{testResult}</div>}
+          </div>
+          {portOriginal && (() => {
+            const diffs = portDiff(portOriginal, portForm)
+            return diffs.length > 0 && <div className="comm-test">
+              <div className="form-section-title"><strong>参数变更</strong><span>保存前核对前值 → 新值</span></div>
+              <dl className="communication-fields">
+                {diffs.map((diff) => <div key={diff.label}><dt>{diff.label}</dt><dd>{diff.before} → {diff.after}</dd></div>)}
+              </dl>
+            </div>
+          })()}
+          <div className="comm-test">
+            <div className="form-section-title"><strong>端口配置模板</strong><span>本机保存，跨端口套用参数</span></div>
+            <div className="modbus-tool-fields">
+              <label>模板名称<input value={portTemplateName} onChange={(event) => setPortTemplateName(event.target.value)} placeholder="例如：标准 9600 RTU" /></label>
+              {portTemplates.length > 0 && <label>套用模板<select value="" onChange={(event) => { if (event.target.value) applyPortTemplate(event.target.value) }}>
+                <option value="">选择模板…</option>
+                {portTemplates.map((item) => <option key={item.name} value={item.name}>{item.name}</option>)}
+              </select></label>}
+            </div>
+            <div><button className="secondary-button" disabled={busy || !portTemplateName.trim()} onClick={savePortTemplate}>保存为模板</button></div>
           </div>
           <div className="comm-modal-actions"><button className="secondary-button" onClick={() => setPortForm(null)}>取消</button><button className="primary-button" disabled={busy || !portForm.description.trim()} onClick={() => void savePort()}>{busy ? "保存中…" : "保存端口"}</button></div>
         </section>

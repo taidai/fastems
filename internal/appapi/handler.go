@@ -152,6 +152,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.createModbus(w, r, identity)
 	case path == "modbus/test" && r.Method == http.MethodPost:
 		h.testModbus(w, r, identity)
+	case len(parts) == 3 && parts[0] == "modbus" && parts[2] == "line-test" && r.Method == http.MethodPost:
+		h.lineTestModbus(w, r, identity, parts[1])
 	case len(parts) == 2 && parts[0] == "modbus" && r.Method == http.MethodPut:
 		h.updateModbus(w, r, identity, parts[1])
 	case len(parts) == 3 && parts[0] == "modbus" && parts[1] == "io" && r.Method == http.MethodPut:

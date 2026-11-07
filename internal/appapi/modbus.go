@@ -756,38 +756,40 @@ func validateModbusIO(input ModbusIOInput) error {
 	return nil
 }
 
-func readModbus(connection ModbusConnectionInput, serverID, address int, ioType string) (any, error) {
-	var clientConnection *siotmodbus.Client
-	var close func() error
+func openModbusClient(connection ModbusConnectionInput) (*siotmodbus.Client, func() error, error) {
 	if connection.Protocol == data.PointValueTCP {
 		socket, err := net.DialTimeout("tcp", connection.URI, 3*time.Second)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		close = socket.Close
-		clientConnection = siotmodbus.NewClient(siotmodbus.NewTCP(socket, 2*time.Second, siotmodbus.TransportClient), 0)
-	} else {
-		baud, _ := strconv.Atoi(connection.Baud)
-		mode := &serial.Mode{BaudRate: baud, DataBits: 8, Parity: serial.NoParity, StopBits: serial.OneStopBit}
-		if connection.DataBits >= 5 && connection.DataBits <= 8 {
-			mode.DataBits = connection.DataBits
-		}
-		switch strings.ToUpper(connection.Parity) {
-		case "E":
-			mode.Parity = serial.EvenParity
-		case "O":
-			mode.Parity = serial.OddParity
-		}
-		if connection.StopBits == 2 {
-			mode.StopBits = serial.TwoStopBits
-		}
-		port, err := serial.Open(connection.Port, mode)
-		if err != nil {
-			return nil, err
-		}
-		close = port.Close
-		reader := respreader.NewReadWriteCloser(port, 2*time.Second, 20*time.Millisecond)
-		clientConnection = siotmodbus.NewClient(siotmodbus.NewRTU(reader), 0)
+		return siotmodbus.NewClient(siotmodbus.NewTCP(socket, 2*time.Second, siotmodbus.TransportClient), 0), socket.Close, nil
+	}
+	baud, _ := strconv.Atoi(connection.Baud)
+	mode := &serial.Mode{BaudRate: baud, DataBits: 8, Parity: serial.NoParity, StopBits: serial.OneStopBit}
+	if connection.DataBits >= 5 && connection.DataBits <= 8 {
+		mode.DataBits = connection.DataBits
+	}
+	switch strings.ToUpper(connection.Parity) {
+	case "E":
+		mode.Parity = serial.EvenParity
+	case "O":
+		mode.Parity = serial.OddParity
+	}
+	if connection.StopBits == 2 {
+		mode.StopBits = serial.TwoStopBits
+	}
+	port, err := serial.Open(connection.Port, mode)
+	if err != nil {
+		return nil, nil, err
+	}
+	reader := respreader.NewReadWriteCloser(port, 2*time.Second, 20*time.Millisecond)
+	return siotmodbus.NewClient(siotmodbus.NewRTU(reader), 0), port.Close, nil
+}
+
+func readModbus(connection ModbusConnectionInput, serverID, address int, ioType string) (any, error) {
+	clientConnection, close, err := openModbusClient(connection)
+	if err != nil {
+		return nil, err
 	}
 	defer close()
 	switch ioType {

@@ -189,6 +189,9 @@ export default function PointsView({ token, nodes, isAdmin, canOperate, busy, ru
   const [batchScale, setBatchScale] = useState("1")
   const [batchOffset, setBatchOffset] = useState("0")
   const [batchNotice, setBatchNotice] = useState("")
+  const [batchWriteOpen, setBatchWriteOpen] = useState(false)
+  const [batchWriteValue, setBatchWriteValue] = useState(0)
+  const [pendingBatchWrite, setPendingBatchWrite] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [createChannel, setCreateChannel] = useState("")
   const [createPrefix, setCreatePrefix] = useState("")
@@ -271,6 +274,7 @@ export default function PointsView({ token, nodes, isAdmin, canOperate, busy, ru
   const visibleIDs = visible.map((row) => row.node.id)
   const allVisible = visibleIDs.length > 0 && visibleIDs.every((id) => selected.has(id))
   const selectedRows = rows.filter((row) => selected.has(row.node.id))
+  const writableSelected = selectedRows.filter((row) => !row.readOnly && !row.disabled)
   const createPointsInChannel = rows.filter((row) => row.node.parent === createChannel).length
   const createPreview = useMemo(() => {
     const prefix = createPrefix.trim()
@@ -486,6 +490,33 @@ export default function PointsView({ token, nodes, isAdmin, canOperate, busy, ru
       setNotice(`已下发 ${value}${target.units ? ` ${target.units}` : ""}，等待回读。`)
     })
   }
+  function openBatchWrite() {
+    if (!writableSelected.length) return
+    setBatchWriteValue(writableSelected[0].valueSet ?? writableSelected[0].value ?? 0)
+    setBatchNotice("")
+    setBatchWriteOpen(true)
+  }
+  function doBatchWrite() {
+    if (!writableSelected.length) return
+    const value = batchWriteValue
+    if (!Number.isFinite(value)) {
+      onError("目标值必须是数字")
+      return
+    }
+    if (writableSelected.some((row) => row.ioType === "modbusCoil") && value !== 0 && value !== 1) {
+      onError("选中的点位包含线圈，目标值必须是 0 或 1")
+      return
+    }
+    const count = writableSelected.length
+    setPendingBatchWrite(false)
+    void run(async () => {
+      for (const row of writableSelected) {
+        await request(token, `/nodes/${row.node.id}/value`, "POST", { value, point_type: "valueSet" })
+      }
+      setBatchWriteOpen(false)
+      setBatchNotice(`已下发 ${value} 到 ${count} 个点位，逐点回读中。`)
+    })
+  }
   function toggleManual() {
     if (!openRow) return
     void run(() => request(token, `/nodes/${openRow.node.id}/manual`, "POST", { manual: !openRow.manual }))
@@ -581,6 +612,7 @@ export default function PointsView({ token, nodes, isAdmin, canOperate, busy, ru
         {isAdmin && <button className="secondary-button" disabled={!selected.size || busy} onClick={openBatchEdit}>批量改缩放/偏移</button>}
         {isAdmin && <button className="secondary-button" disabled={!selected.size || busy} onClick={() => batchDisabled(true)}>批量停用</button>}
         {isAdmin && <button className="secondary-button" disabled={!selected.size || busy} onClick={() => batchDisabled(false)}>批量启用</button>}
+        {canOperate && <button className="primary-button" disabled={!writableSelected.length || busy} title={!writableSelected.length ? "选择至少一个可写点位" : undefined} onClick={openBatchWrite}>批量下发</button>}
         {isAdmin && <button className="danger-button" disabled={!selected.size || busy} onClick={batchDelete}>批量删除</button>}
         {batchNotice && <span className="point-batch-ok">{batchNotice}</span>}
       </div>
@@ -591,6 +623,13 @@ export default function PointsView({ token, nodes, isAdmin, canOperate, busy, ru
         <label>偏移<input aria-label="批量偏移" type="number" step="any" value={batchOffset} onChange={(event) => setBatchOffset(event.target.value)} /></label>
         <button className="primary-button" disabled={busy || !selectedRows.length} onClick={applyBatchScaleOffset}>应用到已选</button>
         <button className="secondary-button" disabled={busy} onClick={() => setBatchEdit(false)}>取消</button>
+      </div>}
+
+      {batchWriteOpen && <div className="point-batch-edit">
+        <div><strong>批量下发目标值</strong><span>已选 {writableSelected.length} 个可写点位；同一目标值逐点下发并等待回读。</span></div>
+        <label>目标值<input aria-label="批量下发目标值" type="number" step="any" value={batchWriteValue} onChange={(event) => setBatchWriteValue(Number(event.target.value))} /></label>
+        <button className="primary-button" disabled={busy || !Number.isFinite(batchWriteValue)} onClick={() => setPendingBatchWrite(true)}>确认下发</button>
+        <button className="secondary-button" disabled={busy} onClick={() => setBatchWriteOpen(false)}>取消</button>
       </div>}
 
       <div className="point-table-wrap">
@@ -733,6 +772,16 @@ export default function PointsView({ token, nodes, isAdmin, canOperate, busy, ru
       busy={busy}
       onCancel={() => setPendingWrite(false)}
       onConfirm={confirmWrite}
+    />}
+
+    {pendingBatchWrite && <ConfirmDialog
+      title={`确认批量下发（${writableSelected.length} 个点位）`}
+      message="同一目标值会直接写入所选点位，逐点下发并等待回读；失败不会自动重试。"
+      rows={writableSelected.map((row) => ({ label: row.name, value: `${row.value === undefined ? "—" : row.value} → ${batchWriteValue}${row.units ? ` ${row.units}` : ""}` }))}
+      confirmLabel="确认下发"
+      busy={busy}
+      onCancel={() => setPendingBatchWrite(false)}
+      onConfirm={doBatchWrite}
     />}
   </section>
 }
