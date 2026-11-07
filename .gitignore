@@ -1,0 +1,13 @@
+/easyems
+/easyems.exe
+/data/
+/frontend/node_modules/
+/frontend/dist/
+/internal/web/dist/
+/.encore/
+encore.gen.go
+
+encore.gen.cue
+/.encore
+/encore.gen
+/evidence/*.png

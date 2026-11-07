@@ -1,0 +1,120 @@
+go: downloading go.bug.st/serial v1.8.0
+go: downloading golang.org/x/sys v0.49.0
+=== RUN   TestFourCabinetDispatchChain
+--- PASS: TestFourCabinetDispatchChain (0.00s)
+=== RUN   TestSafetyBlocksDispatchWhenCapabilityInputIsStale
+--- PASS: TestSafetyBlocksDispatchWhenCapabilityInputIsStale (0.00s)
+PASS
+ok  	easyems/internal/ems	0.025s
+=== RUN   TestProportionalSplit
+--- PASS: TestProportionalSplit (0.00s)
+=== RUN   TestExcludesOfflineAndReallocates
+--- PASS: TestExcludesOfflineAndReallocates (0.00s)
+=== RUN   TestSaturatesAtCapacityAndReportsShortfall
+--- PASS: TestSaturatesAtCapacityAndReportsShortfall (0.00s)
+=== RUN   TestChargeDirectionUsesChargeCapacity
+--- PASS: TestChargeDirectionUsesChargeCapacity (0.00s)
+=== RUN   TestMinimumPowerExcludesSmallShare
+--- PASS: TestMinimumPowerExcludesSmallShare (0.00s)
+=== RUN   TestFaultedAndDisabledAreExcluded
+--- PASS: TestFaultedAndDisabledAreExcluded (0.00s)
+=== RUN   TestAllocateRejectsInvalidRequest
+--- PASS: TestAllocateRejectsInvalidRequest (0.00s)
+=== RUN   TestTrackerHoldsThroughGraceThenReallocates
+--- PASS: TestTrackerHoldsThroughGraceThenReallocates (0.00s)
+=== RUN   TestTrackerDropsHeldValueWhenDirectionFlips
+--- PASS: TestTrackerDropsHeldValueWhenDirectionFlips (0.00s)
+PASS
+ok  	easyems/internal/ems/alloc	0.011s
+=== RUN   TestPollsAllDevicesOnOneChannel
+--- PASS: TestPollsAllDevicesOnOneChannel (0.00s)
+=== RUN   TestOneFailingDeviceDoesNotStopTheChannel
+--- PASS: TestOneFailingDeviceDoesNotStopTheChannel (0.00s)
+=== RUN   TestContiguousPointsShareOneRead
+--- PASS: TestContiguousPointsShareOneRead (0.00s)
+=== RUN   TestMaxGapMergesClosePoints
+--- PASS: TestMaxGapMergesClosePoints (0.00s)
+=== RUN   TestQueuedWriteRunsBeforePoll
+--- PASS: TestQueuedWriteRunsBeforePoll (0.00s)
+=== RUN   TestWriteFailuresAreReported
+--- PASS: TestWriteFailuresAreReported (0.00s)
+=== RUN   TestQueueWriteValidatesTarget
+--- PASS: TestQueueWriteValidatesTarget (0.00s)
+=== RUN   TestDecodesSignedAndFloatFormats
+--- PASS: TestDecodesSignedAndFloatFormats (0.00s)
+=== RUN   TestHealthGoesOfflineWhenSuccessIsStale
+--- PASS: TestHealthGoesOfflineWhenSuccessIsStale (0.00s)
+PASS
+ok  	easyems/internal/ems/channel	0.010s
+=== RUN   TestSubmitWritesAndReadbackConfirms
+--- PASS: TestSubmitWritesAndReadbackConfirms (0.00s)
+=== RUN   TestSubmitIsIdempotent
+--- PASS: TestSubmitIsIdempotent (0.00s)
+=== RUN   TestTimeoutBecomesUnknown
+--- PASS: TestTimeoutBecomesUnknown (0.00s)
+=== RUN   TestWriteFailureIsFailed
+--- PASS: TestWriteFailureIsFailed (0.00s)
+=== RUN   TestUnknownDeviceOrCommandRejected
+--- PASS: TestUnknownDeviceOrCommandRejected (0.00s)
+PASS
+ok  	easyems/internal/ems/command	0.006s
+=== RUN   TestProfileValidates
+--- PASS: TestProfileValidates (0.00s)
+=== RUN   TestProfileRejectsUnsafeDefinitions
+--- PASS: TestProfileRejectsUnsafeDefinitions (0.00s)
+=== RUN   TestCheckConfirmsFromReadback
+--- PASS: TestCheckConfirmsFromReadback (0.00s)
+PASS
+ok  	easyems/internal/ems/device	0.018s
+=== RUN   TestRealRtuFramesReadAndWrite
+--- PASS: TestRealRtuFramesReadAndWrite (0.07s)
+=== RUN   TestMissingSlaveDoesNotBreakOtherDevices
+2026/11/04 07:03:57 Exiting modbus server listen
+--- PASS: TestMissingSlaveDoesNotBreakOtherDevices (2.03s)
+PASS
+ok  	easyems/internal/ems/modbusrt	2.111s
+=== RUN   TestFirstMatchingRowWins
+--- PASS: TestFirstMatchingRowWins (0.00s)
+=== RUN   TestConditionsAreAnded
+--- PASS: TestConditionsAreAnded (0.00s)
+=== RUN   TestHoldDelaysFiring
+--- PASS: TestHoldDelaysFiring (0.00s)
+=== RUN   TestHoldResetsWhenRowChanges
+--- PASS: TestHoldResetsWhenRowChanges (0.00s)
+=== RUN   TestSameRowDoesNotFireTwice
+--- PASS: TestSameRowDoesNotFireTwice (0.00s)
+=== RUN   TestCooldownBlocksRefire
+--- PASS: TestCooldownBlocksRefire (0.00s)
+=== RUN   TestUnusableInputBlocksRowAndFallsThrough
+--- PASS: TestUnusableInputBlocksRowAndFallsThrough (0.00s)
+=== RUN   TestMissingAndOldInputsAreUnusable
+--- PASS: TestMissingAndOldInputsAreUnusable (0.00s)
+=== RUN   TestSnapshotIsSortedAndCaptured
+--- PASS: TestSnapshotIsSortedAndCaptured (0.00s)
+=== RUN   TestLimiterIsAppliedAndExplained
+--- PASS: TestLimiterIsAppliedAndExplained (0.00s)
+=== RUN   TestBlockedActionIsMarked
+--- PASS: TestBlockedActionIsMarked (0.00s)
+=== RUN   TestOwnershipIsEnforced
+--- PASS: TestOwnershipIsEnforced (0.00s)
+=== RUN   TestValidationRejectsBadTables
+--- PASS: TestValidationRejectsBadTables (0.00s)
+PASS
+ok  	easyems/internal/ems/rule	0.008s
+=== RUN   TestCommandWriteIsQueuedThenConfirmedByReadback
+--- PASS: TestCommandWriteIsQueuedThenConfirmedByReadback (0.00s)
+PASS
+ok  	easyems/internal/ems/runtime	0.008s
+=== RUN   TestClampsToRange
+--- PASS: TestClampsToRange (0.00s)
+=== RUN   TestClampsToAvailablePowerBothDirections
+--- PASS: TestClampsToAvailablePowerBothDirections (0.00s)
+=== RUN   TestBlocksWhenRequiredInputIsNotUsable
+--- PASS: TestBlocksWhenRequiredInputIsNotUsable (0.00s)
+=== RUN   TestBlocksUnknownOutputAndKindMismatch
+--- PASS: TestBlocksUnknownOutputAndKindMismatch (0.00s)
+=== RUN   TestBoolPassesThrough
+--- PASS: TestBoolPassesThrough (0.00s)
+PASS
+ok  	easyems/internal/ems/safety	0.007s
+?   	easyems/internal/ems/signal	[no test files]

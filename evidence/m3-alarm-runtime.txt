@@ -1,0 +1,52 @@
+=== RUN   TestRaiseDeduplicatesLiveCondition
+--- PASS: TestRaiseDeduplicatesLiveCondition (0.00s)
+=== RUN   TestClearResolvesAndRecurrenceReactivates
+--- PASS: TestClearResolvesAndRecurrenceReactivates (0.00s)
+=== RUN   TestAcknowledgeAndCloseRules
+--- PASS: TestAcknowledgeAndCloseRules (0.00s)
+=== RUN   TestListPutsActiveFirst
+--- PASS: TestListPutsActiveFirst (0.00s)
+=== RUN   TestInvalidInputsAreRejected
+--- PASS: TestInvalidInputsAreRejected (0.00s)
+PASS
+ok  	easyems/internal/ems/alarm	0.009s
+=== RUN   TestCommandWriteIsQueuedThenConfirmedByReadback
+--- PASS: TestCommandWriteIsQueuedThenConfirmedByReadback (0.00s)
+=== RUN   TestEngineConfirmsCommandWithinOneCycle
+--- PASS: TestEngineConfirmsCommandWithinOneCycle (0.00s)
+=== RUN   TestEngineRaisesAndClearsOfflineAlarm
+--- PASS: TestEngineRaisesAndClearsOfflineAlarm (0.00s)
+PASS
+ok  	easyems/internal/ems/runtime	0.010s
+=== RUN   TestPollsAllDevicesOnOneChannel
+--- PASS: TestPollsAllDevicesOnOneChannel (0.00s)
+=== RUN   TestOneFailingDeviceDoesNotStopTheChannel
+--- PASS: TestOneFailingDeviceDoesNotStopTheChannel (0.00s)
+=== RUN   TestContiguousPointsShareOneRead
+--- PASS: TestContiguousPointsShareOneRead (0.00s)
+=== RUN   TestMaxGapMergesClosePoints
+--- PASS: TestMaxGapMergesClosePoints (0.00s)
+=== RUN   TestQueuedWriteRunsBeforePoll
+--- PASS: TestQueuedWriteRunsBeforePoll (0.00s)
+=== RUN   TestWriteFailuresAreReported
+--- PASS: TestWriteFailuresAreReported (0.00s)
+=== RUN   TestQueueWriteValidatesTarget
+--- PASS: TestQueueWriteValidatesTarget (0.00s)
+=== RUN   TestDecodesSignedAndFloatFormats
+--- PASS: TestDecodesSignedAndFloatFormats (0.00s)
+=== RUN   TestHealthGoesOfflineWhenSuccessIsStale
+--- PASS: TestHealthGoesOfflineWhenSuccessIsStale (0.00s)
+=== RUN   TestRunnerCyclesUntilCancelled
+--- PASS: TestRunnerCyclesUntilCancelled (0.04s)
+PASS
+ok  	easyems/internal/ems/channel	0.052s
+=== RUN   TestApplyAndGet
+--- PASS: TestApplyAndGet (0.00s)
+=== RUN   TestValueGoesStaleByAge
+--- PASS: TestValueGoesStaleByAge (0.00s)
+=== RUN   TestOfflineDeviceMarksPointsStale
+--- PASS: TestOfflineDeviceMarksPointsStale (0.00s)
+=== RUN   TestSamplesAndSnapshotAreDeterministic
+--- PASS: TestSamplesAndSnapshotAreDeterministic (0.00s)
+PASS
+ok  	easyems/internal/ems/state	0.011s

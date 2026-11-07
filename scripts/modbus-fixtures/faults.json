@@ -1,0 +1,19 @@
+{
+  "servers": [
+    {
+      "port": 1505,
+      "id": 1,
+      "timeout_ms": 1000,
+      "registers": {
+        "0": [1],
+        "10": [253]
+      },
+      "coils": [0],
+      "fault": {
+        "delay_ms": 250,
+        "corrupt_every": 5,
+        "drop_after": 30
+      }
+    }
+  ]
+}

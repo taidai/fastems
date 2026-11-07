@@ -1,0 +1,50 @@
+{
+  "site": "本地模拟器自检（非现场验收）",
+  "generated_at": "2026-11-04T17:53:32.210Z",
+  "base": "http://127.0.0.1:62943",
+  "mode": "read-only",
+  "summary": {
+    "passed": 2,
+    "warning": 3,
+    "failed": 0,
+    "skipped": 0
+  },
+  "checks": [
+    {
+      "key": "api",
+      "title": "产品接口与登录",
+      "status": "passed",
+      "detail": "已连接 http://127.0.0.1:62943",
+      "object": "本地模拟器自检（非现场验收）"
+    },
+    {
+      "key": "acceptance",
+      "title": "验收报告",
+      "status": "warning",
+      "detail": "warning · 通过 5 / 关注 2 / 失败 0",
+      "object": "acc-20261105-015312"
+    },
+    {
+      "key": "device:7g0n4vyxvecqy52yawgd2vyft4",
+      "title": "模板总线 1 号站 · 站号 1",
+      "status": "passed",
+      "detail": "通信健康 healthy",
+      "object": "7g0n4vyxvecqy52yawgd2vyft4"
+    },
+    {
+      "key": "profile:enjo-pcs",
+      "title": "模板总线 1 号站 · Profile",
+      "status": "warning",
+      "detail": "enjo-pcs · 14 点位 · 未现场验证",
+      "object": "enjo-pcs"
+    },
+    {
+      "key": "point:Modbus 温度",
+      "title": "模板总线 1 号站 · Modbus 温度",
+      "status": "warning",
+      "detail": "存在 3 个同名点位，结果可能有歧义",
+      "object": "7g0n4vyxvecqy52yawgd2vyft4"
+    }
+  ],
+  "note": "本报告只证明本次运行检查；断线/恢复、过期阻断、重复提交和真实设备签收必须由现场人员完成。"
+}

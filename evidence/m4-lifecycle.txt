@@ -1,0 +1,27 @@
+== before ==
+{"channels":[]}
+
+== create ==
+{"channel_id":"5f25g8t9pwntmxcdhn9bj3hyrm","node_id":"5f25g8t9pwntmxcdhn9bj3hyrm","point_nodes":["46g09q88j85npcgj03xeygj61m"]}
+== channels ==
+{"channels":[{"id":"5f25g8t9pwntmxcdhn9bj3hyrm","node_id":"5f25g8t9pwntmxcdhn9bj3hyrm","persisted":true,"protocol":"TCP","address":"127.0.0.1:1502","period_ms":500,"devices":[{"id":"5f25g8t9pwntmxcdhn9bj3hyrm/1","server_id":1,"health":"healthy","points":[{"id":"46g09q88j85npcgj03xeygj61m","name":"柜内温度","function":"holdingRegister","address":10,"format":"uint16","scale":0.1,"offset":0,"kind":"number","read_only":false}]}]}]}
+
+== state ==
+{"values":[{"device_id":"5f25g8t9pwntmxcdhn9bj3hyrm/1","point_id":"46g09q88j85npcgj03xeygj61m","value":{"kind":"number","number":30},"quality":"good","source_time":"2026-11-04T16:52:43.276295+08:00","received_time":"2026-11-04T16:52:43.276295+08:00"}]}
+
+== runtime ==
+{"channels":1,"devices":1,"points":1,"source":"nodes"}
+
+
+== after restart ==
+{"channels":[{"id":"5f25g8t9pwntmxcdhn9bj3hyrm","node_id":"5f25g8t9pwntmxcdhn9bj3hyrm","persisted":true,"protocol":"TCP","address":"127.0.0.1:1502","period_ms":500,"devices":[{"id":"5f25g8t9pwntmxcdhn9bj3hyrm/1","server_id":1,"health":"healthy","points":[{"id":"46g09q88j85npcgj03xeygj61m","name":"柜内温度","function":"holdingRegister","address":10,"format":"uint16","scale":0.1,"offset":0,"kind":"number","read_only":false}]}]}]}
+
+== restore simulator to 253 ==
+{"values":[{"device_id":"5f25g8t9pwntmxcdhn9bj3hyrm/1","point_id":"46g09q88j85npcgj03xeygj61m","value":{"kind":"number","number":25.3},"quality":"good","source_time":"2026-11-04T16:53:15.5083011+08:00","received_time":"2026-11-04T16:53:15.5083011+08:00"}]}
+
+== delete channel ==
+{"deleted":"5f25g8t9pwntmxcdhn9bj3hyrm"}
+
+== after delete ==
+{"channels":[]}
+

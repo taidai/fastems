@@ -1,0 +1,8 @@
+{
+  "passed": true,
+  "method": "offline copy of the complete data directory",
+  "restoredNodes": 17,
+  "login": true,
+  "decisionTable": true,
+  "outputs": true
+}

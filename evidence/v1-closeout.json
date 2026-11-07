@@ -1,0 +1,135 @@
+{
+  "date": "2026-11-05",
+  "environment": "本机预览实例 + 临时干净数据目录；使用 TCP 模拟器，不含真实设备",
+  "typed_conditions": {
+    "passed": true,
+    "kinds": [
+      "number",
+      "bool",
+      "enum"
+    ],
+    "enum_simulation": "条件 运行状态 等于 grid，模拟输入 grid -> 命中第 1 行",
+    "persisted": {
+      "kind": "enum",
+      "text": "grid",
+      "operator": "eq"
+    },
+    "notes": "字符串点位保留为枚举标签；空文本不会覆盖数值模拟输入"
+  },
+  "implementer_role": {
+    "passed": true,
+    "create_node": 200,
+    "write_value": 200,
+    "create_rule": 200,
+    "create_user": 403,
+    "delivery_check": 403,
+    "visible_directory": [
+      "工作台",
+      "运行画面",
+      "点位表",
+      "通道与设备",
+      "决策表",
+      "报警与事件",
+      "数据与追溯",
+      "部署与验收",
+      "功率分配器"
+    ]
+  },
+  "virtual_aggregation": {
+    "passed": true,
+    "sum": 60,
+    "avg": 20,
+    "min": 10,
+    "max": 30,
+    "count": 3,
+    "partial": {
+      "value": 5,
+      "quality": "partial",
+      "valid": 1,
+      "total": 3
+    },
+    "invalid_member": 400,
+    "invalid_operator": 400,
+    "notes": "质量与时效随成员传播；只读，不写入设备"
+  },
+  "remaining_v1_gaps": [
+    "其余厂商固定识别常量与现场地址/字序核对（需实机）"
+  ],
+  "output_safety": {
+    "passed": true,
+    "clamp": {
+      "requested": 150,
+      "applied": 60,
+      "reason": "clamped to available discharge power 60"
+    },
+    "blocked": {
+      "soc": 5,
+      "condition": "soc >= 10",
+      "blocked": true,
+      "reason": "safety condition ... does not satisfy ge 10"
+    },
+    "ui": "规则输出行与点位抽屉均可打开安全约束；未配置显示橙点",
+    "fail_closed": "存在但无法解析的 easyemsSafety 会使规则启动失败，不会静默关闭限制"
+  },
+  "ramp_control": {
+    "passed": true,
+    "target": 100,
+    "rate_per_second": 10,
+    "observed": [
+      0.005,
+      9.92,
+      29.93,
+      39.92,
+      49.94,
+      59.92,
+      69.92,
+      79.92,
+      89.92,
+      99.92,
+      100
+    ],
+    "mid_ramp_stop": {
+      "before_drop": 14.95,
+      "after_soc_drop": 14.95,
+      "blocked": true,
+      "reason": "ramp stopped: safety condition ... ge 10"
+    },
+    "notes": "规则已触发后仍按 1 秒周期继续爬坡；每步重新校验安全条件；手动接管或条件失效立即停止；达到目标后不再标记爬坡。"
+  },
+  "strategy_table": {
+    "passed": true,
+    "view": "表格视图 / 详细视图切换并记住选择",
+    "inline": [
+      "持续秒",
+      "冷却秒",
+      "上移",
+      "下移",
+      "复制",
+      "删除"
+    ],
+    "row_click": "点击行进入详细编辑并定位该行",
+    "ten_inch": {
+      "viewport": "1024x768",
+      "stage_overflow": 0,
+      "horizontal_overflow": 0,
+      "table_overflow": 0,
+      "font": "20px design (≈12.7px physical), controls 44px design"
+    }
+  },
+  "profile_identification": {
+    "passed": true,
+    "strong_match": {
+      "simulator_text": "YD2037Y-F",
+      "register": "holding 43904 (0xAB80)",
+      "profile": "yd2037-meter",
+      "score": 9,
+      "evidence": "0xAB80 型号文本：读到 \"YD2037Y-F\""
+    },
+    "no_response": {
+      "matched": false,
+      "candidates": []
+    },
+    "candidate_policy": "读到型号文本才自动匹配；只读到特征寄存器时列为候选并要求人工确认",
+    "unverified": "其余厂商固定识别常量和现场地址仍需实机核对"
+  }
+}

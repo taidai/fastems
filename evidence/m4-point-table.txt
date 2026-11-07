@@ -1,0 +1,22 @@
+== preview bad CSV ==
+400 {"error":"第 2 行站号或地址无效"}
+
+== points unchanged ==
+1
+== import good CSV ==
+{"imported":1}
+
+== points now ==
+['柜内温度', '备用温度']
+== export ==
+﻿名称,站号,地址,类型,数据格式,只读,缩放,偏移,单位
+柜内温度,1,10,保持寄存器,uint16,否,0.1,0,
+备用温度,1,11,保持寄存器,uint16,否,0.1,0,°C
+== re-import exported CSV into a second channel ==
+{"imported":2}
+
+2rm7abm5 ['柜内温度', '备用温度', '第二点位']
+4jac6pjv ['柜内温度', '备用温度']
+== cleanup ==
+{"channels":[]}
+

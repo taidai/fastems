@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "easyems",
+      "runtimeExecutable": "C:\\Users\\chent\\Desktop\\2026成果\\AAAAA开源\\easyems\\easyems.exe",
+      "runtimeArgs": ["-port", "62943", "-nats-port", "9820", "-data", "C:\\Users\\chent\\Desktop\\2026成果\\AAAAA开源\\easyems\\data\\preview"],
+      "port": 62943
+    }
+  ]
+}

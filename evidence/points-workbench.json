@@ -1,0 +1,19 @@
+{
+  "passed": true,
+  "url": "http://127.0.0.1:62943",
+  "rows": 7,
+  "filteredRows": 5,
+  "drawerTitle": "Modbus 线圈",
+  "selected": 2,
+  "batchScaleEdit": true,
+  "batchCreateForm": true,
+  "download": "easyems-points.csv",
+  "metrics": {
+    "inner": 0,
+    "stage": 0,
+    "table": 0,
+    "tableWidth": 0
+  },
+  "errors": [],
+  "note": "只读工作台自检；批量停用/启用/删除与写值回读另行实测。"
+}

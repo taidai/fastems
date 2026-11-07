@@ -1,0 +1,19 @@
+== scan 1-4 ==
+{"errors":[],"found":[{"server_id":1,"responded":true,"latency_ms":61,"probe":"holdingRegister:0","error":""}],"scanned":4}
+
+== identify manual ==
+{"candidates":[],"detail":"人工选择 Profile","matched":true,"profile":{"id":"modbus-generic","vendor":"通用","model":"Modbus 设备","protocol":"modbus","points":0,"commands":0},"server_id":1}
+
+== profiles ==
+{"profiles":[{"id":"modbus-generic","vendor":"通用","model":"Modbus 设备","protocol":"modbus","points":0,"commands":0}]}
+
+== scan busy ==
+409
+{"error":"channel_busy"}
+
+== cleaned ==
+{"channels":[{"id":"9zb7nqcsfyjmxq9dab100da72r","node_id":"9zb7nqcsfyjmxq9dab100da72r","persisted":false,"protocol":"TCP","address":"","period_ms":0,"devices":[{"id":"9zb7nqcsfyjmxq9dab100da72r/1","server_id":1,"health":"healthy","points":[{"id":"8rmqhjb0szdarkt37ck4tecygg","name":"柜内温度","function":"holdingRegister","address":10,"format":"uint16","scale":0.1,"offset":0,"kind":"number","read_only":false}]}]}]}
+
+== after immediate delete ==
+{"channels":[]}
+

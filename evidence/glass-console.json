@@ -1,0 +1,32 @@
+{
+  "passed": true,
+  "base": "http://127.0.0.1:62943",
+  "snapshot": {
+    "roots": 1,
+    "nodes": 23
+  },
+  "desktop": {
+    "kpis": 8,
+    "flowNodes": 5,
+    "tabs": 5,
+    "overflow": 0,
+    "background": "rgb(233, 238, 241)",
+    "kpiBackground": "linear-gradient(125deg, rgba(246, 251, 255, 0.86), rgba(225, 237, 250, 0.62))",
+    "navBackground": "rgba(0, 0, 0, 0)"
+  },
+  "mobile": {
+    "overflow": 0,
+    "kpis": 8,
+    "kpisPerRow": 2
+  },
+  "errors": [],
+  "badResponses": [],
+  "screenshots": [
+    "glass-console-login.png",
+    "glass-console-desktop.png",
+    "glass-console-directory.png",
+    "glass-console-alarms.png",
+    "glass-console-history.png",
+    "glass-console-mobile.png"
+  ]
+}

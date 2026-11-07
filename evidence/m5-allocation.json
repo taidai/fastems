@@ -1,0 +1,109 @@
+{
+  "initial": {
+    "requested_kw": 800,
+    "delivered_kw": 550,
+    "actual_kw": [
+      200,
+      200,
+      150,
+      null
+    ],
+    "check": {
+      "output": "ess-power",
+      "requested": 800,
+      "applied": 550,
+      "blocked": false,
+      "reason": "",
+      "status": "confirmed",
+      "shares": [
+        {
+          "member_id": "CAB01",
+          "capacity": 200,
+          "setpoint": 200,
+          "actual": 200,
+          "confirmed": true,
+          "excluded": false,
+          "held": false,
+          "reason": "readback confirmed"
+        },
+        {
+          "member_id": "CAB02",
+          "capacity": 200,
+          "setpoint": 200,
+          "actual": 200,
+          "confirmed": true,
+          "excluded": false,
+          "held": false,
+          "reason": "readback confirmed"
+        },
+        {
+          "member_id": "CAB03",
+          "capacity": 150,
+          "setpoint": 150,
+          "actual": 150,
+          "confirmed": true,
+          "excluded": false,
+          "held": false,
+          "reason": "readback confirmed"
+        },
+        {
+          "member_id": "CAB04",
+          "capacity": 0,
+          "setpoint": 0,
+          "excluded": true,
+          "held": false,
+          "reason": "faulted"
+        }
+      ]
+    }
+  },
+  "timeout": {
+    "check": {
+      "output": "ess-power",
+      "requested": 400,
+      "applied": 399.8909090909091,
+      "blocked": false,
+      "reason": "no readback before timeout",
+      "status": "unknown",
+      "shares": [
+        {
+          "member_id": "CAB01",
+          "capacity": 200,
+          "setpoint": 145.4,
+          "actual": 145.4,
+          "confirmed": true,
+          "excluded": false,
+          "held": false,
+          "reason": "readback confirmed"
+        },
+        {
+          "member_id": "CAB02",
+          "capacity": 200,
+          "setpoint": 145.4,
+          "excluded": false,
+          "held": false,
+          "reason": "no readback before timeout"
+        },
+        {
+          "member_id": "CAB03",
+          "capacity": 150,
+          "setpoint": 109.0909090909091,
+          "excluded": false,
+          "held": false,
+          "reason": ""
+        },
+        {
+          "member_id": "CAB04",
+          "capacity": 0,
+          "setpoint": 0,
+          "excluded": true,
+          "held": false,
+          "reason": "faulted"
+        }
+      ]
+    },
+    "third_member_setpoint": 150
+  },
+  "allocator_persisted": true,
+  "note": "Modbus TCP simulators; not physical device acceptance"
+}

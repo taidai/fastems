@@ -1,0 +1,111 @@
+=== RUN   TestAllocatorRunsSequentialReadback
+2026/11/04 11:44:23 NATS server, port: 9700, monitoring port: 9702, auth enabled: no
+2026/11/04 11:44:23 NATS: Starting nats-server
+2026/11/04 11:44:23 NATS:   Version:  2.15.2
+2026/11/04 11:44:23 NATS:   Git:      [not set]
+2026/11/04 11:44:23 NATS:   Name:     NA7ALNW6GROR7DEA5OSWJDUYBVWA4Q46TE3KCDRSHBEEWCS4S5HI7HWL
+2026/11/04 11:44:23 NATS:   Node:     77Fi62Dn
+2026/11/04 11:44:23 NATS:   ID:       NA7ALNW6GROR7DEA5OSWJDUYBVWA4Q46TE3KCDRSHBEEWCS4S5HI7HWL
+2026/11/04 11:44:23 NATS: Starting http monitor on 127.0.0.1:9702
+2026/11/04 11:44:23 NATS: Starting JetStream
+2026/11/04 11:44:23 NATS:     _ ___ _____ ___ _____ ___ ___   _   __  __
+2026/11/04 11:44:23 NATS:  _ | | __|_   _/ __|_   _| _ \ __| /_\ |  \/  |
+2026/11/04 11:44:23 NATS: | || | _|  | | \__ \ | | |   / _| / _ \| |\/| |
+2026/11/04 11:44:23 NATS:  \__/|___| |_| |___/ |_| |_|_\___/_/ \_\_|  |_|
+2026/11/04 11:44:23 NATS: 
+2026/11/04 11:44:23 NATS:          https://docs.nats.io/jetstream
+2026/11/04 11:44:23 NATS: 
+2026/11/04 11:44:23 NATS: ---------------- JETSTREAM ----------------
+2026/11/04 11:44:23 NATS:   Strict:          true
+2026/11/04 11:44:23 NATS:   Max Memory:      17.60 GB
+2026/11/04 11:44:23 NATS:   Max Storage:     678.62 GB
+2026/11/04 11:44:23 NATS:   Store Directory: "/tmp/TestAllocatorRunsSequentialReadback1424568874/001/data/jetstream"
+2026/11/04 11:44:23 NATS:   API Level:       5
+2026/11/04 11:44:23 NATS: -------------------------------------------
+2026/11/04 11:44:23 NATS: Took 2.004648ms to start JetStream
+2026/11/04 11:44:23 NATS: Listening for websocket clients on ws://127.0.0.1:9703
+2026/11/04 11:44:23 NATS: warning: Websocket not configured with TLS. DO NOT USE IN PRODUCTION!
+2026/11/04 11:44:23 NATS: Listening for client connections on 0.0.0.0:9700
+2026/11/04 11:44:23 NATS: Server is ready
+2026/11/04 11:44:23 Server NATS client: connected
+2026/11/04 11:44:23 STORE: retention: 20000 points per subject (default); current state is always preserved
+2026/11/04 11:44:23 STORE: compression: s2 (default)
+2026/11/04 11:44:23 STORE: Initialize root node and admin user
+2026/11/04 11:44:23 store connecting to nats server: nats://127.0.0.1:9700
+2026/11/04 11:44:23 Device key generated: /tmp/TestAllocatorRunsSequentialReadback1424568874/001/data/device.nkey
+2026/11/04 11:44:23 Device NKey public key: UCTY2V5CM4T7HVST6IQN3SKUUP3SHKT2HJL3ZIYBRAU2XF462VI7UISC
+2026/11/04 11:44:23 Starting http server, debug: false
+2026/11/04 11:44:23 Starting portal on port: 9701
+2026/11/04 11:44:23 Setting app version: 
+2026/11/04 11:44:23 Error reading OS version: searching /etc/os-release, got: Invalid character(s) found in major number "0Debian"
+2026/11/04 11:44:23 NATS auth: 0 device credential(s) loaded, device auth optional
+2026/11/04 11:44:23 allocator ess: sent CAB01 = 200.000
+2026/11/04 11:44:23 decisionTable ess-rule: matched discharge, accepted 1 actions, state fired
+2026/11/04 11:44:24 allocator ess: confirmed CAB01 = 200.000
+2026/11/04 11:44:24 allocator ess: sent CAB02 = 200.000
+2026/11/04 11:44:25 allocator ess: confirmed CAB02 = 200.000
+2026/11/04 11:44:25 allocator ess: sent CAB03 = 150.000
+2026/11/04 11:44:27 allocator ess: confirmed CAB03 = 150.000
+2026/11/04 11:44:27 allocator ess: sent CAB01 = 145.455
+2026/11/04 11:44:27 decisionTable ess-rule: matched discharge, accepted 1 actions, state fired
+2026/11/04 11:44:29 allocator ess: confirmed CAB01 = 145.455
+2026/11/04 11:44:29 allocator ess: sent CAB02 = 145.455
+2026/11/04 11:44:30 Store stopped
+2026/11/04 11:44:30 NATS: Initiating Shutdown...
+2026/11/04 11:44:30 NATS: Initiating JetStream Shutdown...
+2026/11/04 11:44:30 NATS: JetStream Shutdown
+2026/11/04 11:44:30 NATS: Server Exiting..
+2026/11/04 11:44:30 Test Server start returned: Server stopped
+2026/11/04 11:44:30 Server NATS client: closed
+--- PASS: TestAllocatorRunsSequentialReadback (5.18s)
+=== RUN   TestAllocatorRejectsSharedOwnership
+2026/11/04 11:44:30 NATS server, port: 9700, monitoring port: 9702, auth enabled: no
+2026/11/04 11:44:30 NATS: Starting nats-server
+2026/11/04 11:44:30 NATS:   Version:  2.15.2
+2026/11/04 11:44:30 NATS:   Git:      [not set]
+2026/11/04 11:44:30 NATS:   Name:     NAK2UNRTYTWRHAEWMWBZXLQ5UO6WJAF35SNADH2FQ3H2N7YATAMTAJJM
+2026/11/04 11:44:30 NATS:   Node:     m36dq86k
+2026/11/04 11:44:30 NATS:   ID:       NAK2UNRTYTWRHAEWMWBZXLQ5UO6WJAF35SNADH2FQ3H2N7YATAMTAJJM
+2026/11/04 11:44:30 NATS: Starting http monitor on 127.0.0.1:9702
+2026/11/04 11:44:30 NATS: Starting JetStream
+2026/11/04 11:44:30 NATS:     _ ___ _____ ___ _____ ___ ___   _   __  __
+2026/11/04 11:44:30 NATS:  _ | | __|_   _/ __|_   _| _ \ __| /_\ |  \/  |
+2026/11/04 11:44:30 NATS: | || | _|  | | \__ \ | | |   / _| / _ \| |\/| |
+2026/11/04 11:44:30 NATS:  \__/|___| |_| |___/ |_| |_|_\___/_/ \_\_|  |_|
+2026/11/04 11:44:30 NATS: 
+2026/11/04 11:44:30 NATS:          https://docs.nats.io/jetstream
+2026/11/04 11:44:30 NATS: 
+2026/11/04 11:44:30 NATS: ---------------- JETSTREAM ----------------
+2026/11/04 11:44:30 NATS:   Strict:          true
+2026/11/04 11:44:30 NATS:   Max Memory:      17.60 GB
+2026/11/04 11:44:30 NATS:   Max Storage:     678.62 GB
+2026/11/04 11:44:30 NATS:   Store Directory: "/tmp/TestAllocatorRejectsSharedOwnership3323563185/001/data/jetstream"
+2026/11/04 11:44:30 NATS:   API Level:       5
+2026/11/04 11:44:30 NATS: -------------------------------------------
+2026/11/04 11:44:30 NATS: Took 777.679µs to start JetStream
+2026/11/04 11:44:30 NATS: Listening for websocket clients on ws://127.0.0.1:9703
+2026/11/04 11:44:30 NATS: warning: Websocket not configured with TLS. DO NOT USE IN PRODUCTION!
+2026/11/04 11:44:30 NATS: Listening for client connections on 0.0.0.0:9700
+2026/11/04 11:44:30 NATS: Server is ready
+2026/11/04 11:44:30 Server NATS client: connected
+2026/11/04 11:44:30 STORE: retention: 20000 points per subject (default); current state is always preserved
+2026/11/04 11:44:30 STORE: compression: s2 (default)
+2026/11/04 11:44:30 STORE: Initialize root node and admin user
+2026/11/04 11:44:30 store connecting to nats server: nats://127.0.0.1:9700
+2026/11/04 11:44:30 Device key generated: /tmp/TestAllocatorRejectsSharedOwnership3323563185/001/data/device.nkey
+2026/11/04 11:44:30 Device NKey public key: UA7FSOAE7ZGWZZPJY355VSROABT3F7SUU3HYJ5XJ2DDKQH7QBE4SXBW6
+2026/11/04 11:44:30 Starting http server, debug: false
+2026/11/04 11:44:30 Starting portal on port: 9701
+2026/11/04 11:44:30 Setting app version: 
+2026/11/04 11:44:30 Error reading OS version: searching /etc/os-release, got: Invalid character(s) found in major number "0Debian"
+2026/11/04 11:44:30 NATS auth: 0 device credential(s) loaded, device auth optional
+2026/11/04 11:44:30 Store stopped
+2026/11/04 11:44:30 NATS: Initiating Shutdown...
+2026/11/04 11:44:30 NATS: Initiating JetStream Shutdown...
+2026/11/04 11:44:30 NATS: JetStream Shutdown
+2026/11/04 11:44:30 NATS: Server Exiting..
+2026/11/04 11:44:30 Server NATS client: closed
+2026/11/04 11:44:30 Test Server start returned: Server stopped
+--- PASS: TestAllocatorRejectsSharedOwnership (0.13s)
+PASS
+ok  	easyems/internal/decision	5.321s

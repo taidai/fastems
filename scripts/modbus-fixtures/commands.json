@@ -1,0 +1,13 @@
+{
+  "servers": [
+    {
+      "port": 1506,
+      "id": 1,
+      "timeout_ms": 2000,
+      "registers": {
+        "657": [0]
+      },
+      "coils": []
+    }
+  ]
+}

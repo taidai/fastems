@@ -1,0 +1,32 @@
+{
+  "passed": true,
+  "base": "http://127.0.0.1:62943",
+  "snapshot": {
+    "roots": 1,
+    "nodes": 21
+  },
+  "desktop": {
+    "kpis": 8,
+    "flowNodes": 5,
+    "tabs": 5,
+    "overflow": 0,
+    "background": "rgba(0, 0, 0, 0)",
+    "kpiBackground": "linear-gradient(160deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.035))",
+    "navBackground": "rgba(0, 0, 0, 0)"
+  },
+  "mobile": {
+    "overflow": 0,
+    "kpis": 8,
+    "kpisPerRow": 2
+  },
+  "errors": [],
+  "badResponses": [],
+  "screenshots": [
+    "dark-theme-login.png",
+    "dark-theme-desktop.png",
+    "dark-theme-directory.png",
+    "dark-theme-alarms.png",
+    "dark-theme-history.png",
+    "dark-theme-mobile.png"
+  ]
+}

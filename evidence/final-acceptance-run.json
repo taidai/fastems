@@ -1,0 +1,68 @@
+{
+  "id": "acc-20261105-015312",
+  "generated_at": "2026-11-05T01:53:12.8596822+08:00",
+  "status": "warning",
+  "checks": [
+    {
+      "key": "channels",
+      "title": "通道通信",
+      "status": "passed",
+      "detail": "2 条通道、2 台设备：正常 2，不稳定 0，离线 0",
+      "object": "7g0n4vyxvecqy52yawgd2vyft4",
+      "next_step": ""
+    },
+    {
+      "key": "points",
+      "title": "点位质量",
+      "status": "passed",
+      "detail": "7 个点位：正常 7，过期或无效 0",
+      "object": "",
+      "next_step": ""
+    },
+    {
+      "key": "rules",
+      "title": "规则发布",
+      "status": "warning",
+      "detail": "决策表 6 个，已启用 0 个",
+      "object": "",
+      "next_step": "发布并启用需要自动运行的规则"
+    },
+    {
+      "key": "alarms",
+      "title": "报警状态",
+      "status": "passed",
+      "detail": "活动报警 0 项",
+      "object": "",
+      "next_step": ""
+    },
+    {
+      "key": "history",
+      "title": "历史记录",
+      "status": "passed",
+      "detail": "已记录 7 个点位的历史",
+      "object": "",
+      "next_step": ""
+    },
+    {
+      "key": "permissions",
+      "title": "权限边界",
+      "status": "passed",
+      "detail": "服务端对每个请求校验账号、角色与业务树范围",
+      "object": "",
+      "next_step": ""
+    },
+    {
+      "key": "backup",
+      "title": "备份状态",
+      "status": "warning",
+      "detail": "未验证在线备份；完整备份需停止应用后复制数据目录",
+      "object": "",
+      "next_step": "交付前执行一次离线完整备份并记录恢复演练"
+    }
+  ],
+  "summary": {
+    "failed": 0,
+    "passed": 5,
+    "warning": 2
+  }
+}

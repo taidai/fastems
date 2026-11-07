@@ -1,0 +1,21 @@
+== empty instance ==
+failed {'failed': 1, 'passed': 2, 'warning': 4}
+channels failed 没有配置任何通道
+points warning 还没有点位数据
+rules warning 还没有决策表
+alarms passed 活动报警 0 项
+history warning 已记录 0 个点位的历史
+permissions passed 服务端对每个请求校验账号、角色与业务树范围
+backup warning 未验证在线备份；完整备份需停止应用后复制数据目录
+
+== configured instance ==
+warning {'failed': 0, 'passed': 5, 'warning': 2}
+channels passed 1 条通道、1 台设备：正常 1，不稳定 0，离线 0
+points passed 1 个点位：正常 1，过期或无效 0
+rules warning 还没有决策表
+alarms passed 活动报警 0 项
+history passed 已记录 1 个点位的历史
+permissions passed 服务端对每个请求校验账号、角色与业务树范围
+backup warning 未验证在线备份；完整备份需停止应用后复制数据目录
+== latest ==
+acc-20261104-171219 warning

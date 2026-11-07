@@ -1,0 +1,10 @@
+{
+  "servers": [
+    {
+      "port": 1507,
+      "id": 1,
+      "timeout_ms": 2000,
+      "registers": {"40199": [0]}
+    }
+  ]
+}

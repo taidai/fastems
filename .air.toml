@@ -1,0 +1,15 @@
+root = "."
+tmp_dir = ".air"
+
+[build]
+  cmd = "go build -o ./.air/easyems-dev.exe ./cmd/easyems"
+  bin = ".air/easyems-dev.exe"
+  full_bin = ".air/easyems-dev.exe -port 62943 -nats-port 9820 -data ./data/dev"
+  include_ext = ["go", "html", "css", "ts", "tsx"]
+  exclude_dir = ["third_party", "frontend", "internal/web/dist", "data", ".air", ".git"]
+  delay = 500
+  stop_on_error = true
+  send_interrupt = true
+
+[log]
+  time = true

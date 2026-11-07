@@ -1,0 +1,13 @@
+{
+  "$schema": "https://encore.dev/schemas/infra.schema.json",
+  "metadata": {
+    "app_id": "easyems",
+    "env_name": "production",
+    "env_type": "production",
+    "cloud": "self-hosted",
+    "base_url": "http://127.0.0.1:8080"
+  },
+  "graceful_shutdown": {
+    "total": 30
+  }
+}

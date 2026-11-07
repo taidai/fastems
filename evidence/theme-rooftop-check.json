@@ -1,0 +1,72 @@
+{
+  "values": {
+    "before": {
+      "filter": "brightness(0.78)",
+      "image": "url(\"http://127.0.0.1:62943/ems-site.jpg\")"
+    },
+    "after": "linear-gradient(rgba(236, 245, 255, 0.55), rgba(226, 238, 250, 0.18) 40%, rgba(236, 245, 255, 0.45))",
+    "shell": {
+      "background": "rgba(0, 0, 0, 0)",
+      "backdrop": "none"
+    },
+    "card": {
+      "background": "linear-gradient(125deg, rgba(246, 251, 255, 0.86), rgba(225, 237, 250, 0.62))",
+      "border": "1px solid rgba(255, 255, 255, 0.34)",
+      "radius": "10px",
+      "blur": "blur(24px) saturate(1.4)",
+      "shadow": "rgba(255, 255, 255, 0.32) 0px 1px 0px 0px inset, rgba(224, 242, 255, 0.32) 0px 0px 0px 2px inset, rgba(255, 255, 255, 0.95) 0px 2px 3px 0px inset, rgba(255, 255, 255, 0.9) 1px 0px 1px 0px inset, rgba(42, 61, 77, 0.12) 0px 10px 30px 0px, rgba(105, 151, 185, 0.35) 0px 0px 0px 1px",
+      "height": "108px",
+      "padding": "9px 12px",
+      "gap": "3px"
+    },
+    "panel": {
+      "background": "linear-gradient(125deg, rgba(246, 251, 255, 0.86), rgba(225, 237, 250, 0.62))",
+      "border": "1px solid rgba(255, 255, 255, 0.34)",
+      "radius": "10px",
+      "blur": "blur(24px) saturate(1.4)"
+    },
+    "value": {
+      "size": "28px",
+      "weight": "700",
+      "spacing": "-0.5px"
+    },
+    "unit": "18px",
+    "note": "12px",
+    "stripGap": "14px",
+    "icons": {
+      "pv": "rgb(43, 138, 87)",
+      "ess": "rgb(47, 111, 159)",
+      "alarm": "rgb(178, 58, 50)"
+    },
+    "accent": {
+      "width": "34px",
+      "height": "4px",
+      "background": "rgb(43, 138, 87)"
+    },
+    "heading": "24px"
+  },
+  "layout": {
+    "1600x1000": {
+      "stage": 0,
+      "inner": 0,
+      "horizontal": 0
+    },
+    "1280x800": {
+      "stage": 0,
+      "inner": 0,
+      "horizontal": 0
+    },
+    "1366x768": {
+      "stage": 0,
+      "inner": 0,
+      "horizontal": 0
+    },
+    "1024x768": {
+      "stage": 0,
+      "inner": 0,
+      "horizontal": 0
+    }
+  },
+  "passed": true,
+  "failures": []
+}

@@ -1,0 +1,54 @@
+=== RUN   TestRaiseDeduplicatesLiveCondition
+--- PASS: TestRaiseDeduplicatesLiveCondition (0.00s)
+=== RUN   TestClearResolvesAndRecurrenceReactivates
+--- PASS: TestClearResolvesAndRecurrenceReactivates (0.00s)
+=== RUN   TestAcknowledgeAndCloseRules
+--- PASS: TestAcknowledgeAndCloseRules (0.00s)
+=== RUN   TestListPutsActiveFirst
+--- PASS: TestListPutsActiveFirst (0.00s)
+=== RUN   TestInvalidInputsAreRejected
+--- PASS: TestInvalidInputsAreRejected (0.00s)
+PASS
+ok  	easyems/internal/ems/alarm	0.023s
+=== RUN   TestRuleErrorRaisesCritical
+--- PASS: TestRuleErrorRaisesCritical (0.00s)
+=== RUN   TestBusHeartbeat
+--- PASS: TestBusHeartbeat (0.00s)
+=== RUN   TestNewBusGetsGrace
+--- PASS: TestNewBusGetsGrace (0.00s)
+=== RUN   TestDisabledBusIgnored
+--- PASS: TestDisabledBusIgnored (0.00s)
+=== RUN   TestCommandFailureRaised
+--- PASS: TestCommandFailureRaised (0.00s)
+PASS
+ok  	easyems/internal/ems/alarmwatch	0.013s
+=== RUN   TestQueryRangeAndLimit
+--- PASS: TestQueryRangeAndLimit (0.00s)
+=== RUN   TestCapDropsOldest
+--- PASS: TestCapDropsOldest (0.00s)
+=== RUN   TestPointsAreListed
+--- PASS: TestPointsAreListed (0.00s)
+PASS
+ok  	easyems/internal/ems/history	0.007s
+=== RUN   TestCommandWriteIsQueuedThenConfirmedByReadback
+--- PASS: TestCommandWriteIsQueuedThenConfirmedByReadback (0.00s)
+=== RUN   TestEngineConfirmsCommandWithinOneCycle
+--- PASS: TestEngineConfirmsCommandWithinOneCycle (0.00s)
+=== RUN   TestEngineRaisesAndClearsOfflineAlarm
+--- PASS: TestEngineRaisesAndClearsOfflineAlarm (0.00s)
+=== RUN   TestServicePollsAndRecordsHistory
+--- PASS: TestServicePollsAndRecordsHistory (0.01s)
+=== RUN   TestRemoveChannelStopsPolling
+--- PASS: TestRemoveChannelStopsPolling (0.04s)
+=== RUN   TestServiceRaisesOfflineAlarm
+--- PASS: TestServiceRaisesOfflineAlarm (0.02s)
+PASS
+ok  	easyems/internal/ems/runtime	0.070s
+=== RUN   TestStateHistoryAndExport
+--- PASS: TestStateHistoryAndExport (0.01s)
+=== RUN   TestAlarmLifecycleAPI
+--- PASS: TestAlarmLifecycleAPI (0.00s)
+=== RUN   TestChannelConfigurationRequiresAdmin
+--- PASS: TestChannelConfigurationRequiresAdmin (0.00s)
+PASS
+ok  	easyems/internal/emsapi	0.014s

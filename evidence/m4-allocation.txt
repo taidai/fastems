@@ -1,0 +1,48 @@
+== request ==
+{"target":800,"members":[{"id":"CAB01","online":true,"available_discharge":200,"max_discharge":200},{"id":"CAB02","online":true,"available_discharge":200,"max_discharge":200},{"id":"CAB03","online":true,"available_discharge":150,"max_discharge":150},{"id":"CAB04","online":false,"available_discharge":200,"max_discharge":200}]}
+== response ==
+{
+    "preview": true,
+    "result": {
+        "requested": 800,
+        "delivered": 550,
+        "shortfall": 250,
+        "shares": [
+            {
+                "member_id": "CAB01",
+                "capacity": 200,
+                "setpoint": 200,
+                "excluded": false,
+                "held": false,
+                "reason": ""
+            },
+            {
+                "member_id": "CAB02",
+                "capacity": 200,
+                "setpoint": 200,
+                "excluded": false,
+                "held": false,
+                "reason": ""
+            },
+            {
+                "member_id": "CAB03",
+                "capacity": 150,
+                "setpoint": 150,
+                "excluded": false,
+                "held": false,
+                "reason": ""
+            },
+            {
+                "member_id": "CAB04",
+                "capacity": 0,
+                "setpoint": 0,
+                "excluded": true,
+                "held": false,
+                "reason": "offline"
+            }
+        ],
+        "notes": [
+            "physical capability is 250.0 kW short of the 800.0 kW request"
+        ]
+    }
+}
