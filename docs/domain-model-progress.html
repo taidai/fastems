@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>easyems 领域模型覆盖度</title>
+<style>
+  :root { --ok:#2B8A57; --warn:#a46b1d; --bad:#b23a32; --muted:#5a6b7a; --ink:#1c2b38; --line:#dbe4ec; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:"HarmonyOS Sans","PingFang SC","Microsoft YaHei",sans-serif; color:var(--ink); background:linear-gradient(160deg,#eef4f9,#e3edf5); padding:26px; }
+  .wrap { max-width:960px; margin:0 auto; }
+  h1 { font-size:21px; margin:0 0 4px; }
+  .sub { color:var(--muted); font-size:13px; margin:0 0 18px; }
+
+  .legend { display:flex; gap:18px; font-size:12px; color:var(--muted); margin-bottom:18px; flex-wrap:wrap; }
+  .dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:5px; vertical-align:-1px; }
+
+  .model { position:relative; padding-left:26px; }
+  .model::before { content:""; position:absolute; left:8px; top:8px; bottom:8px; width:2px; background:var(--line); }
+  .node { position:relative; margin:9px 0; padding:11px 14px; border-radius:12px; background:#fff; border:1px solid var(--line); }
+  .node::before { content:""; position:absolute; left:-22px; top:22px; width:14px; height:2px; background:var(--line); }
+  .node.ok { border-left:4px solid var(--ok); }
+  .node.warn { border-left:4px solid var(--warn); }
+  .node.bad { border-left:4px solid var(--bad); background:rgba(178,58,50,.04); }
+  .node.bad strong { color:var(--bad); }
+  .node-head { display:flex; align-items:baseline; gap:10px; }
+  .node-head b { font-size:14.5px; }
+  .node-head .st { font-size:11.5px; font-weight:700; padding:1px 9px; border-radius:999px; }
+  .st.ok { background:rgba(43,138,87,.14); color:var(--ok); }
+  .st.warn { background:rgba(164,107,29,.14); color:var(--warn); }
+  .st.bad { background:rgba(178,58,50,.12); color:var(--bad); }
+  .st.gray { background:rgba(90,107,122,.14); color:var(--muted); }
+  .node-desc { font-size:12px; color:var(--muted); margin:5px 0 0; line-height:1.6; }
+  .node-sub { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .chip { font-size:11px; padding:3px 8px; border-radius:6px; border:1px solid var(--line); background:#f8fbfd; }
+  .chip.ok { border-color:rgba(43,138,87,.3); }
+  .chip.warn { border-color:rgba(164,107,29,.3); }
+  .chip.bad { border-color:rgba(178,58,50,.3); color:var(--bad); }
+  .card { margin-top:4px; font-size:12px; line-height:1.7; }
+
+  .principles { margin-top:20px; border:1px solid var(--line); border-radius:14px; background:#fff; padding:14px 16px; }
+  .principles h2 { font-size:15px; margin:0 0 10px; }
+  .prin { display:flex; gap:9px; padding:6px 0; border-bottom:1px dashed var(--line); font-size:12.5px; align-items:flex-start; }
+  .prin:last-child { border-bottom:0; }
+  .prin .mark { flex:0 0 auto; font-weight:700; font-size:12px; }
+  .mark.ok { color:var(--ok); }
+  .mark.warn { color:var(--warn); }
+  .mark.bad { color:var(--bad); }
+  .prin span.dim { color:var(--muted); }
+  .foot { font-size:12px; color:var(--muted); margin-top:16px; line-height:1.6; border-left:3px solid var(--bad); padding-left:12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>easyems 领域模型覆盖度</h1>
+  <p class="sub">基准：领域模型图「单场站·多电站·多柜体·异构设备」 · 2026-11-07</p>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--ok)"></i>已实现</span>
+    <span><i class="dot" style="background:var(--warn)"></i>部分 / 字段化</span>
+    <span><i class="dot" style="background:var(--bad)"></i>缺失</span>
+  </div>
+
+  <div class="model">
+    <div class="node bad">
+      <div class="node-head"><b>Site 场站</b><span class="st bad">缺失</span></div>
+      <div class="node-desc">站点信息 / 总目标 / 总约束 · Site 1..N Plant</div>
+      <div class="node-desc" style="color:var(--bad)">easyems：单机无此对象，用根节点隐式代表，有「站点电价」但无独立 Site 领域对象。</div>
+    </div>
+
+    <div class="node bad">
+      <div class="node-head"><b>Plant 电站</b><span class="st bad">缺失</span></div>
+      <div class="node-desc">电站目标 / 柜间协调 / 电站约束 · Plant 1..N EnergyUnit</div>
+      <div class="node-desc" style="color:var(--bad)">easyems：无此对象，业务节点分组只能粗略模拟，没有「电站」语义。</div>
+    </div>
+
+    <div class="node bad">
+      <div class="node-head"><b>EnergyUnit 柜体/能源单元</b><span class="st bad">核心缺失</span></div>
+      <div class="node-desc">调度对象 · 柜体差异通过 Capability 统一表达</div>
+      <div class="node-sub">
+        <span class="chip ok">SOC/状态 ✅</span>
+        <span class="chip warn">RatedPowerKW ⚠️（分配器额定功率字段）</span>
+        <span class="chip bad">RatedEnergyKWh ❌</span>
+        <span class="chip warn">Capability ⚠️（字段化，非独立对象）</span>
+      </div>
+      <div class="node-desc" style="color:var(--bad)">easyems：无此抽象——「柜体」被隐式等同于「一个通道下的站号」，没有一等对象承载额定容量/功率/SOC/Capability。这是图反复强调的「调度对象是 EnergyUnit 而不是具体设备型号」的落空点。</div>
+    </div>
+
+    <div class="node ok">
+      <div class="node-head"><b>Device 设备</b><span class="st ok">部分完成</span></div>
+      <div class="node-desc">EnergyUnit 0..N Device · 设备异构通过 Adapter 屏蔽</div>
+      <div class="node-sub">
+        <span class="chip ok">PCS ✅</span>
+        <span class="chip ok">BMS ✅</span>
+        <span class="chip ok">Meter ✅</span>
+        <span class="chip bad">HVAC/液冷 ❌</span>
+        <span class="chip bad">Fire/消防 ❌</span>
+      </div>
+      <div class="node-desc">6 个厂商 Profile（恩玖 PCS/ESBCM BMS/TOKY·雅达电表/华为逆变器/吉瓦 MPPT），用 Profile 替代独立 Adapter；HVAC/液冷/消防未做。</div>
+    </div>
+
+    <div class="node ok">
+      <div class="node-head"><b>Point 测点/命令点</b><span class="st ok">完整</span></div>
+      <div class="node-desc">Device 1..N Point · 点位统一抽象</div>
+      <div class="node-sub">
+        <span class="chip ok">ActivePower/Voltage/SOC/Current/Status/Alarm ✅</span>
+        <span class="chip ok">Cmd.SetPower ✅（含回读确认）</span>
+      </div>
+      <div class="node-desc">实现最完整：地址/格式/缩放/偏移/单位/读写/角色，是 easyems 的领域模型底座。</div>
+    </div>
+
+    <div class="node warn">
+      <div class="node-head"><b>Capability 能力</b><span class="st warn">字段化</span></div>
+      <div class="node-desc">能力驱动而非型号驱动</div>
+      <div class="node-desc">分配器有 DynamicCapability（BMS 可用充/放功率）与 RatedCapability（额定功率），但不是独立对象，仅作为分配器成员配置字段存在。</div>
+    </div>
+
+    <div class="node warn">
+      <div class="node-head"><b>Relationship 关系</b><span class="st warn">隐式</span></div>
+      <div class="node-desc">层级拓扑建模</div>
+      <div class="node-desc">用 Simple IoT 业务节点树表达父子关系，无显式关系对象，也缺 Site→Plant→EnergyUnit 的三层拓扑。</div>
+    </div>
+
+    <div class="node ok">
+      <div class="node-head"><b>AlarmEvent 报警事件</b><span class="st ok">完整</span></div>
+      <div class="node-desc">报警生命周期</div>
+      <div class="node-desc">root_cause / group_id / count / ack_note / 维护窗口 / 洪泛抑制 / 类型管理，模型完整。</div>
+    </div>
+  </div>
+
+  <div class="principles">
+    <h2>核心建模原则对照</h2>
+    <div class="prin"><span class="mark ok">✅</span><span>能力驱动而非型号驱动 —— 分配器读 BMS 可用功率，不认厂商</span></div>
+    <div class="prin"><span class="mark ok">✅</span><span>点位统一抽象为 Point —— 完整</span></div>
+    <div class="prin"><span class="mark warn">⚠️</span><span>设备异构通过 Adapter 屏蔽 —— 用 Profile 替代（更轻，但无独立 Adapter 层）</span></div>
+    <div class="prin"><span class="mark bad">❌</span><span>层级拓扑建模（Site→Plant→EnergyUnit）—— 实际是「通道→站号→点位」扁平模型</span></div>
+    <div class="prin"><span class="mark bad">❌</span><span>调度对象是 EnergyUnit 而非设备型号 —— 调度对象仍是「通道站号/设备」</span></div>
+    <div class="prin"><span class="mark bad">❌</span><span>支持单场站扩展到多场站 —— 单机，无多场站</span></div>
+  </div>
+
+  <p class="foot"><b>结论</b>：easyems 的领域模型是「Modbus 通道导向」（通道→站号→点位），图的领域模型是「能力/业务导向」（Site→Plant→EnergyUnit→Device→Point）。底层 Point/Device/AlarmEvent 覆盖完整，中间缺的 EnergyUnit 抽象是根子——补上它（及其上的 Site/Plant 层级），分配器、聚合、调度才有正确挂载点，多柜/多站才顺理成章。</p>
+</div>
+</body>
+</html>
