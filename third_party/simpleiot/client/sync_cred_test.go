@@ -1,0 +1,708 @@
+package client_test
+
+import (
+	"context"
+	"fmt"
+	"slices"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
+	"github.com/nats-io/nkeys"
+	"github.com/simpleiot/simpleiot/client"
+	"github.com/simpleiot/simpleiot/data"
+	"github.com/simpleiot/simpleiot/server"
+)
+
+// credUpstream starts an upstream that requires the shared token, so a
+// device with no token can only get in with a credential.
+func credUpstream(t *testing.T) (*nats.Conn, data.NodeEdge, server.Options, func()) {
+	t.Helper()
+
+	opts := server.TestServerOptions2
+	opts.AuthToken = "upstream-token"
+
+	nc, root, stop, err := server.TestServerOpts(opts)
+	if err != nil {
+		t.Fatal("Error starting upstream test server: ", err)
+	}
+
+	return nc, root, opts, stop
+}
+
+// devicePubKey reads the key the downstream generated for itself.
+func devicePubKey(t *testing.T, ncD *nats.Conn) string {
+	t.Helper()
+	pubKey, err := client.GetDeviceKey(ncD)
+	if err != nil {
+		t.Fatal("Error getting device key: ", err)
+	}
+	return pubKey
+}
+
+// enrollDevice creates a device node with the given ID on the upstream and
+// a credential for pubKey under it.
+func enrollDevice(t *testing.T, ncU *nats.Conn, rootU data.NodeEdge, deviceID, credID, pubKey string) {
+	t.Helper()
+
+	dev := client.Device{ID: deviceID, Parent: rootU.ID, Description: "device " + deviceID}
+	if err := client.SendNodeType(ncU, dev, "test"); err != nil {
+		t.Fatal("Error creating device node: ", err)
+	}
+
+	cred := client.DeviceCred{ID: credID, Parent: deviceID, Description: "cred", PubKey: pubKey}
+	if err := client.SendNodeType(ncU, cred, "test"); err != nil {
+		t.Fatal("Error creating credential node: ", err)
+	}
+}
+
+// startDeviceSync creates a sync node on the downstream with no token, so
+// it authenticates with the device key.
+func startDeviceSync(t *testing.T, ncD *nats.Conn, rootD data.NodeEdge, uri string) {
+	t.Helper()
+
+	sync := client.Sync{
+		ID:          "sync-id",
+		Parent:      rootD.ID,
+		Description: "sync to up",
+		URI:         uri,
+	}
+
+	if err := client.SendNodeType(ncD, sync, "test"); err != nil {
+		t.Fatal("Error sending sync node: ", err)
+	}
+}
+
+func getCred(t *testing.T, nc *nats.Conn, id string) client.DeviceCred {
+	t.Helper()
+	creds, err := client.GetNodesType[client.DeviceCred](nc, "all", id)
+	if err != nil || len(creds) == 0 {
+		t.Fatalf("credential %v not found: %v", id, err)
+	}
+	return creds[0]
+}
+
+// setCred changes a point on a credential the way an operator would.
+func setCred(t *testing.T, nc *nats.Conn, id string, p data.Point) {
+	t.Helper()
+	p.Origin = "test"
+	if err := client.SendNodePoint(nc, id, p, true); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestSyncCredential runs the sync round trip with the device authenticating
+// by credential rather than by token: push, pull, and the status the
+// upstream keeps on the credential.
+func TestSyncCredential(t *testing.T) {
+	ncU, rootU, optsU, stopU := credUpstream(t)
+	defer stopU()
+
+	ncD, rootD, stopD, err := server.TestServer()
+	if err != nil {
+		t.Fatal("Error starting downstream test server: ", err)
+	}
+	defer stopD()
+
+	enrollDevice(t, ncU, rootU, rootD.ID, "cred-1", devicePubKey(t, ncD))
+	startDeviceSync(t, ncD, rootD, optsU.NatsServer)
+
+	waitFor(t, 15*time.Second, "credential not marked connected", func() bool {
+		return getCred(t, ncU, "cred-1").Connected
+	})
+	if getCred(t, ncU, "cred-1").LastConnect == 0 {
+		t.Fatal("lastConnect not recorded")
+	}
+
+	// the sync node shows the key it connects with
+	syncs, err := client.GetNodesType[client.Sync](ncD, "all", "sync-id")
+	if err != nil || len(syncs) == 0 || syncs[0].PubKey != devicePubKey(t, ncD) {
+		t.Fatalf("sync node does not show the device key: %+v", syncs)
+	}
+
+	fmt.Println("**** push: description set on device reaches upstream")
+	err = client.SendNodePoint(ncD, rootD.ID,
+		data.NewPointString(data.PointTypeDescription, "", "set down"), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, 10*time.Second, "description not propagated upstream", func() bool {
+		nodes, err := client.GetNodesType[client.Device](ncU, "all", rootD.ID)
+		return err == nil && len(nodes) > 0 && nodes[0].Description == "set down"
+	})
+
+	fmt.Println("**** pull: description set upstream reaches device")
+	err = client.SendNodePoint(ncU, rootD.ID,
+		data.NewPointString(data.PointTypeDescription, "", "set up"), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, 10*time.Second, "description not propagated downstream", func() bool {
+		nodes, err := client.GetNodesType[client.Device](ncD, "all", rootD.ID)
+		return err == nil && len(nodes) > 0 && nodes[0].Description == "set up"
+	})
+
+	fmt.Println("**** node created upstream under the device reaches it")
+	varU := client.Variable{ID: "varUp", Parent: rootD.ID, Description: "varUp"}
+	if err := client.SendNodeType(ncU, varU, "test"); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, 10*time.Second, "varUp not propagated downstream", func() bool {
+		nodes, err := client.GetNodesType[client.Variable](ncD, "all", "varUp")
+		return err == nil && len(nodes) > 0
+	})
+}
+
+// TestSyncCredentialRevoke disables a credential while the device is
+// connected, checks that the session is closed and nothing more gets
+// through, then re-enables it and checks that sync resumes.
+func TestSyncCredentialRevoke(t *testing.T) {
+	old := client.SyncRefusedRetry
+	client.SyncRefusedRetry = 2 * time.Second
+	defer func() { client.SyncRefusedRetry = old }()
+
+	ncU, rootU, optsU, stopU := credUpstream(t)
+	defer stopU()
+
+	ncD, rootD, stopD, err := server.TestServer()
+	if err != nil {
+		t.Fatal("Error starting downstream test server: ", err)
+	}
+	defer stopD()
+
+	enrollDevice(t, ncU, rootU, rootD.ID, "cred-1", devicePubKey(t, ncD))
+	startDeviceSync(t, ncD, rootD, optsU.NatsServer)
+
+	waitFor(t, 15*time.Second, "credential not marked connected", func() bool {
+		return getCred(t, ncU, "cred-1").Connected
+	})
+
+	fmt.Println("**** disable the credential")
+	setCred(t, ncU, "cred-1", data.NewPointFloat(data.PointTypeDisabled, "", 1))
+
+	waitFor(t, 15*time.Second, "credential still marked connected", func() bool {
+		return !getCred(t, ncU, "cred-1").Connected
+	})
+
+	// a change on the device must not reach the upstream now
+	err = client.SendNodePoint(ncD, rootD.ID,
+		data.NewPointString(data.PointTypeDescription, "", "while revoked"), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(5 * time.Second)
+	nodes, err := client.GetNodesType[client.Device](ncU, "all", rootD.ID)
+	if err != nil || len(nodes) == 0 {
+		t.Fatal("device node missing upstream")
+	}
+	if nodes[0].Description == "while revoked" {
+		t.Fatal("change reached the upstream through a revoked credential")
+	}
+
+	fmt.Println("**** re-enable the credential")
+	setCred(t, ncU, "cred-1", data.NewPointFloat(data.PointTypeDisabled, "", 0))
+
+	waitFor(t, 30*time.Second, "device did not reconnect", func() bool {
+		return getCred(t, ncU, "cred-1").Connected
+	})
+	waitFor(t, 15*time.Second, "queued change not delivered after reconnect", func() bool {
+		nodes, err := client.GetNodesType[client.Device](ncU, "all", rootD.ID)
+		return err == nil && len(nodes) > 0 && nodes[0].Description == "while revoked"
+	})
+}
+
+// TestSyncCredentialWrongDevice gives the device a credential that sits
+// under a different device node. The connection is accepted, but the
+// permissions are for the other device, so nothing the device does lands.
+func TestSyncCredentialWrongDevice(t *testing.T) {
+	ncU, rootU, optsU, stopU := credUpstream(t)
+	defer stopU()
+
+	ncD, rootD, stopD, err := server.TestServer()
+	if err != nil {
+		t.Fatal("Error starting downstream test server: ", err)
+	}
+	defer stopD()
+
+	enrollDevice(t, ncU, rootU, "some-other-device", "cred-other", devicePubKey(t, ncD))
+	startDeviceSync(t, ncD, rootD, optsU.NatsServer)
+
+	time.Sleep(8 * time.Second)
+
+	nodes, err := client.GetNodes(ncU, "all", rootD.ID, "", true)
+	if err != nil && err != data.ErrDocumentNotFound {
+		t.Fatal(err)
+	}
+	if len(nodes) != 0 {
+		t.Fatal("device announced itself using another device's credential")
+	}
+}
+
+// TestSyncCredentialUnknownKey checks that a key the upstream has never
+// seen is refused outright and the device keeps running.
+func TestSyncCredentialUnknownKey(t *testing.T) {
+	old := client.SyncRefusedRetry
+	client.SyncRefusedRetry = 2 * time.Second
+	defer func() { client.SyncRefusedRetry = old }()
+
+	ncU, _, optsU, stopU := credUpstream(t)
+	defer stopU()
+
+	ncD, rootD, stopD, err := server.TestServer()
+	if err != nil {
+		t.Fatal("Error starting downstream test server: ", err)
+	}
+	defer stopD()
+
+	startDeviceSync(t, ncD, rootD, optsU.NatsServer)
+
+	time.Sleep(5 * time.Second)
+
+	nodes, err := client.GetNodes(ncU, "all", rootD.ID, "", true)
+	if err != nil && err != data.ErrDocumentNotFound {
+		t.Fatal(err)
+	}
+	if len(nodes) != 0 {
+		t.Fatal("device got in with an unknown key")
+	}
+
+	// the device is still serving locally, and says why it is not synced
+	if _, err := client.GetRootNode(ncD); err != nil {
+		t.Fatal("device not serving after refusal:", err)
+	}
+	waitFor(t, 10*time.Second, "sync node does not report the refusal", func() bool {
+		syncs, err := client.GetNodesType[client.Sync](ncD, "all", "sync-id")
+		return err == nil && len(syncs) > 0 && syncs[0].Error == client.SyncErrorRefused
+	})
+
+	// enrolling the key clears the error once it connects
+	rootU, err := client.GetRootNode(ncU)
+	if err != nil {
+		t.Fatal(err)
+	}
+	enrollDevice(t, ncU, rootU, rootD.ID, "cred-1", devicePubKey(t, ncD))
+	waitFor(t, 90*time.Second, "device did not connect once enrolled", func() bool {
+		syncs, err := client.GetNodesType[client.Sync](ncD, "all", "sync-id")
+		return err == nil && len(syncs) > 0 && syncs[0].Error == ""
+	})
+}
+
+// TestSyncCredentialDetachedDevice deletes the device node on the upstream
+// while the device is connected. A detached device must not keep writing,
+// so its credential stops authorizing; restoring the node restores it.
+func TestSyncCredentialDetachedDevice(t *testing.T) {
+	old := client.SyncRefusedRetry
+	client.SyncRefusedRetry = 2 * time.Second
+	defer func() { client.SyncRefusedRetry = old }()
+
+	ncU, rootU, optsU, stopU := credUpstream(t)
+	defer stopU()
+
+	ncD, rootD, stopD, err := server.TestServer()
+	if err != nil {
+		t.Fatal("Error starting downstream test server: ", err)
+	}
+	defer stopD()
+
+	enrollDevice(t, ncU, rootU, rootD.ID, "cred-1", devicePubKey(t, ncD))
+	startDeviceSync(t, ncD, rootD, optsU.NatsServer)
+
+	waitFor(t, 15*time.Second, "credential not marked connected", func() bool {
+		return getCred(t, ncU, "cred-1").Connected
+	})
+
+	fmt.Println("**** detach the device upstream")
+	err = client.SendEdgePoint(ncU, rootD.ID, rootU.ID,
+		data.NewPointFloat(data.PointTypeTombstone, "", 1), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	waitFor(t, 15*time.Second, "credential still connected after detach", func() bool {
+		return !getCred(t, ncU, "cred-1").Connected
+	})
+
+	fmt.Println("**** restore the device upstream")
+	err = client.SendEdgePoint(ncU, rootD.ID, rootU.ID,
+		data.NewPointFloat(data.PointTypeTombstone, "", 0), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	waitFor(t, 30*time.Second, "device did not reconnect after restore", func() bool {
+		return getCred(t, ncU, "cred-1").Connected
+	})
+}
+
+// deviceOnline reads the online point the upstream keeps on a device node.
+func deviceOnline(t *testing.T, nc *nats.Conn, deviceID string) bool {
+	t.Helper()
+	nodes, err := client.GetNodes(nc, "all", deviceID, "", false)
+	if err != nil || len(nodes) == 0 {
+		t.Fatalf("device %v not found: %v", deviceID, err)
+	}
+	online, _ := nodes[0].Points.ValueBool(data.PointTypeOnline, "")
+	return online
+}
+
+// syncOnline reads the online point the sync client keeps on its node.
+func syncOnline(t *testing.T, nc *nats.Conn) bool {
+	t.Helper()
+	syncs, err := client.GetNodesType[client.Sync](nc, "all", "sync-id")
+	if err != nil || len(syncs) == 0 {
+		t.Fatalf("sync node not found: %v", err)
+	}
+	return syncs[0].Online
+}
+
+// TestSyncDeviceState checks that the upstream marks a device node online
+// while its credential is connected and offline once it is not, and that
+// the sync node on the device follows the same connection.
+func TestSyncDeviceState(t *testing.T) {
+	old := client.SyncRefusedRetry
+	client.SyncRefusedRetry = 2 * time.Second
+	defer func() { client.SyncRefusedRetry = old }()
+
+	oldGrace := server.DeviceStateGrace
+	server.DeviceStateGrace = 0
+	defer func() { server.DeviceStateGrace = oldGrace }()
+
+	ncU, rootU, optsU, stopU := credUpstream(t)
+	defer stopU()
+
+	ncD, rootD, stopD, err := server.TestServer()
+	if err != nil {
+		t.Fatal("Error starting downstream test server: ", err)
+	}
+	defer stopD()
+
+	enrollDevice(t, ncU, rootU, rootD.ID, "cred-1", devicePubKey(t, ncD))
+	startDeviceSync(t, ncD, rootD, optsU.NatsServer)
+
+	waitFor(t, 15*time.Second, "device not marked online", func() bool {
+		return deviceOnline(t, ncU, rootD.ID) && syncOnline(t, ncD)
+	})
+
+	fmt.Println("**** disable the credential")
+	setCred(t, ncU, "cred-1", data.NewPointFloat(data.PointTypeDisabled, "", 1))
+
+	waitFor(t, 15*time.Second, "device not marked offline", func() bool {
+		return !deviceOnline(t, ncU, rootD.ID) && !syncOnline(t, ncD)
+	})
+
+	fmt.Println("**** re-enable the credential")
+	setCred(t, ncU, "cred-1", data.NewPointFloat(data.PointTypeDisabled, "", 0))
+
+	waitFor(t, 30*time.Second, "device not marked online after reconnect", func() bool {
+		return deviceOnline(t, ncU, rootD.ID) && syncOnline(t, ncD)
+	})
+}
+
+// TestSyncCredentialWrongParent puts credentials for the device's key under
+// the upstream's own root node and under a group node. Neither is a device
+// node, so neither authorizes anything: under the root, the grant would be
+// the upstream's own origin stream.
+func TestSyncCredentialWrongParent(t *testing.T) {
+	old := client.SyncRefusedRetry
+	client.SyncRefusedRetry = 2 * time.Second
+	defer func() { client.SyncRefusedRetry = old }()
+
+	ncU, rootU, optsU, stopU := credUpstream(t)
+	defer stopU()
+
+	ncD, rootD, stopD, err := server.TestServer()
+	if err != nil {
+		t.Fatal("Error starting downstream test server: ", err)
+	}
+	defer stopD()
+
+	pubKey := devicePubKey(t, ncD)
+
+	group := client.Group{ID: "grp", Parent: rootU.ID, Description: "group"}
+	if err := client.SendNodeType(ncU, group, "test"); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []client.DeviceCred{
+		{ID: "cred-root", Parent: rootU.ID, Description: "under root", PubKey: pubKey},
+		{ID: "cred-group", Parent: "grp", Description: "under group", PubKey: pubKey},
+	} {
+		if err := client.SendNodeType(ncU, c, "test"); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	startDeviceSync(t, ncD, rootD, optsU.NatsServer)
+
+	waitFor(t, 20*time.Second, "sync node does not report the refusal", func() bool {
+		syncs, err := client.GetNodesType[client.Sync](ncD, "all", "sync-id")
+		return err == nil && len(syncs) > 0 && syncs[0].Error == client.SyncErrorRefused
+	})
+
+	for _, id := range []string{"cred-root", "cred-group"} {
+		if getCred(t, ncU, id).Connected {
+			t.Fatalf("%v authorized a connection", id)
+		}
+	}
+	nodes, err := client.GetNodes(ncU, "all", rootD.ID, "", true)
+	if err != nil && err != data.ErrDocumentNotFound {
+		t.Fatal(err)
+	}
+	if len(nodes) != 0 {
+		t.Fatal("device got in through a misplaced credential")
+	}
+}
+
+// TestDeviceInboxScope checks that a device's reply inbox is its own: it
+// can receive its own replies and cannot subscribe to the _INBOX.> space
+// every other client on the upstream replies into.
+func TestDeviceInboxScope(t *testing.T) {
+	ncU, rootU, optsU, stopU := credUpstream(t)
+	defer stopU()
+
+	seed, pub, err := client.GenerateDeviceKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	kp, err := nkeys.FromSeed([]byte(seed))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	enrollDevice(t, ncU, rootU, "dev-inbox", "cred-inbox", pub)
+
+	errs := make(chan string, 8)
+	var nc *nats.Conn
+	waitFor(t, 10*time.Second, "credential not accepted", func() bool {
+		nc, err = nats.Connect(optsU.NatsServer, nats.Nkey(pub, kp.Sign),
+			nats.CustomInboxPrefix(client.InboxPrefix(pub)),
+			nats.ErrorHandler(func(_ *nats.Conn, _ *nats.Subscription, err error) {
+				select {
+				case errs <- err.Error():
+				default:
+				}
+			}), nats.NoReconnect())
+		return err == nil
+	})
+	defer nc.Close()
+
+	// its own replies arrive on its own inbox
+	if _, err := nc.Request("nodes.all.dev-inbox", nil, 5*time.Second); err != nil {
+		t.Fatal("device could not receive its own reply:", err)
+	}
+
+	// everyone else's do not
+	if _, err := nc.SubscribeSync("_INBOX.>"); err != nil {
+		t.Fatal(err)
+	}
+	if err := nc.Flush(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case e := <-errs:
+		if !strings.Contains(e, "Permissions Violation") {
+			t.Fatalf("subscribing to _INBOX.> gave %v", e)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("device could subscribe to the shared inbox")
+	}
+}
+
+// TestDeviceStreamConfig checks that the upstream, not the device, decides
+// how the device's replica stream is configured: a stream left with extra
+// subjects and a republish is replaced when the credential goes live, and
+// the device cannot create one of its own.
+func TestDeviceStreamConfig(t *testing.T) {
+	ncU, rootU, optsU, stopU := credUpstream(t)
+	defer stopU()
+
+	jsU, err := jetstream.New(ncU)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+
+	// a stream a device made before the upstream created them itself
+	_, err = jsU.CreateStream(ctx, jetstream.StreamConfig{
+		Name:      "inst_dev-stream_dev-stream",
+		Subjects:  []string{"inst.dev-stream.dev-stream.>", "auth.>"},
+		Storage:   jetstream.MemoryStorage,
+		RePublish: &jetstream.RePublish{Source: ">", Destination: "_INBOX_X.cap.>"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	seed, pub, err := client.GenerateDeviceKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	kp, err := nkeys.FromSeed([]byte(seed))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	enrollDevice(t, ncU, rootU, "dev-stream", "cred-stream", pub)
+
+	var nc *nats.Conn
+	waitFor(t, 10*time.Second, "credential not accepted", func() bool {
+		nc, err = nats.Connect(optsU.NatsServer, nats.Nkey(pub, kp.Sign),
+			nats.CustomInboxPrefix(client.InboxPrefix(pub)), nats.NoReconnect())
+		return err == nil
+	})
+	defer nc.Close()
+
+	s, err := jsU.Stream(ctx, "inst_dev-stream_dev-stream")
+	if err != nil {
+		t.Fatal("device stream missing:", err)
+	}
+	cfg := s.CachedInfo().Config
+	if !slices.Equal(cfg.Subjects, []string{"inst.dev-stream.dev-stream.>"}) || cfg.RePublish != nil {
+		t.Fatalf("stream not replaced: subjects %v, republish %v", cfg.Subjects, cfg.RePublish)
+	}
+
+	// the device can see its stream but not configure one
+	jsD, err := jetstream.New(nc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := jsD.Stream(ctx, "inst_dev-stream_dev-stream"); err != nil {
+		t.Fatal("device cannot read its stream:", err)
+	}
+	cctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	_, err = jsD.CreateStream(cctx, jetstream.StreamConfig{
+		Name:     "inst_dev-stream_dev-stream",
+		Subjects: []string{"inst.dev-stream.dev-stream.>", "auth.>"},
+	})
+	if err == nil {
+		t.Fatal("device created its own stream")
+	}
+}
+
+// TestDeviceReplicaBoundary has a credentialed device write into its own
+// stream the way the second audit did: points for the upstream root, a
+// user under the root, and an upstream group adopted into its subtree.
+// None of it reaches the upstream tree, before or after a restart, while
+// a node of its own does, even with its points sent before its edge.
+func TestDeviceReplicaBoundary(t *testing.T) {
+	ncU, rootU, optsU, stopU := credUpstream(t)
+	stopped := false
+	defer func() {
+		if !stopped {
+			stopU()
+		}
+	}()
+
+	group := client.Group{ID: "grp-b", Parent: rootU.ID, Description: "upstream group"}
+	if err := client.SendNodeType(ncU, group, "test"); err != nil {
+		t.Fatal(err)
+	}
+
+	seed, pub, err := client.GenerateDeviceKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	kp, err := nkeys.FromSeed([]byte(seed))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const dev = "dev-b"
+	enrollDevice(t, ncU, rootU, dev, "cred-b", pub)
+
+	var nc *nats.Conn
+	waitFor(t, 10*time.Second, "credential not accepted", func() bool {
+		nc, err = nats.Connect(optsU.NatsServer, nats.Nkey(pub, kp.Sign),
+			nats.CustomInboxPrefix(client.InboxPrefix(pub)), nats.NoReconnect())
+		return err == nil
+	})
+	defer nc.Close()
+
+	jsD, err := jetstream.New(nc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+
+	publish := func(subject string, pts data.Points) {
+		t.Helper()
+		for i := range pts {
+			pts[i].Time = time.Now()
+		}
+		if _, err := jsD.Publish(ctx, "inst.dev-b.dev-b."+subject, pts.Encode()); err != nil {
+			t.Fatalf("publish %v: %v", subject, err)
+		}
+	}
+	nodeType := func(typ string) data.Points {
+		return data.Points{data.NewPointString(data.PointTypeNodeType, "", typ)}
+	}
+
+	// outside the boundary
+	publish(rootU.ID+".p.description.0",
+		data.Points{data.NewPointString(data.PointTypeDescription, "", "taken")})
+	publish(rootU.ID+".ep.evil-user", nodeType(data.NodeTypeUser))
+	publish("evil-user.p.email.0", data.Points{data.NewPointString(data.PointTypeEmail, "", "evil")})
+	publish("evil-user.p.pass.0", data.Points{data.NewPointString(data.PointTypePass, "", "pw")})
+	publish(dev+".ep.grp-b", nodeType(data.NodeTypeGroup))
+	publish("grp-b.p.description.0",
+		data.Points{data.NewPointString(data.PointTypeDescription, "", "taken")})
+
+	// inside it, points first
+	publish("dev-var.p.description.0",
+		data.Points{data.NewPointString(data.PointTypeDescription, "", "device var")})
+	publish(dev+".ep.dev-var", nodeType(data.NodeTypeVariable))
+
+	check := func(ncU *nats.Conn) {
+		t.Helper()
+
+		waitFor(t, 10*time.Second, "device node did not arrive", func() bool {
+			nodes, err := client.GetNodes(ncU, dev, "dev-var", "", false)
+			return err == nil && len(nodes) == 1 && nodes[0].Desc() == "device var"
+		})
+
+		root, err := client.GetRootNode(ncU)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if root.Desc() == "taken" {
+			t.Error("device wrote the upstream root")
+		}
+
+		if nodes, _ := client.GetNodes(ncU, "all", "evil-user", "", true); len(nodes) > 0 {
+			t.Errorf("device created a user outside its boundary: %+v", nodes)
+		}
+		if nodes, _ := client.UserCheck(ncU, "evil", "pw"); len(nodes) > 0 {
+			t.Error("user written by the device signed in")
+		}
+
+		groups, err := client.GetNodes(ncU, "all", "grp-b", "", true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, g := range groups {
+			if g.Parent != rootU.ID {
+				t.Errorf("device adopted an upstream group under %v", g.Parent)
+			}
+			if g.Desc() == "taken" {
+				t.Error("device wrote an upstream group")
+			}
+		}
+	}
+
+	check(ncU)
+
+	// the start-up load applies the same rule
+	nc.Close()
+	stopU()
+	stopped = true
+
+	ncU, _, stopU, err = server.TestServerOptsKeepStore(optsU)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stopped = false
+
+	check(ncU)
+}

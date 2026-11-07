@@ -1,0 +1,40 @@
+# run cargo install mdbook mdbook-toc mdbook-linkcheck2
+
+[book]
+authors = ["Cliff Brake"]
+language = "en"
+src = "."
+title = "Simple IoT"
+
+[build]
+# Output goes beside the source root rather than inside it. With src = "."
+# the default build directory sits inside the source tree, and mdbook serve
+# then sees its own output as a change and rebuilds without end.
+build-dir = "../siot-docs"
+
+#[preprocessor.toc]
+
+[output.html]
+git-repository-url = "https://github.com/simpleiot/simpleiot"
+edit-url-template = "https://github.com/simpleiot/simpleiot/edit/master/{path}"
+# docs/theme (inside the docs/ mount used by the Docker build) overrides the
+# favicon; missing theme files fall back to the built-in themes.
+theme = "docs/theme"
+# docs/theme/siot.css restyles the built-in "coal" theme to match the palette
+# and typography of simpleiot.org, so coal serves as both the default and the
+# preferred dark theme. The other built-in themes stay available in the picker.
+additional-css = ["docs/theme/siot.css"]
+# docs/theme/siot.js turns the book title in the menu bar into a link back to
+# the main site at simpleiot.org.
+additional-js = ["docs/theme/siot.js"]
+default-theme = "coal"
+preferred-dark-theme = "coal"
+
+# [output.linkcheck2]
+# follow-web-links = true
+# exclude = [
+#   'localhost*',
+#   '192*',
+#   'modbus*',
+#   'shelly*'
+# ]

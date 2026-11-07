@@ -1,0 +1,1176 @@
+package server
+
+import (
+	"context"
+	"encoding/base64"
+	"errors"
+	"fmt"
+	"log"
+	"net"
+	"slices"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/nats-io/nats-server/v2/server"
+	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
+	"github.com/nats-io/nkeys"
+	"github.com/simpleiot/simpleiot/client"
+	"github.com/simpleiot/simpleiot/data"
+)
+
+// Device authentication modes, selected with --deviceAuth or
+// SIOT_DEVICE_AUTH.
+const (
+	// DeviceAuthOptional accepts the shared token from anywhere, as well as
+	// device credentials.
+	DeviceAuthOptional = "optional"
+	// DeviceAuthRequired accepts the shared token only from loopback
+	// connections (the server's own client and the CLI on the same host),
+	// so every remote connection has to present a device credential.
+	DeviceAuthRequired = "required"
+)
+
+// authReconcilePeriod is how often the authorizer compares the live
+// connections with its index: connections whose credential is gone are
+// closed, and the connected status of each credential is brought up to
+// date.
+const authReconcilePeriod = 5 * time.Second
+
+// DeviceStateGrace is how long after start-up a device that was online is
+// given to reconnect before its node is marked offline, so restarting this
+// instance does not record every device as having dropped. Tests shorten
+// it.
+var DeviceStateGrace = 2 * time.Minute
+
+// credEntry is what the authorizer knows about one credential.
+type credEntry struct {
+	credID   string
+	deviceID string
+	// disabled is set when the credential is disabled, or when it does not
+	// authorize anything: it has no live parent, more than one, or the
+	// device it sits under has been deleted. The entry stays in the index
+	// so a change can be told from a credential the tree never had.
+	disabled bool
+	// connected tracks the connected point on the credential node so the
+	// authorizer sends it only when it changes.
+	connected bool
+}
+
+// enrollEntry is what the authorizer knows about one enrollment token.
+type enrollEntry struct {
+	nodeID string
+	// parents are the parents of the token's live edges. A device the
+	// token enrolls is created under the parent, so the enroller honors
+	// a token only when there is exactly one.
+	parents     []string
+	disabled    bool
+	autoApprove bool
+	expires     int64
+}
+
+// enrollTokenInfo is what the enroller needs from one live enrollment
+// token, read from the index in one piece.
+type enrollTokenInfo struct {
+	nodeID      string
+	parents     []string
+	autoApprove bool
+}
+
+// authConn records what a device or user connection was granted, so a
+// later change to the index, to the streams in a device's boundary, or to
+// a user's place in the tree can be enforced by closing it.
+type authConn struct {
+	pubKey string
+	userID string
+	// enrollID is the enrollment token node a connection was accepted
+	// with, set only for a connection that is enrolling a key.
+	enrollID string
+	grant    string
+	// added is when the connection was authorized.
+	added time.Time
+}
+
+// connRegisterGrace is how long a connection's entry is kept while it is
+// missing from the server's connection list. Enforcement reads that list
+// before taking the lock, so an entry written in between is not in it yet;
+// dropping the entry would leave the connection unenforced.
+const connRegisterGrace = time.Minute
+
+// userAuthority is what the authorizer needs from the store to authenticate
+// a browser: who a JWT belongs to and where that user sits in the tree.
+type userAuthority interface {
+	UserFromToken(token string) (userID string, expires time.Time, ok bool)
+	UserAnchors(userID string) []string
+	// AuthAllowed and AuthFailed are the sign-in limiter, shared with
+	// password checks so a token guessed here counts like a password
+	// guessed over HTTP.
+	AuthAllowed(key string) bool
+	AuthFailed(key, source string)
+}
+
+// authorizer authenticates every connection to the embedded NATS server.
+// The shared token grants full access, as it always has. An NKey whose
+// public key is in a deviceCred node grants exactly the subjects the device
+// under that node needs to sync (see devicePermissions). A user ID with the
+// user's JWT as the password grants the subtrees that user sits under (see
+// userPermissions), which is how the browser connects. The index is held
+// in memory so Check, which runs inside the server's connection handling,
+// never waits on a NATS request.
+type authorizer struct {
+	token      string
+	deviceAuth string
+
+	mu sync.RWMutex
+	// ready is set once the index has been loaded from the store; until
+	// then only the shared token is accepted and devices retry.
+	ready  bool
+	rootID string
+	// users validates user JWTs and answers where a user sits; nil until
+	// the store is serving, and user connections are refused meanwhile.
+	users userAuthority
+	// creds indexes credentials by public key.
+	creds map[string]*credEntry
+	// credIDs maps every credential node ID seen to its public key, which
+	// is blank until the key is set, so a point on a credential node can be
+	// tied back to the entry.
+	credIDs map[string]string
+	// devices maps a device ID to the credential IDs under it.
+	devices map[string]map[string]bool
+	// enroll indexes enrollment tokens by hash, and enrollIDs maps the
+	// node ID back to the hash.
+	enroll    map[string]*enrollEntry
+	enrollIDs map[string]string
+	// conns records live device connections by connection ID.
+	conns map[uint64]authConn
+	// online tracks the online point on each device node with
+	// credentials, so the authorizer sends it only when
+	// it changes. It starts from the stored point.
+	online map[string]bool
+	// started is when the index was loaded; see DeviceStateGrace.
+	started time.Time
+
+	nc  *nats.Conn
+	ns  *server.Server
+	sub *nats.Subscription
+	// work carries index maintenance out of the NATS callbacks.
+	work chan func()
+	// connects carries successful device authentications out of Check.
+	connects chan string
+	stop     chan struct{}
+	done     chan struct{}
+}
+
+func newAuthorizer(token, deviceAuth string) *authorizer {
+	if deviceAuth == "" {
+		deviceAuth = DeviceAuthOptional
+	}
+
+	return &authorizer{
+		token:      token,
+		deviceAuth: deviceAuth,
+		creds:      make(map[string]*credEntry),
+		credIDs:    make(map[string]string),
+		devices:    make(map[string]map[string]bool),
+		enroll:     make(map[string]*enrollEntry),
+		enrollIDs:  make(map[string]string),
+		conns:      make(map[uint64]authConn),
+		online:     make(map[string]bool),
+		work:       make(chan func(), 1024),
+		connects:   make(chan string, 256),
+		stop:       make(chan struct{}),
+		done:       make(chan struct{}),
+	}
+}
+
+// Check implements server.Authentication. An NKey is a device; a user name
+// with a JWT as the password is a browser; anything else is checked against
+// the shared token. An MQTT client sends its password as the token as well,
+// so one that is not a user JWT falls through to the token check.
+func (a *authorizer) Check(c server.ClientAuthentication) bool {
+	opts := c.GetOpts()
+
+	if opts.Nkey != "" {
+		return a.checkNkey(c, opts)
+	}
+
+	if opts.Username != "" && opts.Password != "" {
+		if ok, decided := a.checkUser(c, opts); decided {
+			return ok
+		}
+	}
+
+	return a.checkToken(c, opts)
+}
+
+// checkUser authenticates a browser connection: user is a user node ID and
+// pass is a JWT issued to that user at sign-in. decided is false when the
+// password is not a user JWT at all, so Check can go on to the token
+// check; a JWT that is present but wrong is refused outright.
+func (a *authorizer) checkUser(c server.ClientAuthentication, opts *server.ClientOpts) (ok, decided bool) {
+	a.mu.RLock()
+	users := a.users
+	a.mu.RUnlock()
+
+	if !looksLikeJWT(opts.Password) {
+		return false, false
+	}
+
+	if users == nil {
+		log.Printf("NATS auth: refusing user %v from %v, store not ready yet",
+			opts.Username, c.RemoteAddress())
+		return false, true
+	}
+
+	if !users.AuthAllowed(opts.Username) {
+		log.Printf("NATS auth: refusing user %v from %v, too many failures",
+			opts.Username, c.RemoteAddress())
+		return false, true
+	}
+
+	userID, expires, valid := users.UserFromToken(opts.Password)
+	if !valid || userID != opts.Username {
+		users.AuthFailed(opts.Username, fmt.Sprint("NATS ", c.RemoteAddress()))
+		return false, true
+	}
+
+	anchors := users.UserAnchors(userID)
+	if len(anchors) == 0 {
+		log.Printf("NATS auth: refusing user %v from %v, user is not in the tree",
+			userID, c.RemoteAddress())
+		return false, true
+	}
+
+	c.RegisterUser(&server.User{
+		Username:           userID,
+		Permissions:        userPermissions(userID, anchors),
+		ConnectionDeadline: expires,
+	})
+
+	a.mu.Lock()
+	a.conns[c.GetID()] = authConn{
+		userID: userID,
+		grant:  strings.Join(anchors, ","),
+		added:  time.Now(),
+	}
+	a.mu.Unlock()
+
+	return true, true
+}
+
+// looksLikeJWT reports whether a password has the shape of a JWT: three
+// dot-separated parts. It decides only which check runs, never whether a
+// connection is accepted.
+func looksLikeJWT(s string) bool {
+	return strings.Count(s, ".") == 2 && strings.HasPrefix(s, "ey")
+}
+
+// userPermissions is everything the browser needs for the subtrees a user
+// sits under, and nothing else. The anchor and user ID lead every subject
+// the connection may publish to, so the store can check the target
+// against the anchor without trusting anything else in the message. The
+// inbox prefix is the user's own, since _INBOX.> is shared by every
+// client on the server.
+func userPermissions(userID string, anchors []string) *server.Permissions {
+	pub := make([]string, 0, len(anchors)+1)
+	sub := make([]string, 0, len(anchors)+1)
+	for _, g := range anchors {
+		pub = append(pub, fmt.Sprintf("u.%v.%v.>", g, userID))
+		sub = append(sub, fmt.Sprintf("up.%v.>", g))
+	}
+	pub = append(pub, "auth.me")
+	sub = append(sub, client.InboxPrefix(userID)+".>")
+
+	return &server.Permissions{
+		Publish:   &server.SubjectPermission{Allow: pub},
+		Subscribe: &server.SubjectPermission{Allow: sub},
+	}
+}
+
+// checkToken accepts the shared token, or anything at all when no token is
+// configured, which is how an instance has always run. An enrollment token
+// on its own is not enough: it is presented alongside the key being
+// enrolled, and checkNkey handles it.
+func (a *authorizer) checkToken(c server.ClientAuthentication, opts *server.ClientOpts) bool {
+	if a.token == "" {
+		return true
+	}
+
+	if opts.Token != a.token {
+		return false
+	}
+
+	if a.deviceAuth == DeviceAuthRequired && !isLoopback(c.RemoteAddress()) {
+		log.Printf("NATS auth: refusing shared token from %v, device auth is required",
+			c.RemoteAddress())
+		return false
+	}
+
+	return true
+}
+
+// checkNkey verifies the nonce signature, looks the public key up, and
+// registers the device's permissions with the connection.
+func (a *authorizer) checkNkey(c server.ClientAuthentication, opts *server.ClientOpts) bool {
+	if !verifyNonce(opts.Nkey, opts.Sig, c.GetNonce()) {
+		log.Printf("NATS auth: bad signature for %v", opts.Nkey)
+		return false
+	}
+
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if !a.ready {
+		if a.token == "" {
+			return true
+		}
+		log.Printf("NATS auth: refusing %v, credentials not loaded yet", opts.Nkey)
+		return false
+	}
+
+	e, ok := a.creds[opts.Nkey]
+	if !ok {
+		if a.token == "" {
+			// an open instance accepts everyone; a key it does not know
+			// is no different from no credentials at all
+			return true
+		}
+		// a key the instance does not know, presented with a live
+		// enrollment token, may ask to be enrolled and nothing else
+		if id, enrolling := a.enrollNodeLocked(opts.Token); enrolling {
+			c.RegisterUser(&server.User{
+				Username:    opts.Nkey,
+				Permissions: enrollPermissions(opts.Nkey),
+			})
+			a.conns[c.GetID()] = authConn{
+				pubKey:   opts.Nkey,
+				enrollID: id,
+				added:    time.Now(),
+			}
+			return true
+		}
+		log.Printf("NATS auth: refusing unknown credential %v", opts.Nkey)
+		return false
+	}
+	if e.disabled {
+		log.Printf("NATS auth: refusing disabled credential %v", opts.Nkey)
+		return false
+	}
+
+	perms := devicePermissions(opts.Nkey, e.deviceID, a.rootID)
+
+	c.RegisterUser(&server.User{Username: opts.Nkey, Permissions: perms})
+
+	a.conns[c.GetID()] = authConn{
+		pubKey: opts.Nkey,
+		added:  time.Now(),
+	}
+
+	select {
+	case a.connects <- opts.Nkey:
+	default:
+	}
+
+	return true
+}
+
+// root is this instance's root node ID.
+func (a *authorizer) root() string {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.rootID
+}
+
+// enrollNodeLocked returns the node ID of the live enrollment token a
+// value matches, if any. The caller holds the lock.
+func (a *authorizer) enrollNodeLocked(token string) (string, bool) {
+	if token == "" {
+		return "", false
+	}
+
+	e, ok := a.enroll[client.HashEnrollToken(token)]
+	if !a.ready || !ok || !e.live() {
+		return "", false
+	}
+
+	return e.nodeID, true
+}
+
+func (e *enrollEntry) live() bool {
+	return !e.disabled && (e.expires == 0 || time.Now().Unix() < e.expires)
+}
+
+// EnrollToken returns the node, parents, and approval setting of a live
+// enrollment token, and false when the token is not live.
+func (a *authorizer) EnrollToken(token string) (enrollTokenInfo, bool) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
+	id, ok := a.enrollNodeLocked(token)
+	if !ok {
+		return enrollTokenInfo{}, false
+	}
+	e := a.enroll[a.enrollIDs[id]]
+
+	return enrollTokenInfo{
+		nodeID:      e.nodeID,
+		parents:     slices.Clone(e.parents),
+		autoApprove: e.autoApprove,
+	}, true
+}
+
+// enrollPermissions is all an enrollment token allows: one request, and
+// the reply to it on the enrolling key's own inbox.
+func enrollPermissions(pubKey string) *server.Permissions {
+	return &server.Permissions{
+		Publish:   &server.SubjectPermission{Allow: []string{client.SubjectEnrollRequest}},
+		Subscribe: &server.SubjectPermission{Allow: []string{client.InboxPrefix(pubKey) + ".>"}},
+	}
+}
+
+// Device implements api.DeviceAuthorizer: the device a public key is
+// enrolled for, when it is and its credential is live.
+func (a *authorizer) Device(pubKey string) (string, bool) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
+	e, ok := a.creds[pubKey]
+	if !a.ready || !ok || e.disabled {
+		return "", false
+	}
+
+	return e.deviceID, true
+}
+
+// verifyNonce checks that the signature was made over the connection nonce
+// by the holder of the public key's seed. The signature is encoded the way
+// nats.go sends it.
+func verifyNonce(pubKey, sig string, nonce []byte) bool {
+	if sig == "" || len(nonce) == 0 {
+		return false
+	}
+
+	raw, err := base64.RawURLEncoding.DecodeString(sig)
+	if err != nil {
+		raw, err = base64.StdEncoding.DecodeString(sig)
+		if err != nil {
+			return false
+		}
+	}
+
+	kp, err := nkeys.FromPublicKey(pubKey)
+	if err != nil {
+		return false
+	}
+
+	return kp.Verify(nonce, raw) == nil
+}
+
+func isLoopback(addr net.Addr) bool {
+	if addr == nil {
+		return false
+	}
+
+	host, _, err := net.SplitHostPort(addr.String())
+	if err != nil {
+		host = addr.String()
+	}
+
+	ip := net.ParseIP(host)
+
+	return ip != nil && ip.IsLoopback()
+}
+
+// devicePermissions is everything a device with root X needs to sync with
+// this instance (root R), and nothing else:
+//
+//   - find the upstream root and check whether it is adopted
+//   - announce itself under the root
+//   - push its origin stream into the replica stream inst_X_X, which the
+//     upstream creates (see ensureDeviceStream), since a stream create
+//     request carries a whole configuration
+//   - pull inst_X_R, the stream this instance writes the device's
+//     configuration to, which the store creates when it adopts the device
+//   - receive replies
+//
+// A device never needs p.>, up.>, auth.*, admin.*, or any other instance's
+// streams.
+func devicePermissions(pubKey, deviceID, rootID string) *server.Permissions {
+	X := deviceID
+	own := fmt.Sprintf("inst_%v_%v", X, X)
+	pull := fmt.Sprintf("inst_%v_%v", X, rootID)
+
+	pub := []string{
+		"nodes.root.all",
+		"nodes.all." + X,
+		fmt.Sprintf("ep.%v.%v", X, rootID),
+		fmt.Sprintf("inst.%v.%v.>", X, X),
+		"$JS.API.STREAM.INFO." + own,
+		"$JS.API.STREAM.INFO." + pull,
+		"$JS.API.CONSUMER.CREATE." + pull + ".>",
+		"$JS.API.CONSUMER.INFO." + pull + ".*",
+		"$JS.API.CONSUMER.MSG.NEXT." + pull + ".*",
+		"$JS.ACK." + pull + ".>",
+	}
+
+	return &server.Permissions{
+		Publish:   &server.SubjectPermission{Allow: pub},
+		Subscribe: &server.SubjectPermission{Allow: []string{client.InboxPrefix(pubKey) + ".>"}},
+	}
+}
+
+// start loads the index from the store and begins maintaining it. It is
+// called once the store is serving requests; device and user connections
+// that arrive before then are refused and retry.
+func (a *authorizer) start(nc *nats.Conn, ns *server.Server, users userAuthority) error {
+	a.nc = nc
+	a.ns = ns
+
+	root, err := client.GetRootNode(nc)
+	if err != nil {
+		return fmt.Errorf("error getting root node: %w", err)
+	}
+
+	a.mu.Lock()
+	a.rootID = root.ID
+	a.users = users
+	a.mu.Unlock()
+
+	// subscribe before loading so nothing is missed in between
+	a.sub, err = nc.Subscribe("up.root.>", a.handleUp)
+	if err != nil {
+		return fmt.Errorf("error subscribing to tree changes: %w", err)
+	}
+
+	creds, err := client.GetNodes(nc, "all", "all", data.NodeTypeDeviceCred, true)
+	if err != nil && !errors.Is(err, data.ErrDocumentNotFound) {
+		return fmt.Errorf("error loading credentials: %w", err)
+	}
+
+	seen := map[string]bool{}
+	for _, c := range creds {
+		if seen[c.ID] {
+			continue
+		}
+		seen[c.ID] = true
+		a.refreshCred(c.ID)
+	}
+
+	tokens, err := client.GetNodes(nc, "all", "all", data.NodeTypeEnrollToken, true)
+	if err != nil && !errors.Is(err, data.ErrDocumentNotFound) {
+		return fmt.Errorf("error loading enrollment tokens: %w", err)
+	}
+
+	seen = map[string]bool{}
+	for _, t := range tokens {
+		if seen[t.ID] {
+			continue
+		}
+		seen[t.ID] = true
+		a.refreshEnroll(t.ID)
+	}
+
+	a.mu.Lock()
+	a.ready = true
+	a.started = time.Now()
+	n := len(a.creds)
+	a.mu.Unlock()
+
+	log.Printf("NATS auth: %v device credential(s) loaded, device auth %v",
+		n, a.deviceAuth)
+
+	go a.run()
+
+	return nil
+}
+
+// stopIndex stops maintaining the index. The server refuses device
+// connections from then on, which only matters during shutdown.
+func (a *authorizer) stopIndex() {
+	if a.sub != nil {
+		_ = a.sub.Unsubscribe()
+	}
+
+	a.mu.Lock()
+	a.ready = false
+	a.users = nil
+	started := a.nc != nil
+	a.mu.Unlock()
+
+	if started {
+		close(a.stop)
+		<-a.done
+	}
+}
+
+func (a *authorizer) enqueue(f func()) {
+	select {
+	case a.work <- f:
+	default:
+		log.Println("NATS auth: index maintenance queue full, dropping update")
+	}
+}
+
+// handleUp watches every point in the tree for the few that concern
+// credentials: a point on a credential node, a new deviceCred node, an
+// edge change on a device that has credentials, and, for signed-in users,
+// an edge change or a new password on the user node.
+func (a *authorizer) handleUp(msg *nats.Msg) {
+	tok := strings.Split(msg.Subject, ".")
+
+	// up.root.<node>.<type>.<key> is a node point;
+	// up.root.<node>.<parent>.<type>.<key> is an edge point
+	if len(tok) != 5 && len(tok) != 6 {
+		return
+	}
+
+	nodeID := tok[2]
+
+	a.mu.RLock()
+	_, isCred := a.credIDs[nodeID]
+	_, isDevice := a.devices[nodeID]
+	_, isEnroll := a.enrollIDs[nodeID]
+	isUser := a.userConnected(nodeID)
+	a.mu.RUnlock()
+
+	switch {
+	case isUser && len(tok) == 6:
+		// the user's anchors may have changed; enforce recomputes them
+		a.enqueue(a.enforce)
+	case isUser && tok[3] == data.PointTypePass:
+		a.enqueue(func() { a.closeUser(nodeID) })
+	case isCred:
+		a.enqueue(func() { a.refreshCred(nodeID) })
+	case isEnroll:
+		a.enqueue(func() { a.refreshEnroll(nodeID) })
+	case isDevice:
+		a.enqueue(func() { a.refreshDevice(nodeID) })
+	case len(tok) == 6 && tok[4] == data.PointTypeNodeType:
+		pts, err := data.DecodePoints(msg.Data)
+		if err != nil {
+			return
+		}
+		for _, p := range pts {
+			switch p.Txt() {
+			case data.NodeTypeDeviceCred:
+				a.enqueue(func() { a.refreshCred(nodeID) })
+				return
+			case data.NodeTypeEnrollToken:
+				a.enqueue(func() { a.refreshEnroll(nodeID) })
+				return
+			}
+		}
+	}
+}
+
+// refreshEnroll rereads one enrollment token from the store.
+func (a *authorizer) refreshEnroll(nodeID string) {
+	edges, err := client.GetNodes(a.nc, "all", nodeID, "", true)
+	if err != nil && !errors.Is(err, data.ErrDocumentNotFound) {
+		log.Printf("NATS auth: error reading enrollment token %v: %v", nodeID, err)
+		return
+	}
+
+	var t client.EnrollToken
+	var parents []string
+	found := false
+	for _, e := range edges {
+		if e.Type != data.NodeTypeEnrollToken {
+			continue
+		}
+		found = true
+		if err := data.Decode(data.NodeEdgeChildren{NodeEdge: e}, &t); err != nil {
+			log.Printf("NATS auth: error decoding enrollment token %v: %v", nodeID, err)
+			return
+		}
+		if ts, _ := e.IsTombstone(); !ts && !slices.Contains(parents, e.Parent) {
+			parents = append(parents, e.Parent)
+		}
+	}
+
+	if !found {
+		return
+	}
+	live := len(parents) > 0
+
+	a.mu.Lock()
+	if old, ok := a.enrollIDs[nodeID]; ok && old != t.TokenHash {
+		delete(a.enroll, old)
+	}
+	a.enrollIDs[nodeID] = t.TokenHash
+	if t.TokenHash != "" {
+		a.enroll[t.TokenHash] = &enrollEntry{
+			nodeID:      nodeID,
+			parents:     parents,
+			disabled:    t.Disabled || !live,
+			autoApprove: t.AutoApprove,
+			expires:     int64(t.Expires),
+		}
+	}
+	a.mu.Unlock()
+
+	a.enforce()
+}
+
+// run serializes index maintenance, status updates, and enforcement.
+func (a *authorizer) run() {
+	defer close(a.done)
+
+	ticker := time.NewTicker(authReconcilePeriod)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-a.stop:
+			return
+		case f := <-a.work:
+			f()
+		case pub := <-a.connects:
+			a.noteConnect(pub)
+		case <-ticker.C:
+			a.reconcile()
+		}
+	}
+}
+
+// refreshCred rereads one credential from the store and updates the index.
+// Every change to a credential comes through here, so the rules for what
+// authorizes are in one place: a credential authorizes the one live device
+// it sits under, as long as that device is itself live in the tree.
+func (a *authorizer) refreshCred(credID string) {
+	edges, err := client.GetNodes(a.nc, "all", credID, "", true)
+	if err != nil && !errors.Is(err, data.ErrDocumentNotFound) {
+		log.Printf("NATS auth: error reading credential %v: %v", credID, err)
+		return
+	}
+
+	var pubKey string
+	var disabled, connected, found bool
+	var parents []string
+
+	for _, e := range edges {
+		if e.Type != data.NodeTypeDeviceCred {
+			continue
+		}
+		found = true
+		pubKey, _ = e.Points.Text(data.PointTypePubKey, "")
+		disabled, _ = e.Points.ValueBool(data.PointTypeDisabled, "")
+		connected, _ = e.Points.ValueBool(data.PointTypeConnected, "")
+		// a credential a device enrolled itself with authorizes nothing
+		// until an operator approves it
+		if pending, _ := e.Points.ValueBool(data.PointTypePending, ""); pending {
+			disabled = true
+		}
+		if ts, _ := e.IsTombstone(); !ts {
+			parents = append(parents, e.Parent)
+		}
+	}
+
+	if !found {
+		return
+	}
+
+	var deviceID string
+	var deviceOnline bool
+	switch len(parents) {
+	case 1:
+		deviceID = parents[0]
+		var live bool
+		live, deviceOnline = a.deviceLive(credID, deviceID)
+		if !live {
+			disabled = true
+		}
+		// the stream is in place before the credential authorizes
+		// anything, so the device never needs to create it
+		if !disabled && pubKey != "" {
+			if err := a.ensureDeviceStream(deviceID); err != nil {
+				log.Printf("NATS auth: credential %v authorizes nothing until its stream is ready: %v",
+					credID, err)
+				disabled = true
+			}
+		}
+	case 0:
+		disabled = true
+	default:
+		log.Printf("NATS auth: credential %v has %v parents, authorizing nothing",
+			credID, len(parents))
+		disabled = true
+	}
+
+	a.mu.Lock()
+	if old, ok := a.credIDs[credID]; ok && old != "" && old != pubKey {
+		delete(a.creds, old)
+	}
+	a.credIDs[credID] = pubKey
+
+	for d, ids := range a.devices {
+		delete(ids, credID)
+		if len(ids) == 0 {
+			delete(a.devices, d)
+			delete(a.online, d)
+		}
+	}
+	if deviceID != "" {
+		if a.devices[deviceID] == nil {
+			a.devices[deviceID] = make(map[string]bool)
+		}
+		a.devices[deviceID][credID] = true
+		// the stored state is the starting point; from here on the
+		// authorizer is the authority on it
+		if _, ok := a.online[deviceID]; !ok {
+			a.online[deviceID] = deviceOnline
+		}
+	}
+
+	if pubKey != "" {
+		e := a.creds[pubKey]
+		if e == nil {
+			// the stored status is the starting point; from here on
+			// the authorizer is the authority on it
+			e = &credEntry{connected: connected}
+			a.creds[pubKey] = e
+		}
+		e.credID = credID
+		e.deviceID = deviceID
+		e.disabled = disabled
+		// this instance's own credential, replicated from the upstream,
+		// records connections to the upstream; reconcile would otherwise
+		// see no local connection and overwrite that record
+		if deviceID == a.rootID {
+			e.connected = false
+		}
+	}
+	a.mu.Unlock()
+
+	a.enforce()
+}
+
+// deviceLive reports whether the node a credential sits under is a live
+// device node other than this instance's own root, and whether its stored
+// online point is set. A detached device must not keep writing, and a credential under anything else would grant that
+// node's subjects: under the root, that is this instance's own origin
+// stream. The root case is not logged: every downstream holds its own
+// credential there, replicated from the upstream, so it is the normal
+// state rather than a misconfiguration.
+func (a *authorizer) deviceLive(credID, deviceID string) (live, online bool) {
+	if deviceID == a.root() {
+		return false, false
+	}
+
+	edges, err := client.GetNodes(a.nc, "all", deviceID, "", false)
+	if err != nil && !errors.Is(err, data.ErrDocumentNotFound) {
+		log.Printf("NATS auth: error reading device %v: %v", deviceID, err)
+		return false, false
+	}
+
+	if len(edges) == 0 {
+		return false, false
+	}
+
+	if edges[0].Type != data.NodeTypeDevice {
+		log.Printf("NATS auth: credential %v is under a %v node, not a device, authorizing nothing",
+			credID, edges[0].Type)
+		return false, false
+	}
+
+	online, _ = edges[0].Points.ValueBool(data.PointTypeOnline, "")
+
+	return true, online
+}
+
+// ensureDeviceStream makes sure the replica stream a device pushes into,
+// inst_X_X, exists with the configuration the store expects: capturing
+// inst.X.X.> and nothing else, and copying nowhere. A stream that differs
+// was not made by this instance or by a sync client, so it is replaced;
+// what it held is dropped with it. The store applies its storage policy
+// when it finds the stream.
+func (a *authorizer) ensureDeviceStream(deviceID string) error {
+	name := fmt.Sprintf("inst_%v_%v", deviceID, deviceID)
+	subject := fmt.Sprintf("inst.%v.%v.>", deviceID, deviceID)
+
+	js, err := jetstream.New(a.nc)
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	s, err := js.Stream(ctx, name)
+	switch {
+	case err == nil:
+		if deviceStreamOK(s.CachedInfo().Config, subject) {
+			return nil
+		}
+		log.Printf("NATS auth: replacing replica stream %v, its configuration is not one this instance creates",
+			name)
+		if err := js.DeleteStream(ctx, name); err != nil {
+			return fmt.Errorf("error deleting stream %v: %w", name, err)
+		}
+	case !errors.Is(err, jetstream.ErrStreamNotFound):
+		return fmt.Errorf("error reading stream %v: %w", name, err)
+	}
+
+	_, err = js.CreateStream(ctx, jetstream.StreamConfig{
+		Name:     name,
+		Subjects: []string{subject},
+	})
+	if err != nil {
+		return fmt.Errorf("error creating stream %v: %w", name, err)
+	}
+
+	return nil
+}
+
+// deviceStreamOK reports whether a replica stream's configuration captures
+// only the device's own subjects and sends nothing anywhere else.
+func deviceStreamOK(cfg jetstream.StreamConfig, subject string) bool {
+	return len(cfg.Subjects) == 1 && cfg.Subjects[0] == subject &&
+		cfg.RePublish == nil && cfg.Mirror == nil && len(cfg.Sources) == 0 &&
+		cfg.SubjectTransform == nil
+}
+
+// refreshDevice rereads every credential under a device.
+func (a *authorizer) refreshDevice(deviceID string) {
+	a.mu.RLock()
+	var ids []string
+	for id := range a.devices[deviceID] {
+		ids = append(ids, id)
+	}
+	a.mu.RUnlock()
+
+	for _, id := range ids {
+		a.refreshCred(id)
+	}
+}
+
+// noteConnect records a successful device connection on its credential
+// node.
+func (a *authorizer) noteConnect(pubKey string) {
+	a.mu.Lock()
+	e, ok := a.creds[pubKey]
+	var credID string
+	if ok {
+		credID = e.credID
+		e.connected = true
+	}
+	a.mu.Unlock()
+
+	if !ok {
+		return
+	}
+
+	pts := data.Points{
+		data.NewPointFloat(data.PointTypeLastConnect, "", float64(time.Now().Unix())),
+		data.NewPointFloat(data.PointTypeConnected, "", 1),
+	}
+	if err := client.SendNodePoints(a.nc, credID, pts, false); err != nil {
+		log.Printf("NATS auth: error recording connection on %v: %v", credID, err)
+	}
+
+	a.updateDeviceStates()
+}
+
+// updateDeviceStates brings the online point on each device node with
+// credentials in line with its connections: 1 while any of its
+// credentials is connected, 0 once none is. The point's time is
+// when the device came online or went offline.
+func (a *authorizer) updateDeviceStates() {
+	a.mu.Lock()
+	connected := make(map[string]bool)
+	for _, e := range a.creds {
+		if e.connected {
+			connected[e.deviceID] = true
+		}
+	}
+	inGrace := time.Since(a.started) < DeviceStateGrace
+	changed := make(map[string]bool)
+	for deviceID := range a.devices {
+		if deviceID == a.rootID || a.online[deviceID] == connected[deviceID] {
+			continue
+		}
+		if !connected[deviceID] && inGrace {
+			continue
+		}
+		a.online[deviceID] = connected[deviceID]
+		changed[deviceID] = connected[deviceID]
+	}
+	a.mu.Unlock()
+
+	for deviceID, online := range changed {
+		p := data.NewPointFloat(data.PointTypeOnline, "", data.BoolToFloat(online))
+		if err := client.SendNodePoint(a.nc, deviceID, p, false); err != nil {
+			log.Printf("NATS auth: error recording online=%v on device %v: %v", online, deviceID, err)
+		}
+	}
+}
+
+// userConnected reports whether a user has a live connection recorded.
+// Lock must be held.
+func (a *authorizer) userConnected(userID string) bool {
+	for _, c := range a.conns {
+		if c.userID == userID {
+			return true
+		}
+	}
+	return false
+}
+
+// closeUser closes every connection a user holds, which is what a password
+// change does: the JWTs issued before it stay valid until they expire, so
+// the browser is sent back to sign-in instead.
+func (a *authorizer) closeUser(userID string) {
+	live := a.liveConns()
+
+	a.mu.RLock()
+	var closeIDs []uint64
+	for cid := range live {
+		if a.conns[cid].userID == userID {
+			closeIDs = append(closeIDs, cid)
+		}
+	}
+	a.mu.RUnlock()
+
+	for _, cid := range closeIDs {
+		log.Printf("NATS auth: closing connection %v, password changed for user %v", cid, userID)
+		if err := a.ns.DisconnectClientByID(cid); err != nil {
+			log.Printf("NATS auth: error closing connection %v: %v", cid, err)
+		}
+	}
+}
+
+// liveConns lists the device, enrollment, and user connections the server
+// currently holds.
+func (a *authorizer) liveConns() map[uint64]string {
+	live := make(map[uint64]string)
+	if a.ns == nil {
+		return live
+	}
+
+	a.mu.RLock()
+	userConns := make(map[uint64]bool, len(a.conns))
+	for cid, c := range a.conns {
+		if c.userID != "" {
+			userConns[cid] = true
+		}
+	}
+	a.mu.RUnlock()
+
+	for offset := 0; ; {
+		cz, err := a.ns.Connz(&server.ConnzOptions{Username: true, Offset: offset, Limit: 1024})
+		if err != nil {
+			log.Println("NATS auth: error listing connections:", err)
+			return live
+		}
+		for _, c := range cz.Conns {
+			if nkeys.IsValidPublicUserKey(c.AuthorizedUser) || userConns[c.Cid] {
+				live[c.Cid] = c.AuthorizedUser
+			}
+		}
+		offset += len(cz.Conns)
+		if offset >= cz.Total || len(cz.Conns) == 0 {
+			break
+		}
+	}
+
+	return live
+}
+
+// enforce closes every device connection whose credential no longer
+// authorizes what it was granted: the credential was disabled, deleted, or
+// re-keyed, or its device was detached. It also closes every user connection whose anchors have
+// changed, so the browser reconnects and is granted the new set, or is
+// refused if the user is gone.
+func (a *authorizer) enforce() {
+	live := a.liveConns()
+
+	a.mu.Lock()
+	users := a.users
+	var closeIDs []uint64
+	for cid, pub := range live {
+		ac, ok := a.conns[cid]
+		if !ok {
+			// The server lists a connection once it has parsed CONNECT,
+			// before the authorizer has decided on it, and every
+			// connection it accepts gets an entry. With no entry yet the
+			// connection is still being authenticated, and the next pass
+			// sees its entry.
+			continue
+		}
+		if ac.userID != "" {
+			grant := ""
+			if users != nil {
+				grant = strings.Join(users.UserAnchors(ac.userID), ",")
+			}
+			if grant == "" || grant != ac.grant {
+				closeIDs = append(closeIDs, cid)
+			}
+			continue
+		}
+		if ac.enrollID != "" {
+			// enrolling, not yet a credential: the connection lives as
+			// long as the enrollment token it came in with
+			e, ok := a.enroll[a.enrollIDs[ac.enrollID]]
+			if !ok || !e.live() {
+				closeIDs = append(closeIDs, cid)
+			}
+			continue
+		}
+		e, ok := a.creds[pub]
+		if !ok && a.token == "" {
+			// an open instance accepts a key it does not know, so there
+			// is nothing to take away from it
+			continue
+		}
+		if !ok || e.disabled {
+			closeIDs = append(closeIDs, cid)
+		}
+	}
+	for cid, ac := range a.conns {
+		if _, ok := live[cid]; !ok && time.Since(ac.added) > connRegisterGrace {
+			delete(a.conns, cid)
+		}
+	}
+	a.mu.Unlock()
+
+	for _, cid := range closeIDs {
+		log.Printf("NATS auth: closing connection %v, %v no longer authorizes it",
+			cid, live[cid])
+		if err := a.ns.DisconnectClientByID(cid); err != nil {
+			log.Printf("NATS auth: error closing connection %v: %v", cid, err)
+		}
+	}
+}
+
+// reconcile enforces the index against live connections and brings the
+// connected point on each credential, and the online point on each
+// device, up to date.
+func (a *authorizer) reconcile() {
+	a.enforce()
+
+	live := a.liveConns()
+	connected := make(map[string]bool)
+	for _, pub := range live {
+		connected[pub] = true
+	}
+
+	var disconnected []string
+	a.mu.Lock()
+	for pub, e := range a.creds {
+		if e.connected && !connected[pub] {
+			e.connected = false
+			disconnected = append(disconnected, e.credID)
+		}
+	}
+	a.mu.Unlock()
+
+	for _, credID := range disconnected {
+		p := data.NewPointFloat(data.PointTypeConnected, "", 0)
+		if err := client.SendNodePoint(a.nc, credID, p, false); err != nil {
+			log.Printf("NATS auth: error recording disconnect on %v: %v", credID, err)
+		}
+	}
+
+	a.updateDeviceStates()
+}

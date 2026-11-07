@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
+
+version: 2
+
+project_name: simpleiot
+
+before:
+  hooks:
+    - go mod download
+    - go generate ./...
+    # release notes are the CHANGELOG.md section for the tag being released,
+    # followed by the download instructions in scripts/release-footer.md, then
+    # formatted for GitHub: paragraphs joined into single lines and
+    # documentation links pointed at docs.simpleiot.org
+    - bash -c './scripts/extract-changelog.sh $(git describe --tags --abbrev=0) > .release-notes.md'
+    - bash -c 'printf "\n---\n\n" >> .release-notes.md; cat ./scripts/release-footer.md >> .release-notes.md'
+    - ./scripts/format-release-notes.sh .release-notes.md
+
+builds:
+  - main: ./cmd/siot
+    id: siot
+    binary: siot
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm
+      - arm64
+      - riscv64
+    goarm:
+      - "6"
+      - "7"
+    ignore:
+      - goos: darwin
+        goarch: riscv64
+      - goos: windows
+        goarch: arm
+      - goos: windows
+        goarch: riscv64
+
+archives:
+  - formats: ["binary"]
+    name_template: >-
+      {{- .ProjectName }}-
+      {{- .Tag }}-
+      {{- if eq .Os "darwin" }}macos
+      {{- else }}{{ .Os }}{{ end }}-
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}{{ .Arm }}{{ end }}
+
+checksum:
+  # keep the name stable across releases -- `siot update` verifies downloads
+  # against this file
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"

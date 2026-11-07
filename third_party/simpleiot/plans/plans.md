@@ -1,0 +1,32 @@
+# Plans
+
+| Plan                                             | Status                                                                                  | Branched From |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------- | ------------- |
+| 2026-03-17-implement-the-next-stage-of-adr-7.md  | **COMPLETE** (follow-up phases superseded by 2026-08-06 plan)                           | ddb230e4      |
+| 2026-08-06-boundary-origin-streams.md            | **COMPLETE** (Phase 7 sourcing spike done; permission-form spike moved to Stage 3 plan) | 540858ae      |
+| 2026-08-06-stage3-jetstream-sync.md              | **COMPLETE** (open items moved to 2026-09-19 sync follow-ups plan)                      | 5afbac2c      |
+| 2026-03-11-jetstream-point-encoding-changes.md   | **COMPLETE**                                                                            | cd94a3a8      |
+| 2026-07-30-gps-client.md                         | **COMPLETE**                                                                            | b3ee632a      |
+| 2026-07-31-ancestor-tag-inheritance.md           | **COMPLETE**                                                                            | 04e226eb      |
+| 2026-07-31-mcu-shell-mode.md                     | **COMPLETE**                                                                            | 3e2e4023      |
+| 2026-08-01-provisioning.md                       | **COMPLETE**                                                                            | 54169492      |
+| 2026-08-01-modbus-onewire-clients.md             | **COMPLETE**                                                                            | 54169492      |
+| 2026-08-11-prometheus-scrape-metrics.md          | **COMPLETE**                                                                            | ff1e2c7d      |
+| 2026-08-19-notifications.md                      | **COMPLETE** (notification display in UI deferred)                                      | d2bbb2a3      |
+| 2026-08-20-mqtt.md                               | **COMPLETE**                                                                            | 9032d3c3      |
+| 2026-08-20-rule-timing-and-actions.md            | **COMPLETE**                                                                            | 9032d3c3      |
+| 2026-08-20-per-device-credentials.md             | **COMPLETE**                                                                            | cbc07a67      |
+| 2026-08-24-linux-gpio-client.md                  | **COMPLETE** (Phase 4 pulse counting deferred)                                          | 179d06ea      |
+| 2026-08-24-iio-client.md                         | **COMPLETE**                                                                            | 8454edb6      |
+| 2026-08-24-security-cleanup.md                   | **COMPLETE** (open items moved to 2026-09-19 plan)                                      | 179d06ea      |
+| 2026-08-24-primary-mirror-edges.md               | **COMPLETE**                                                                            | fc017969      |
+| 2026-08-26-shelly-push-and-generic-components.md | **COMPLETE** (Phase 4 CoIoT for Gen1 not done)                                          | 98e0fa88      |
+| 2026-09-01-ui-over-nats.md                       | **COMPLETE** (in-process server client not done; see plan)                              | b373fc73      |
+| 2026-09-19-security-followups.md                 | **IN PROGRESS** (items 7, 8, 9 done)                                                    | d4855615      |
+| 2026-09-19-jetstream-sync-followups.md           | **NOT STARTED**                                                                         | a85c26f6      |
+| 2026-09-19-shared-nodes-across-devices.md        | **COMPLETE**                                                                            | cda79cb7      |
+| 2026-10-12-sync-idle-traffic.md                  | **COMPLETE** (field check on edge-bw-test pending)                                      | 4c0e082d      |
+| 2026-10-12-compressed-sync-transport.md          | **NOT STARTED**                                                                         | 527d555a      |
+| 2026-10-20-enrollment-tokens-per-group.md        | **COMPLETE**                                                                            | 1f56a211      |
+| 2026-10-23-svelte-admin-ui.md                    | **COMPLETE**                                                                            | 8ded2b93      |
+| 2026-10-29-crockford-base32-ids.md               | **COMPLETE**                                                                            | ee8f9054      |

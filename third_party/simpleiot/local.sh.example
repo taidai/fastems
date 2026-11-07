@@ -1,0 +1,3 @@
+# run a second SIOT instance alongside the first: the HTTP port (4233) and
+# NATS monitoring port (4234) follow the NATS port
+export SIOT_NATS_PORT=4232

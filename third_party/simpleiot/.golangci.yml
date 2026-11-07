@@ -1,0 +1,29 @@
+version: "2"
+linters:
+  enable:
+    - revive
+  exclusions:
+    generated: lax
+    presets:
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - path: (.+)\.go$
+        text: SA1019
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      # npm packages can ship Go sources
+      - node_modules
+formatters:
+  enable:
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      - node_modules

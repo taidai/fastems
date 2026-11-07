@@ -1,0 +1,171 @@
+# User Interface
+
+**Contents**
+
+<!-- toc -->
+
+## Basic Navigation
+
+After Simple IoT is started, a web application is available on port `:4223`
+(typically [http://localhost:4223](http://localhost:4223)). After logging in
+(default user/pass is `admin`/`admin`), you will be presented with a tree of
+nodes.
+
+![nodes](images/nodes.png)
+
+Each node has its own address: opening a node's detail changes the address to
+`/nodes/<id>`, and opening that address later shows the tree expanded down to
+the node. The link button in a node's detail copies the address. The interface
+follows the system's light or dark setting, and the moon and sun button in the
+header switches between them.
+
+The interface also:
+
+- **Remembers what you had open.** The nodes you expanded and the details you
+  opened come back when you reload the page or sign in again on the same
+  browser.
+- **Searches the tree.** The search box in the header shows the nodes whose
+  description, type, or ID contains what you type, with the nodes above them,
+  and hides the rest. The first search loads the whole tree, so it can take a
+  moment on a large one. Clearing the box returns the tree to how it was.
+- **Works from the keyboard.** Tab to the tree, then use the up and down arrows
+  to move between nodes, right to expand a node or step into it, left to
+  collapse it or step out to its parent, and Enter to open or close its detail.
+  In a node's form, Enter saves and Escape discards.
+- **Shows each node's type and status.** A label after each node names its type.
+  The dot to the left of a node is red when it reports an error, orange when it
+  is offline, and gray when it is disabled.
+- **Marks unsaved changes.** An edited field's label turns blue, and the save
+  and discard buttons stay in view until the change is saved or discarded. A
+  short notice confirms each save, add, move, and delete; an error stays until
+  it is dismissed.
+- **Asks before losing changes.** With unsaved edits, closing the tab, leaving
+  the page, or signing out asks first.
+
+The previous interface is still available at `/old` (for example
+[http://localhost:4223/old/](http://localhost:4223/old/)) and signs in with the
+same account. It will be removed in a later release.
+
+The `Node` is the base unit of configuration. Each node contains `Points` which
+describe various attributes of a node. When you expand a node, the information
+you see is a rendering of the point data in the node.
+
+You can expand/collapse child nodes by clicking on the arrow
+![arrow](images/icon-arrow.png) to the left of a node.
+
+You can expand/edit node details by clicking on the dot
+![dot](images/icon-dot.png) to the left of a node.
+
+![node edit](images/node-edit.png)
+
+## Live updates
+
+The page keeps one connection to the server and shows changes as they happen: a
+value a device reports, a node someone else adds, or a setting you change in
+another tab appear without a refresh. Expanding a node fetches its children, and
+the arrow shows a spinner until they arrive; expanding again after collapsing
+fetches them afresh. A `connecting...` badge next to the logo means the
+connection is down and the page is trying again; when it is back, what is on
+screen is fetched again. Being removed from a group, or a password change,
+closes the connection, and an expired sign-in returns you to the sign-in page.
+
+## Adding nodes
+
+Child nodes can be added to a node by clicking on the dot to expand the node,
+then clicking on the plus icon. A list of available nodes to add will then be
+displayed:
+
+![node add](images/node-add.png)
+
+Some nodes are populated automatically if a new device is discovered, or a
+downstream device starts sending data.
+
+## Deleting, Moving, Mirroring, and Duplicating nodes
+
+Simple IoT provides the ability to re-arrange and organize your node structure.
+
+To delete a node, expand it, and then press the delete
+![icon delete](images/icon-delete.png) icon.
+
+To move or copy a node, expand it and press the copy
+![copy icon](images/icon-copy.png) icon. Then expand the destination node and
+press the paste ![paste icon](images/icon-paste.png) icon. You will then be
+presented with the following options:
+
+![paste options](images/paste-options.png)
+
+- `move` - moves a node to new location
+- `mirror` - is useful if you want a user or device to be a member of multiple
+  groups. If you change a node, all the mirror copies of the node update as
+  well.
+- `duplicate` - recursively duplicates the copied node plus all its descendants.
+  This is useful for scenarios where you have a device or site configuration
+  (perhaps a complex Modbus setup) that you want to duplicate at a new site.
+
+After a mirror or a duplicate, the copied node stays on the clipboard, so you
+can paste it into several destinations in a row, such as mirroring a shared
+variable into each device at a site. A move clears it. Press the x next to the
+clipboard entry at the top of the page to clear it yourself.
+
+Mirroring a node that talks to hardware (a Modbus IO, a Shelly IO, a GPIO line,
+an MQTT connection) gives you a view of it rather than a second copy that runs.
+The instance where the node actually lives keeps talking to the device, and the
+mirror displays the same values wherever you put it. This is what makes it safe
+to mirror a sensor from inside a device into a group you share with someone, and
+mirrors are labeled in the tree so it is clear that nothing runs there. Controls
+still work from a mirror: setting a value on one travels to the device that owns
+the node, and the result comes back.
+
+Mirroring a node into several devices shares it with all of them. A setpoint or
+schedule kept on the upstream and mirrored into each device at a site arrives on
+every one, and a change made in the portal reaches them all. Each device sees
+the current values as soon as the mirror is added, and removing a mirror removes
+the node from that device only. A change made on one device reaches the upstream
+but not the other devices, so keep values that several devices depend on where
+they are set: on the upstream. See
+[a node reaches every device it is mirrored into](../ref/data.md#a-node-reaches-every-device-it-is-mirrored-into).
+
+Some nodes belong under a particular parent and are found through it: a Modbus
+IO under its Modbus node, a rule condition under its rule. For these, `mirror`
+is the only option offered, because moving one somewhere else would leave it
+where nothing looks for it.
+
+Deleting a node where it lives also removes its mirrors, so a deleted sensor
+does not leave entries behind in the groups it was mirrored into. Removing a
+mirror leaves the node itself alone.
+
+If you have mirrors that were created before this behavior existed, they keep
+working the way they did. To bring one up to date, remove the mirror and mirror
+it again from the node where it lives.
+
+## Raw Node View
+
+If a node is expanded, a raw node button is available that allows you to view
+the raw type and points for any node in the tree. It is useful at times during
+development and debugging to be able to view the raw points for a node.
+
+<img src="assets/image-20231205121809598.png" alt="image-20231205121809598" style="zoom:80%;" />
+
+After the raw button is pressed, the type and points are displayed:
+
+<img src="./assets/image-20231219103344798.png" alt="image-20231219103344798" style="zoom:67%;" />
+
+Unknown nodes will also be displayed as raw nodes.
+
+Points can also be edited, added, or removed in raw mode.
+
+A custom node type can also be added by specifying the node type when adding a
+node. This can be useful when developing new clients or external clients that
+run outside of the SImple IoT application.
+
+<img src="./assets/image-20231219103622737.png" alt="image-20231219103622737" style="zoom: 50%;" />
+
+## Graphing and advanced dashboards
+
+If you need graphs and more advanced dashboards, consider coupling Simple IoT
+[with Grafana](graphing.md). Someday we hope to have dashboard capabilities
+built in.
+
+## Custom UIs
+
+See the [frontend reference documentation](../ref/frontend.md).

@@ -1,0 +1,139 @@
+# Simple IoT Clients
+
+**Contents**
+
+<!-- toc -->
+
+Most functionality in Simple IoT is implemented in Clients.
+
+![app-arch](images/arch-app.png)
+
+Each client can be configured by one or more nodes in the SIOT store graph.
+These nodes may be created by a user, a process that detects new plug and play
+hardware, or other clients.
+
+A client interacts with the system by listening for new points it is interested
+in and sending out points as it acquires new data.
+
+## Creating new clients
+
+See [Development](development.md) for information on how to set up a development
+system.
+
+Simple IoT provides utilities that assist in creating new clients. See the
+[Go package documentation](https://pkg.go.dev/github.com/simpleiot/simpleiot/client)
+for more information. A client manager is created for each client type. This
+manager instantiates new client instances when new nodes are detected and then
+sends point updates to the client. Two levels of nodes are currently supported
+for client configuration. An example of this would be a Rule node that has
+Condition and Action child nodes.
+
+A "disabled" option is useful and should be considered for every new client.
+
+Creating a new client typically requires the following steps:
+
+1. Add any new node and points types to
+   [`schema.go`](https://github.com/simpleiot/simpleiot/blob/master/data/schema.go)
+   and
+   [`schema.ts`](https://github.com/simpleiot/simpleiot/blob/master/ui/src/lib/siot/schema.ts).
+   A test checks that the two match. Please try to reuse existing point types
+   when possible.
+1. Create a new client in
+   [`client/`](https://github.com/simpleiot/simpleiot/tree/master/client)
+   directory. A client is defined by a type that satisfies the
+   [`Client interface`](https://pkg.go.dev/github.com/simpleiot/simpleiot/client#Client).
+   A constructor must also be defined that is passed to
+   [`NewManager`](https://pkg.go.dev/github.com/simpleiot/simpleiot/client#NewManager)
+   and a struct that represents the client data. The name of the struct must
+   match the node type - for instance a node of type `canBus` needs to be
+   defined by a struct named `CanBus`. Additionally, each field of the client
+   struct must have point tags. This allows us to automatically create and
+   modify client structs from arrays of node points.
+1. Create a new manager for the client in
+   [`client/client.go`](https://github.com/simpleiot/simpleiot/blob/master/client/client.go)
+1. Create a UI for the client in a new directory under
+   [`ui/src/lib/nodes/`](https://github.com/simpleiot/simpleiot/tree/master/ui/src/lib/nodes),
+   with an `index.ts` that describes the node type and an `Editor.svelte`. The
+   UI finds the directory on its own. See [Frontend](frontend.md#svelte-ui).
+
+It is easiest to copy one of the existing clients to start. The NTP client is
+relatively simple and may be a good example.
+
+## Where a client runs
+
+A node can sit in more than one place in the tree, and a client is started for
+each place the node is found. That is right for a node whose behavior comes from
+where it sits (a `db` client records the subtree under its parent, a user
+carries a role in each group), and wrong for a node that owns something outside
+the tree, where two clients would drive one bus or one line with no way to
+coordinate.
+
+So the edge carries a role. A client runs on a node's primary edge and on edges
+with no role, and never on a mirror. This is handled by the client manager, so a
+client does not check anything itself.
+
+When you add a client, decide which side its node type belongs on and add it to
+`primaryTypes` or `treeScopedTypes` in `data/edge_role.go`. The question to ask
+is whether two instances of the client would do the same work twice or different
+work: a GPIO line requested twice is a conflict, while a `db` node under two
+groups records two different subtrees. A test fails when a node type is in
+neither group, so this is not something that can be forgotten. See
+[Primary and mirror edges](data.md#primary-and-mirror-edges).
+
+## Client life-cycle
+
+It is important the clients cleanly implement the
+[Run()/Stop() pattern](architecture-app.md#application-lifecycle) and shut down
+cleanly when Stop() is called releasing all resources. If nodes are added or
+removed, clients are started/stopped. Additionally, if a child node of a client
+config is added or removed, the entire client is stopped and then restarted.
+This relieves the burden on the client from managing the addition/removal of
+client functionality. Thus, it is very important that clients stop cleanly and
+release resources in case they are restarted.
+
+## Message echo
+
+Clients need to be aware of the "echo" problem as they typically subscribe as
+well as publish to the `points` subject for the nodes they manage. When they
+publish to these subjects, these messages will be echoed back to them. There are
+several solutions:
+
+1. Create a new NATS connection for the client with the
+   [`NoEcho`](https://docs.nats.io/using-nats/developer/connecting/noecho)
+   option set. For this to work, each client will need to establish its own
+   connection to the server. This may not work in cases where subjects are
+   aliased into authenticated subject namespaces.
+2. Inspect the `Point` `Origin` field - if is blank, then it was generated by
+   the node that owns the point and does not need to be processed by the client
+   generating the data for that node. If is not blank, then the Point was
+   generated by a user, rule, or something other than the client owning the node
+   and must be processed. This may not always work - example: user is connected
+   to a downstream instance and modifies a point that then propagates upstream
+   - it may get echoed back to an authenticated client.
+3. (investigation stage) A NATS messages header can be populated with the ID of
+   the client that sent the message. If it is an authenticated client, then the
+   message will not be echoed on the authenticated client subject namespace of
+   the same ID. This information is not stored, so cannot be used for auditing
+   purposes.
+
+The SIOT client manager filters out points for the following two scenarios:
+
+1. A point with the same ID as the client and Origin set to a blank string.
+1. A point received for a client where Origin matches the client root node ID.
+
+Thus, if you want to set a point in one client and get that point to another
+node client, you must set the Origin field. This helps ensure that the Origin
+field is used consistently as otherwise stuff won't work.
+
+This gets a little tricky for clients that manage a node and its children (for
+instance the rule client - it has condition and action child nodes). If we
+follow the following rule:
+
+**Clients must set the point Origin field for any point sent to anything other
+than its root node.**
+
+If we following the above rule, then things should work. We may eventually
+provide clients with a function to send points that handles this automatically,
+but for now it is manual.
+
+See also [tracking who made changes](data.md#tracking-who-made-changes).

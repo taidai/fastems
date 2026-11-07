@@ -1,0 +1,85 @@
+package client
+
+import (
+	"fmt"
+	"log"
+	"strings"
+
+	"github.com/nats-io/nats.go"
+	"github.com/simpleiot/simpleiot/data"
+)
+
+// DecodeNodePointsMsg decodes NATS message into node ID and points
+func DecodeNodePointsMsg(msg *nats.Msg) (string, []data.Point, error) {
+	chunks := strings.Split(msg.Subject, ".")
+	// p.<nodeId>.<type>.<key> = 4 chunks
+	if len(chunks) < 4 {
+		return "", []data.Point{}, fmt.Errorf("invalid NodePoints subject: %v", msg.Subject)
+	}
+	nodeID := chunks[1]
+	points, err := data.DecodePoints(msg.Data)
+	if err != nil {
+		log.Println("Error decoding points:", err)
+		return "", []data.Point{}, fmt.Errorf("error decoding points: %w", err)
+	}
+
+	return nodeID, points, nil
+}
+
+// DecodeEdgePointsMsg decodes NATS message into node ID and points
+// returns nodeID, parentID, points, error
+func DecodeEdgePointsMsg(msg *nats.Msg) (string, string, []data.Point, error) {
+	chunks := strings.Split(msg.Subject, ".")
+	// ep.<nodeId>.<parentId> = 3 chunks
+	if len(chunks) < 3 {
+		return "", "", []data.Point{}, fmt.Errorf("invalid EdgePoints subject: %v", msg.Subject)
+	}
+	nodeID := chunks[1]
+	parentID := chunks[2]
+	points, err := data.DecodePoints(msg.Data)
+	if err != nil {
+		log.Println("Error decoding points:", err)
+		return "", "", []data.Point{}, fmt.Errorf("error decoding points: %w", err)
+	}
+
+	return nodeID, parentID, points, nil
+}
+
+// DecodeUpNodePointsMsg decodes NATS message into node ID and points
+// returns upID, nodeID, points, error
+func DecodeUpNodePointsMsg(msg *nats.Msg) (string, string, []data.Point, error) {
+	chunks := strings.Split(msg.Subject, ".")
+	// up.<upId>.<nodeId>.<type>.<key> = 5 chunks
+	if len(chunks) < 5 {
+		return "", "", []data.Point{}, fmt.Errorf("invalid UpNode subject: %v", msg.Subject)
+	}
+	upID := chunks[1]
+	nodeID := chunks[2]
+	points, err := data.DecodePoints(msg.Data)
+	if err != nil {
+		log.Println("Error decoding points:", err)
+		return "", "", []data.Point{}, fmt.Errorf("error decoding points: %w", err)
+	}
+
+	return upID, nodeID, points, nil
+}
+
+// DecodeUpEdgePointsMsg decodes NATS message into node ID and points
+// returns upID, nodeID, parentID, points, error
+func DecodeUpEdgePointsMsg(msg *nats.Msg) (string, string, string, []data.Point, error) {
+	chunks := strings.Split(msg.Subject, ".")
+	// up.<upId>.<nodeId>.<parentId>.<type>.<key> = 6 chunks
+	if len(chunks) < 6 {
+		return "", "", "", []data.Point{}, fmt.Errorf("invalid UpEdge subject: %v", msg.Subject)
+	}
+	upID := chunks[1]
+	nodeID := chunks[2]
+	parentID := chunks[3]
+	points, err := data.DecodePoints(msg.Data)
+	if err != nil {
+		log.Println("Error decoding points:", err)
+		return "", "", "", []data.Point{}, fmt.Errorf("error decoding points: %w", err)
+	}
+
+	return upID, nodeID, parentID, points, nil
+}

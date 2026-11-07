@@ -1,0 +1,725 @@
+package server
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io/fs"
+	"log"
+	"net"
+	"net/http"
+	"net/url"
+	"os"
+	"path"
+	"strconv"
+	"sync"
+	"time"
+
+	"github.com/nats-io/nats-server/v2/server"
+	"github.com/nats-io/nats.go"
+	"github.com/oklog/run"
+	"github.com/simpleiot/simpleiot/api"
+	"github.com/simpleiot/simpleiot/client"
+	"github.com/simpleiot/simpleiot/data"
+	"github.com/simpleiot/simpleiot/frontend"
+	"github.com/simpleiot/simpleiot/store"
+	"github.com/simpleiot/simpleiot/ui"
+)
+
+// ErrServerStopped is returned when the server is stopped
+var ErrServerStopped = errors.New("Server stopped")
+
+// Options used for starting Simple IoT
+type Options struct {
+	StoreFile  string
+	ResetStore bool
+	DataDir    string
+	HTTPPort   string
+	// DisableHTTP turns off the built-in HTTP listener. The application
+	// handler is still constructed so an embedding runtime can serve it.
+	DisableHTTP       bool
+	DebugHTTP         bool
+	DebugLifecycle    bool
+	NatsServer        string
+	NatsDisableServer bool
+	NatsPort          int
+	// NatsMonitorPort is the NATS monitoring port, bound to loopback; zero
+	// turns it off.
+	NatsMonitorPort int
+	// NatsWSPort is the NATS WebSocket port, bound to loopback and reached
+	// through the HTTP port's proxy. Zero picks a free port.
+	NatsWSPort int
+	// NatsWSOrigins lists the origins allowed to open a NATS WebSocket,
+	// such as https://siot.example.com. Empty allows any origin; the
+	// browser still has to present a user JWT.
+	NatsWSOrigins []string
+	// NatsMQTTPort enables the built-in MQTT broker on this port. Zero, the
+	// default, leaves it off.
+	NatsMQTTPort   int
+	NatsTLSCert    string
+	NatsTLSKey     string
+	NatsTLSTimeout float64
+	AuthToken      string
+	// DeviceAuth is DeviceAuthOptional (the default) or DeviceAuthRequired;
+	// see server/auth.go.
+	DeviceAuth     string
+	ParticleAPIKey string
+	AppVersion     string
+	OSVersionField string
+	LogNats        bool
+	Dev            bool
+	CustomUIDir    string
+	CustomUIFS     fs.FS
+	// AppOnly disables the generic HTTP/NATS browser APIs. AppHandlerFactory
+	// mounts the product API after the store and user authority are available.
+	AppOnly           bool
+	AppHandlerFactory func(*nats.Conn, api.UserAuthority) http.Handler
+	NatsLoopback      bool
+	UIAssetsDebug     bool
+	// ProvisioningDir is a directory of YAML files applied at start-up and
+	// whenever they change. Empty disables reading files from disk; file nodes
+	// under the provisioning node are still applied.
+	ProvisioningDir string
+	// ProvisioningInterval is how often to look for changes that the directory
+	// watch and the tree subscription might have missed. Zero uses a default.
+	ProvisioningInterval time.Duration
+	// ProvisioningDisable turns provisioning off entirely, including file
+	// nodes in the tree, for an instance that should only be configured
+	// through the UI or the API.
+	ProvisioningDisable bool
+	// optional ID (must be unique) for this instance, otherwise, one is generated
+	ID string
+	// StoreMaxMsgsPerSubject bounds per-subject history in store
+	// streams; 0 uses the default (20000), -1 means unlimited. Current
+	// state is always preserved.
+	StoreMaxMsgsPerSubject int64
+	// StoreCompression selects file store compression: "" uses the
+	// default (s2), "s2" is explicit, "none" disables it.
+	StoreCompression string
+	// StoreSyncInterval overrides the JetStream file sync interval
+	// (power-loss durability window); zero keeps the NATS default (2m).
+	StoreSyncInterval time.Duration
+	// StoreSyncAlways fsyncs every write, for edge devices with
+	// unreliable power, at a write-throughput cost.
+	StoreSyncAlways bool
+}
+
+// Server represents a SIOT server process
+type Server struct {
+	nc                 *nats.Conn
+	options            Options
+	natsServer         *server.Server
+	auth               *authorizer
+	clients            *client.RunGroup
+	chNatsClientClosed chan struct{}
+	chStop             chan struct{}
+	chWaitStart        chan struct{}
+}
+
+// NewServer creates a new server. It starts the embedded NATS server, which
+// loads the JetStream store, and waits for it to accept connections before
+// connecting the server side NATS client.
+func NewServer(o Options) (*Server, *nats.Conn, error) {
+	if o.ID != "" {
+		if err := data.ValidID(o.ID); err != nil {
+			return nil, nil, fmt.Errorf("instance ID: %w", err)
+		}
+	}
+
+	chNatsClientClosed := make(chan struct{})
+
+	auth := newAuthorizer(o.AuthToken, o.DeviceAuth)
+
+	var natsServer *server.Server
+
+	if !o.NatsDisableServer {
+		jsDir := o.DataDir
+		if jsDir == "" {
+			jsDir = "jetstream"
+		}
+
+		var err error
+		natsServer, err = newNatsServer(natsServerOptions{
+			Port: o.NatsPort, Loopback: o.NatsLoopback,
+			HTTPPort: o.NatsMonitorPort,
+			WSPort:   o.NatsWSPort, WSDisable: o.AppOnly,
+			WSOrigins:    o.NatsWSOrigins,
+			MQTTPort:     o.NatsMQTTPort,
+			Auth:         auth,
+			AuthEnabled:  o.AuthToken != "",
+			TLSCert:      o.NatsTLSCert,
+			TLSKey:       o.NatsTLSKey,
+			TLSTimeout:   o.NatsTLSTimeout,
+			StoreDir:     jsDir,
+			ID:           o.ID,
+			SyncInterval: o.StoreSyncInterval,
+			SyncAlways:   o.StoreSyncAlways,
+		})
+		if err != nil {
+			return nil, nil, fmt.Errorf("error setting up nats server: %v", err)
+		}
+
+		// Start returns once JetStream has loaded the store, which takes
+		// longer as the store grows. Connecting the client after this keeps
+		// its reconnect limit and the start-up timeouts from running out
+		// during the load.
+		natsServer.Start()
+		if !natsServer.ReadyForConnections(10 * time.Second) {
+			natsServer.Shutdown()
+			return nil, nil, fmt.Errorf("NATS server failed to start")
+		}
+
+		// Product-only mode has no browser WebSocket proxy or listener.
+		if !o.AppOnly {
+			o.NatsWSPort, err = natsWSPort(natsServer)
+			if err != nil {
+				natsServer.Shutdown()
+				return nil, nil, err
+			}
+		}
+	}
+
+	// the server's own connection to its embedded server verifies the
+	// certificate it was given rather than a name, since the certificate
+	// is for the public name and the connection is over loopback
+	var tlsOpt nats.Option = func(*nats.Options) error { return nil }
+	if !o.NatsDisableServer && o.NatsTLSCert != "" {
+		certPEM, err := os.ReadFile(o.NatsTLSCert)
+		if err != nil {
+			return nil, nil, fmt.Errorf("error reading TLS certificate: %v", err)
+		}
+		cfg, err := client.PinnedTLSConfig(certPEM)
+		if err != nil {
+			return nil, nil, fmt.Errorf("error in TLS certificate: %v", err)
+		}
+		tlsOpt = nats.Secure(cfg)
+	}
+
+	// start the server side nats client
+	nc, err := nats.Connect(o.NatsServer,
+		tlsOpt,
+		nats.Timeout(10*time.Second),
+		nats.PingInterval(60*5*time.Second),
+		nats.MaxPingsOutstanding(5),
+		nats.ReconnectBufSize(5*1024*1024),
+		nats.SetCustomDialer(&net.Dialer{
+			KeepAlive: -1,
+		}),
+		nats.Token(o.AuthToken),
+		nats.RetryOnFailedConnect(true),
+		nats.MaxReconnects(60),
+		nats.ErrorHandler(func(_ *nats.Conn,
+			sub *nats.Subscription, err error) {
+			var subject string
+			if sub != nil {
+				subject = sub.Subject
+			}
+			log.Printf("Server NATS client error, sub: %v, err: %s\n", subject, err)
+		}),
+		nats.CustomReconnectDelay(func(attempts int) time.Duration {
+			log.Println("Server NATS client reconnect attempt #", attempts)
+			return time.Millisecond * 250
+		}),
+		nats.ReconnectHandler(func(_ *nats.Conn) {
+			log.Println("Server NATS client: reconnected")
+		}),
+		nats.ClosedHandler(func(_ *nats.Conn) {
+			log.Println("Server NATS client: closed")
+			close(chNatsClientClosed)
+		}),
+		nats.ConnectHandler(func(_ *nats.Conn) {
+			log.Println("Server NATS client: connected")
+		}),
+	)
+
+	return &Server{
+		nc:                 nc,
+		options:            o,
+		natsServer:         natsServer,
+		auth:               auth,
+		chNatsClientClosed: chNatsClientClosed,
+		chStop:             make(chan struct{}),
+		chWaitStart:        make(chan struct{}),
+		clients:            client.NewRunGroup("Server clients"),
+	}, nc, err
+}
+
+// AddClient can be used to add clients to the server.
+// Clients must be added before start is called. The
+// Server makes sure all clients are shut down before
+// shutting down the server. This makes for a cleaner
+// shutdown.
+func (s *Server) AddClient(client client.RunStop) {
+	s.clients.Add(client)
+}
+
+// Run the server -- only returns if there is an error
+func (s *Server) Run() error {
+	var g run.Group
+
+	logLS := func(_ ...any) {}
+
+	if s.options.DebugLifecycle {
+		logLS = func(m ...any) {
+			log.Println(m...)
+		}
+	}
+
+	o := s.options
+
+	var err error
+
+	// anything that needs to use the store or nats server should add to this wait group.
+	// The store will wait on this before shutting down
+	var storeWg sync.WaitGroup
+
+	// ====================================
+	// Nats server
+	// ====================================
+	auth := s.auth
+
+	// NewServer has already started the NATS server
+	if s.natsServer != nil {
+		g.Add(func() error {
+			s.natsServer.WaitForShutdown()
+			logLS("LS: Exited: nats server")
+			return fmt.Errorf("NATS server stopped")
+		}, func(_ error) {
+			go func() {
+				storeWg.Wait()
+				s.natsServer.Shutdown()
+				logLS("LS: Shutdown: nats server")
+			}()
+		})
+	}
+
+	// ====================================
+	// SIOT Store
+	// ====================================
+
+	storeParams := store.Params{
+		AuthToken: o.AuthToken,
+		Server:    o.NatsServer,
+		Nc:        s.nc,
+		ID:        s.options.ID,
+		JsConfig: store.JsConfig{
+			MaxMsgsPerSubject: o.StoreMaxMsgsPerSubject,
+			Compression:       o.StoreCompression,
+		},
+	}
+
+	siotStore, err := store.NewStore(storeParams)
+
+	if o.ResetStore {
+		if err := siotStore.Reset(); err != nil {
+			log.Fatal("Error resetting store:", err)
+		}
+	}
+
+	if err != nil {
+		log.Fatal("Error creating store: ", err)
+	}
+
+	siotWaitCtx, siotWaitCancel := context.WithTimeout(context.Background(), time.Second*10)
+
+	g.Add(func() error {
+		err := siotStore.Run()
+		logLS("LS: Exited: store")
+		return err
+	}, func(err error) {
+		// we just run in goroutine else this Stop blocking will block everything else
+		go func() {
+			storeWg.Wait()
+			siotWaitCancel()
+			siotStore.Stop(err)
+			logLS("LS: Shutdown: store")
+		}()
+	})
+
+	cancelTimer := make(chan struct{})
+	storeWg.Add(1)
+	g.Add(func() error {
+		defer storeWg.Done()
+		err := siotStore.WaitStart(siotWaitCtx)
+		if err != nil {
+			logLS("LS: Exited: metrics timeout waiting for store")
+			return err
+		}
+
+		// Hack -- this needs moved to a client
+		t := time.NewTimer(10 * time.Second)
+
+		select {
+		case <-t.C:
+		case <-cancelTimer:
+			logLS("LS: Exited: store metrics")
+			return nil
+		}
+
+		rootNode, err := client.GetNodes(s.nc, "root", "all", "", false)
+
+		if err != nil {
+			logLS("LS: Exited: store metrics")
+			return fmt.Errorf("error getting root id for metrics: %v", err)
+		} else if len(rootNode) == 0 {
+			logLS("LS: Exited: store metrics")
+			return fmt.Errorf("error getting root node, no data")
+		}
+
+		err = siotStore.StartMetrics(rootNode[0].ID)
+		logLS("LS: Exited: store metrics")
+		return err
+	}, func(err error) {
+		close(cancelTimer)
+		siotStore.StopMetrics(err)
+		logLS("LS: Shutdown: store metrics")
+	})
+
+	// ====================================
+	// Device key and credentials
+	// ====================================
+
+	key := newDeviceKey(o.DataDir)
+	if err := key.load(); err != nil {
+		return fmt.Errorf("error loading device key: %v", err)
+	}
+
+	cancelKey := make(chan struct{})
+	storeWg.Add(1)
+	g.Add(func() error {
+		defer storeWg.Done()
+		err := siotStore.WaitStart(siotWaitCtx)
+		if err != nil {
+			logLS("LS: Exited: device key timeout waiting for store")
+			return err
+		}
+
+		if err := key.start(s.nc); err != nil {
+			logLS("LS: Exited: device key")
+			return fmt.Errorf("error starting device key: %v", err)
+		}
+
+		<-cancelKey
+		key.stop()
+		logLS("LS: Exited: device key")
+		return nil
+	}, func(_ error) {
+		close(cancelKey)
+		logLS("LS: Shutdown: device key")
+	})
+
+	if !o.NatsDisableServer {
+		// the authorizer accepts only the shared token until the store
+		// is serving, then loads the credential index and starts
+		// accepting device keys
+		cancelAuth := make(chan struct{})
+		storeWg.Add(1)
+		g.Add(func() error {
+			defer storeWg.Done()
+			err := siotStore.WaitStart(siotWaitCtx)
+			if err != nil {
+				logLS("LS: Exited: device auth timeout waiting for store")
+				return err
+			}
+
+			err = auth.start(s.nc, s.natsServer, siotStore)
+			if err != nil {
+				logLS("LS: Exited: device auth")
+				return fmt.Errorf("error starting device auth: %v", err)
+			}
+
+			enr := &enroller{}
+			if err := enr.start(s.nc, auth); err != nil {
+				logLS("LS: Exited: device auth")
+				return err
+			}
+
+			<-cancelAuth
+			enr.stop()
+			auth.stopIndex()
+			logLS("LS: Exited: device auth")
+			return nil
+		}, func(_ error) {
+			close(cancelAuth)
+			logLS("LS: Shutdown: device auth")
+		})
+	}
+
+	// ====================================
+	// Version reporting
+	// ====================================
+
+	cancelVersions := make(chan struct{})
+	storeWg.Add(1)
+	g.Add(func() error {
+		defer storeWg.Done()
+		err := siotStore.WaitStart(siotWaitCtx)
+		if err != nil {
+			logLS("LS: Exited: version reporting timeout waiting for store")
+			return err
+		}
+
+		reportVersions(cancelVersions, s.nc, o.AppVersion, o.OSVersionField)
+
+		<-cancelVersions
+		logLS("LS: Exited: version reporting")
+		return nil
+	}, func(_ error) {
+		close(cancelVersions)
+		logLS("LS: Shutdown: version reporting")
+	})
+
+	// ====================================
+	// Build in clients manager
+	// ====================================
+
+	storeWg.Add(1)
+	g.Add(func() error {
+		defer storeWg.Done()
+		err := siotStore.WaitStart(siotWaitCtx)
+		if err != nil {
+			logLS("LS: Exited: client manager timeout waiting for store")
+			return err
+		}
+
+		err = s.clients.Run()
+		logLS("LS: Exited: clients manager: ", err)
+		return err
+	}, func(err error) {
+		s.clients.Stop(err)
+		logLS("LS: Shutdown: clients manager")
+	})
+
+	// ====================================
+	// Provisioning
+	// ====================================
+
+	cancelProvision := make(chan struct{})
+	storeWg.Add(1)
+	g.Add(func() error {
+		defer storeWg.Done()
+
+		if o.ProvisioningDisable {
+			<-cancelProvision
+			logLS("LS: Exited: provisioning (disabled)")
+			return nil
+		}
+
+		err := siotStore.WaitStart(siotWaitCtx)
+		if err != nil {
+			logLS("LS: Exited: provisioning timeout waiting for store")
+			return err
+		}
+
+		p := &provisioner{nc: s.nc, dir: o.ProvisioningDir}
+
+		err = p.watch(o.ProvisioningInterval, cancelProvision)
+		logLS("LS: Exited: provisioning: ", err)
+		return err
+	}, func(_ error) {
+		close(cancelProvision)
+		logLS("LS: Shutdown: provisioning")
+	})
+
+	// ====================================
+	// Embedded files
+	// ====================================
+
+	var feFS fs.FS
+
+	if o.CustomUIDir != "" {
+		log.Println("Using custom frontend directory:", o.CustomUIDir)
+		feFS = os.DirFS(o.CustomUIDir)
+	} else if o.CustomUIFS != nil {
+		feFS = o.CustomUIFS
+		if err != nil {
+			log.Fatal("Error getting frontend subtree: ", err)
+		}
+	} else {
+		if o.Dev {
+			log.Println("SIOT HTTP Server -- using local instead of embedded files")
+			feFS = os.DirFS("./frontend/public")
+		} else {
+			// remove output dir name from frontend assets filesystem
+			feFS, err = fs.Sub(frontend.Content, "public")
+			if err != nil {
+				log.Fatal("Error getting frontend subtree: ", err)
+			}
+		}
+	}
+
+	var listFiles func(fs.FS, string, int) error
+
+	listFiles = func(fsys fs.FS, dir string, level int) error {
+		entries, err := fs.ReadDir(feFS, dir)
+		if err != nil {
+			return err
+		}
+
+		prefix := "  - "
+		for i := 0; i < level; i++ {
+			prefix = "  " + prefix
+		}
+
+		for _, e := range entries {
+			log.Printf("%v%v\n", prefix, e.Name())
+			if e.IsDir() {
+				subdir := path.Join(dir, e.Name())
+				err := listFiles(fsys, subdir, level+1)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		return nil
+	}
+
+	if o.UIAssetsDebug {
+		log.Println("List frontend assets: ")
+		err := listFiles(feFS, ".", 0)
+		if err != nil {
+			log.Println("Error listing frontend assets:", err)
+		}
+	}
+
+	// wrap with fs that will automatically look for and decompress gz
+	// versions of files.
+	feFSDecomp := newFsDecomp(feFS, "index.html")
+
+	// A custom UI is served at both / and /old, so an embedded product
+	// does not need a second HTTP server or listener.
+	var uiFS fs.FS
+	if o.CustomUIFS != nil {
+		uiFS = o.CustomUIFS
+	} else if o.Dev {
+		uiFS = os.DirFS("./ui/build")
+	} else {
+		uiFS, err = fs.Sub(ui.Content, "build")
+		if err != nil {
+			log.Fatal("Error getting UI subtree: ", err)
+		}
+	}
+
+	// ====================================
+	// HTTP API
+	// ====================================
+	var appHandler http.Handler
+	if o.AppHandlerFactory != nil {
+		appHandler = o.AppHandlerFactory(s.nc, siotStore)
+	}
+	httpAPI := api.NewServer(api.ServerArgs{
+		Port:               o.HTTPPort,
+		NatsWSPort:         o.NatsWSPort,
+		NatsTLSCert:        o.NatsTLSCert,
+		Filesystem:         http.FS(feFSDecomp),
+		UIFilesystem:       newFsDecomp(uiFS, "index.html"),
+		UIDev:              o.Dev,
+		Debug:              o.DebugHTTP,
+		Users:              siotStore,
+		AuthToken:          o.AuthToken,
+		Nc:                 s.nc,
+		DeviceAuth:         auth,
+		DeviceAuthRequired: o.DeviceAuth == DeviceAuthRequired,
+		AppOnly:            o.AppOnly,
+		AppHandler:         appHandler,
+	})
+
+	if !o.DisableHTTP {
+		g.Add(func() error {
+			err := httpAPI.Start()
+			logLS("LS: Exited: http api")
+			return err
+		}, func(err error) {
+			httpAPI.Stop(err)
+			logLS("LS: Shutdown: http api")
+		})
+	}
+
+	// Give us a way to stop the server
+	// and signal to waiters we have started
+	chShutdown := make(chan struct{})
+	g.Add(func() error {
+		err := siotStore.WaitStart(siotWaitCtx)
+		if err != nil {
+			logLS("LS: Exited: server stopper, timeout waiting for store")
+			return err
+		}
+
+		select {
+		case <-s.chStop:
+			logLS("LS: Exited: stop handler")
+			return ErrServerStopped
+		case <-chShutdown:
+			logLS("LS: Exited: stop handler")
+			return nil
+		}
+	}, func(_ error) {
+		close(chShutdown)
+		logLS("LS: Shutdown: stop handler")
+	})
+
+	chRunError := make(chan error)
+
+	go func() {
+		chRunError <- g.Run()
+	}()
+
+	var retErr error
+
+done:
+	for {
+		select {
+		// unblock any waits
+		case <-s.chWaitStart:
+			// No-op, reading channel is enough to unblock wait
+		case retErr = <-chRunError:
+			break done
+		}
+	}
+
+	s.nc.Close()
+
+	return retErr
+}
+
+// Stop server
+func (s *Server) Stop(_ error) {
+	close(s.chStop)
+}
+
+// WaitStart waits for server to start. Clients should wait for this
+// to complete before trying to fetch nodes, etc.
+func (s *Server) WaitStart(ctx context.Context) error {
+	waitDone := make(chan struct{})
+
+	go func() {
+		// the following will block until the main store select
+		// loop starts
+		s.chWaitStart <- struct{}{}
+		close(waitDone)
+	}()
+
+	select {
+	case <-ctx.Done():
+		return errors.New("store wait timeout or canceled")
+	case <-waitDone:
+		// all is well
+		return nil
+	}
+
+}
+
+// natsWSPort returns the port a running NATS server's WebSocket listener is
+// on.
+func natsWSPort(ns *server.Server) (int, error) {
+	ports := ns.PortsInfo(10 * time.Second)
+	if ports == nil || len(ports.WebSocket) == 0 {
+		return 0, errors.New("NATS WebSocket listener did not start")
+	}
+	u, err := url.Parse(ports.WebSocket[0])
+	if err != nil {
+		return 0, fmt.Errorf("error parsing NATS WebSocket address: %w", err)
+	}
+	return strconv.Atoi(u.Port())
+}

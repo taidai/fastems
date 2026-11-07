@@ -1,0 +1,995 @@
+package data
+
+import (
+	"bytes"
+	"encoding/binary"
+	"encoding/json"
+	"fmt"
+	"hash/crc32"
+	"math"
+	"time"
+)
+
+// PointOld old point struct
+type PointOld struct {
+	//-------------------------------------------------------
+	//1st three fields uniquely identify a point when receiving updates
+
+	// Type of point (voltage, current, key, etc)
+	Type string `json:"type,omitempty"`
+
+	// Key is used to allow a group of points to represent a map or array
+	Key string `json:"key,omitempty"`
+
+	//-------------------------------------------------------
+	// The following fields are the values for a point
+
+	// Time the point was taken
+	Time time.Time `json:"time,omitempty" yaml:"-"`
+
+	// Instantaneous analog or digital value of the point.
+	// 0 and 1 are used to represent digital values
+	Value float64 `json:"value,omitempty"`
+
+	// Optional text value of the point for data that is best represented
+	// as a string rather than a number.
+	Text string `json:"text,omitempty"`
+
+	// catchall field for data that does not fit into float or string --
+	// should be used sparingly
+	Data []byte `json:"data,omitempty"`
+
+	//-------------------------------------------------------
+	// Metadata
+
+	// Used to indicate a point has been deleted. This value is only
+	// ever incremented. Odd values mean point is deleted.
+	Tombstone int `json:"tombstone,omitempty"`
+
+	// Where did this point come from. If from the owning node, it may be blank.
+	Origin string `json:"origin,omitempty"`
+}
+
+// PointDataType is the data sent over the wire
+type PointDataType byte
+
+// PointDataType defines
+const (
+	PointDataTypeUnknown PointDataType = 0
+	PointDataTypeFloat   PointDataType = 1
+	PointDataTypeInt     PointDataType = 2
+	PointDataTypeString  PointDataType = 3
+	PointDataTypeJSON    PointDataType = 4
+)
+
+// Point is a flexible data structure that can be used to represent
+// a sensor value or a configuration parameter.
+// Type, and Key uniquely identify a point in a node.
+// Using the Key field, maps and arrays can be represented.
+// Array would have key values like: "0", "1", "2", "3", ...
+// A map might have key values like "min", "max", "average", etc.
+type Point struct {
+	//-------------------------------------------------------
+	//1st three fields uniquely identify a point when receiving updates
+
+	// Type of point (voltage, current, key, etc)
+	Type string `json:"type,omitempty"`
+
+	// Key is used to allow a group of points to represent a map or array
+	Key string `json:"key,omitempty"`
+
+	//-------------------------------------------------------
+	// The following fields are the values for a point
+
+	// Time the point was taken
+	Time time.Time `json:"time,omitempty" yaml:"-"`
+
+	// DataType describes what type of data we have
+	DataType PointDataType `json:"dataType,omitempty"`
+
+	// catchall field for data that does not fit into float or string --
+	// should be used sparingly
+	Data []byte `json:"data,omitempty"`
+
+	//-------------------------------------------------------
+	// Metadata
+
+	// Used to indicate a point has been deleted. This value is only
+	// ever incremented. Odd values mean point is deleted.
+	Tombstone int `json:"tombstone,omitempty"`
+
+	// Where did this point come from. If from the owning node, it may be blank.
+	Origin string `json:"origin,omitempty"`
+}
+
+// pointJSON is used for JSON/YAML marshal/unmarshal to maintain backward
+// compatibility with the old value/text fields.
+type pointJSON struct {
+	Type      string        `json:"type,omitempty" yaml:"type,omitempty"`
+	Key       string        `json:"key,omitempty" yaml:"key,omitempty"`
+	Time      time.Time     `json:"time,omitempty" yaml:"-"`
+	DataType  PointDataType `json:"dataType,omitempty" yaml:"dataType,omitempty"`
+	Data      []byte        `json:"data,omitempty" yaml:"data,omitempty"`
+	Tombstone int           `json:"tombstone,omitempty" yaml:"tombstone,omitempty"`
+	Origin    string        `json:"origin,omitempty" yaml:"origin,omitempty"`
+	// Legacy fields for backward compat
+	Value float64 `json:"value,omitempty" yaml:"value,omitempty"`
+	Text  string  `json:"text,omitempty" yaml:"text,omitempty"`
+}
+
+// MarshalJSON encodes Point to JSON, including legacy value/text fields
+// for backward compatibility.
+func (p Point) MarshalJSON() ([]byte, error) {
+	return json.Marshal(pointJSON{
+		Type:      p.Type,
+		Key:       p.Key,
+		Time:      p.Time,
+		DataType:  p.DataType,
+		Data:      p.Data,
+		Tombstone: p.Tombstone,
+		Origin:    p.Origin,
+		Value:     p.Val(),
+		Text:      p.Txt(),
+	})
+}
+
+// UnmarshalJSON decodes Point from JSON, supporting both new (dataType/data)
+// and legacy (value/text) fields.
+func (p *Point) UnmarshalJSON(b []byte) error {
+	var pj pointJSON
+	if err := json.Unmarshal(b, &pj); err != nil {
+		return err
+	}
+	p.Type = pj.Type
+	p.Key = pj.Key
+	p.Time = pj.Time
+	p.Tombstone = pj.Tombstone
+	p.Origin = pj.Origin
+
+	// If new-style data is fully populated, use it directly
+	if pj.DataType != PointDataTypeUnknown && len(pj.Data) > 0 {
+		p.DataType = pj.DataType
+		p.Data = pj.Data
+		return nil
+	}
+
+	// Use legacy value/text fields (frontend sends these alongside dataType)
+	if pj.Text != "" {
+		p.PutString(pj.Text)
+	} else if pj.Value != 0 {
+		p.PutFloat(pj.Value)
+	} else if len(pj.Data) > 0 {
+		p.Data = pj.Data
+		p.DataType = pj.DataType
+	}
+
+	return nil
+}
+
+// MarshalYAML encodes Point to YAML with legacy value/text fields for
+// human readability. Implements goccy/go-yaml InterfaceMarshaler.
+func (p Point) MarshalYAML() (interface{}, error) {
+	return pointJSON{
+		Type:      p.Type,
+		Key:       p.Key,
+		Tombstone: p.Tombstone,
+		Origin:    p.Origin,
+		Value:     p.Val(),
+		Text:      p.Txt(),
+	}, nil
+}
+
+// UnmarshalYAML decodes Point from YAML, supporting both new (dataType/data)
+// and legacy (value/text) fields. Implements goccy/go-yaml InterfaceUnmarshaler.
+func (p *Point) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var pj pointJSON
+	if err := unmarshal(&pj); err != nil {
+		return err
+	}
+	p.Type = pj.Type
+	p.Key = pj.Key
+	p.Time = pj.Time
+	p.Tombstone = pj.Tombstone
+	p.Origin = pj.Origin
+
+	if pj.DataType != PointDataTypeUnknown && len(pj.Data) > 0 {
+		p.DataType = pj.DataType
+		p.Data = pj.Data
+		return nil
+	}
+
+	if pj.Text != "" {
+		p.PutString(pj.Text)
+	} else if pj.Value != 0 {
+		p.PutFloat(pj.Value)
+	} else if len(pj.Data) > 0 {
+		p.Data = pj.Data
+		p.DataType = pj.DataType
+	}
+
+	return nil
+}
+
+// NewPointFloat creates a new Point with a float64 value
+func NewPointFloat(typ, key string, value float64) Point {
+	p := Point{Type: typ, Key: key}
+	p.PutFloat(value)
+	return p
+}
+
+// NewPointString creates a new Point with a string value
+func NewPointString(typ, key string, value string) Point {
+	p := Point{Type: typ, Key: key}
+	p.PutString(value)
+	return p
+}
+
+// NewPointInt creates a new Point with an int value
+func NewPointInt(typ, key string, value int64) Point {
+	p := Point{Type: typ, Key: key}
+	p.PutInt(value)
+	return p
+}
+
+// ValueInt decodes an int value from the point
+func (p *Point) ValueInt() (int64, error) {
+	if p.DataType != PointDataTypeInt {
+		return 0, fmt.Errorf("point is not an int")
+	}
+
+	// PutInt stores a value in the fewest bytes that hold it, so each
+	// width is read back as signed
+	switch len(p.Data) {
+	case 1:
+		return int64(int8(p.Data[0])), nil
+	case 2:
+		return int64(int16(binary.LittleEndian.Uint16(p.Data))), nil
+	case 4:
+		return int64(int32(binary.LittleEndian.Uint32(p.Data))), nil
+	case 8:
+		return int64(binary.LittleEndian.Uint64(p.Data)), nil
+	default:
+		return 0, fmt.Errorf("invalid length for int %d", len(p.Data))
+	}
+}
+
+// ValueFloat decodes a float value from the point
+func (p *Point) ValueFloat() (float64, error) {
+	if p.DataType != PointDataTypeFloat {
+		return 0, fmt.Errorf("point is not a float")
+	}
+
+	switch len(p.Data) {
+	case 4:
+		return float64(math.Float32frombits(binary.LittleEndian.Uint32(p.Data))), nil
+	case 8:
+		return math.Float64frombits(binary.LittleEndian.Uint64(p.Data)), nil
+	default:
+		return 0, fmt.Errorf("invalid length for float %d", len(p.Data))
+	}
+}
+
+// ValueString returns a string value from the point
+func (p *Point) ValueString() (string, error) {
+	if p.DataType != PointDataTypeString {
+		return "", fmt.Errorf("point is not an string")
+	}
+
+	return string(p.Data), nil
+}
+
+// PutString populates a string in a point
+func (p *Point) PutString(v string) {
+	p.DataType = PointDataTypeString
+	p.Data = []byte(v)
+}
+
+// PutInt populates an int in a point
+func (p *Point) PutInt(v int64) {
+	p.DataType = PointDataTypeInt
+
+	switch {
+	case v >= math.MinInt8 && v <= math.MaxInt8: // Use 1 byte
+		p.Data = make([]byte, 1)
+		p.Data[0] = byte(v) // Directly cast to byte
+	case v >= math.MinInt16 && v <= math.MaxInt16: // Use 2 bytes
+		p.Data = make([]byte, 2)
+		binary.LittleEndian.PutUint16(p.Data, uint16(v))
+	case v >= math.MinInt32 && v <= math.MaxInt32: // Use 4 bytes
+		p.Data = make([]byte, 4)
+		binary.LittleEndian.PutUint32(p.Data, uint32(v))
+	default: // Use 8 bytes
+		p.Data = make([]byte, 8)
+		binary.LittleEndian.PutUint64(p.Data, uint64(v))
+	}
+}
+
+// PutFloat populates a float in a point
+func (p *Point) PutFloat(v float64) {
+	p.DataType = PointDataTypeFloat
+	p.Data = make([]byte, 8)
+
+	bits := math.Float64bits(v)
+
+	// Convert uint64 to bytes (little-endian)
+	binary.LittleEndian.PutUint64(p.Data, bits)
+}
+
+// CRC returns a CRC for the point
+func (p Point) CRC() uint32 {
+	// Node type points are not returned so don't include that in hash
+	if p.Type == PointTypeNodeType {
+		return 0
+	}
+	// we are using this in a XOR checksum, so simply hashing time is probably
+	// not good enough, because if we send a bunch of points with the same time,
+	// they will have the CRC and simply cancel each other out.
+	h := crc32.NewIEEE()
+	d := make([]byte, 8)
+	binary.LittleEndian.PutUint64(d, uint64(p.Time.UnixNano()))
+	h.Write(d)
+	h.Write([]byte(p.Type))
+	h.Write([]byte(p.Key))
+	h.Write([]byte(p.Data))
+	h.Write(d)
+
+	return h.Sum32()
+}
+
+func (p Point) String() string {
+	t := ""
+
+	if p.Type != "" {
+		t += "T:" + p.Type + " "
+	}
+
+	if txt := p.Txt(); txt != "" {
+		t += fmt.Sprintf("V:%v ", txt)
+	} else {
+		t += fmt.Sprintf("V:%.3f ", p.Val())
+	}
+
+	if p.Key != "" && p.Key != "0" {
+		t += fmt.Sprintf("K:%v ", p.Key)
+	}
+
+	if p.Origin != "" {
+		t += fmt.Sprintf("O:%v ", p.Origin)
+	}
+
+	if p.Tombstone != 0 {
+		t += "Tomb "
+	}
+
+	if !p.Time.IsZero() {
+		t += p.Time.Format(time.RFC3339)
+	}
+
+	return t
+}
+
+// IsMatch returns true if the point matches the params passed in
+func (p Point) IsMatch(typ, key string) bool {
+	if typ != "" && typ != p.Type {
+		return false
+	}
+
+	if key != p.Key {
+		return false
+	}
+
+	return true
+}
+
+// Val returns the float64 value of the point, converting from int if needed.
+// Returns 0 for non-numeric types. This is a convenience method that mirrors
+// the old Point.Value field access semantics.
+func (p Point) Val() float64 {
+	switch p.DataType {
+	case PointDataTypeFloat:
+		v, err := p.ValueFloat()
+		if err != nil {
+			return 0
+		}
+		return v
+	case PointDataTypeInt:
+		v, err := p.ValueInt()
+		if err != nil {
+			return 0
+		}
+		return float64(v)
+	default:
+		return 0
+	}
+}
+
+// Numeric returns true if the point carries a numeric value. Points that hold
+// strings or JSON return false, as does a point with an unknown data type.
+func (p Point) Numeric() bool {
+	return p.DataType == PointDataTypeFloat || p.DataType == PointDataTypeInt
+}
+
+// Txt returns the string value of the point.
+// Returns "" for non-string types. This is a convenience method that mirrors
+// the old Point.Text field access semantics.
+func (p Point) Txt() string {
+	if p.DataType == PointDataTypeString || p.DataType == PointDataTypeJSON {
+		return string(p.Data)
+	}
+	return ""
+}
+
+// Bool returns a bool representation of value
+func (p *Point) Bool() bool {
+	return p.Val() == 1
+}
+
+// Points is an array of Point
+type Points []Point
+
+func (ps Points) String() string {
+	ret := ""
+	for _, p := range ps {
+		ret += p.String() + "\n"
+	}
+
+	return ret
+}
+
+// Desc returns a Description of a set of points
+func (ps Points) Desc() string {
+	firstName, _ := ps.Text(PointTypeFirstName, "")
+	if firstName != "" {
+		lastName, _ := ps.Text(PointTypeLastName, "")
+		if lastName == "" {
+			return firstName
+		}
+
+		return firstName + " " + lastName
+	}
+
+	desc, _ := ps.Text(PointTypeDescription, "")
+	if desc != "" {
+		return desc
+	}
+
+	return ""
+}
+
+// MatchKey returns the value that identifies a node when a file describes it
+// by name rather than by ID, used by siot import and provisioning. Most nodes
+// are identified by their description; a user has none, so an email address is
+// used, and a name if there is no email.
+//
+// This is deliberately separate from Desc, which prefers a name over a
+// description for display.
+func (ps Points) MatchKey() string {
+	// an unkeyed point is spelled "" in memory and "0" in the store, and both
+	// reach here
+	text := func(typ string) string {
+		for _, p := range ps {
+			if p.Type == typ && (p.Key == "" || p.Key == "0") {
+				return p.Txt()
+			}
+		}
+
+		return ""
+	}
+
+	if desc := text(PointTypeDescription); desc != "" {
+		return desc
+	}
+
+	if email := text(PointTypeEmail); email != "" {
+		return email
+	}
+
+	firstName := text(PointTypeFirstName)
+	lastName := text(PointTypeLastName)
+
+	switch {
+	case firstName != "" && lastName != "":
+		return firstName + " " + lastName
+	case firstName != "":
+		return firstName
+	case lastName != "":
+		return lastName
+	}
+
+	return ""
+}
+
+// Find fetches a point given ID, Type, and Index
+// and true of found, or false if not found
+func (ps Points) Find(typ, key string) (Point, bool) {
+	if key == "" {
+		key = "0"
+	}
+	for _, p := range ps {
+		if !p.IsMatch(typ, key) {
+			continue
+		}
+
+		return p, true
+	}
+
+	return Point{}, false
+}
+
+// Value fetches a value from an array of points given ID, Type, and Index.
+// If ID or Type are set to "", they are ignored.
+func (ps *Points) Value(typ, key string) (float64, bool) {
+	p, ok := ps.Find(typ, key)
+	return p.Val(), ok
+}
+
+// ValueInt returns value as integer
+func (ps *Points) ValueInt(typ, key string) (int, bool) {
+	f, ok := ps.Value(typ, key)
+	return int(f), ok
+}
+
+// ValueBool returns value as bool
+func (ps *Points) ValueBool(typ, key string) (bool, bool) {
+	f, ok := ps.Value(typ, key)
+	return FloatToBool(f), ok
+}
+
+// Text fetches a text value from an array of points given Type and Key.
+// If ID or Type are set to "", they are ignored.
+func (ps *Points) Text(typ, key string) (string, bool) {
+	p, ok := ps.Find(typ, key)
+	return p.Txt(), ok
+}
+
+// LatestTime returns the latest timestamp of a devices points
+func (ps *Points) LatestTime() time.Time {
+	ret := time.Time{}
+	for _, p := range *ps {
+		if p.Time.After(ret) {
+			ret = p.Time
+		}
+	}
+
+	return ret
+}
+
+// encodeString writes a length-prefixed string to a buffer
+func encodeString(buf *bytes.Buffer, s string) {
+	b := []byte(s)
+	l := make([]byte, 2)
+	binary.LittleEndian.PutUint16(l, uint16(len(b)))
+	buf.Write(l)
+	buf.Write(b)
+}
+
+// decodeString reads a length-prefixed string from data at offset, returns value and new offset
+func decodeString(data []byte, off int) (string, int, error) {
+	if off+2 > len(data) {
+		return "", off, fmt.Errorf("decodeString: not enough data for length at offset %d", off)
+	}
+	l := int(binary.LittleEndian.Uint16(data[off : off+2]))
+	off += 2
+	if off+l > len(data) {
+		return "", off, fmt.Errorf("decodeString: not enough data for string at offset %d", off)
+	}
+	s := string(data[off : off+l])
+	return s, off + l, nil
+}
+
+// encodeBytes writes length-prefixed bytes to a buffer
+func encodeBytes(buf *bytes.Buffer, b []byte) {
+	l := make([]byte, 2)
+	binary.LittleEndian.PutUint16(l, uint16(len(b)))
+	buf.Write(l)
+	buf.Write(b)
+}
+
+// decodeBytes reads length-prefixed bytes from data at offset
+func decodeBytes(data []byte, off int) ([]byte, int, error) {
+	if off+2 > len(data) {
+		return nil, off, fmt.Errorf("decodeBytes: not enough data for length at offset %d", off)
+	}
+	l := int(binary.LittleEndian.Uint16(data[off : off+2]))
+	off += 2
+	if off+l > len(data) {
+		return nil, off, fmt.Errorf("decodeBytes: not enough data at offset %d", off)
+	}
+	b := make([]byte, l)
+	copy(b, data[off:off+l])
+	return b, off + l, nil
+}
+
+// Encode serializes a Point to binary format.
+func (p Point) Encode(buf *bytes.Buffer) {
+	encodeString(buf, p.Type)
+	encodeString(buf, p.Key)
+	t := make([]byte, 8)
+	binary.LittleEndian.PutUint64(t, uint64(p.Time.UnixNano()))
+	buf.Write(t)
+	buf.WriteByte(byte(p.DataType))
+	encodeBytes(buf, p.Data)
+	ts := make([]byte, 4)
+	binary.LittleEndian.PutUint32(ts, uint32(p.Tombstone))
+	buf.Write(ts)
+	encodeString(buf, p.Origin)
+}
+
+// DecodePoint deserializes a Point from binary data at offset.
+func DecodePoint(data []byte, off int) (Point, int, error) {
+	var p Point
+	var err error
+
+	p.Type, off, err = decodeString(data, off)
+	if err != nil {
+		return p, off, err
+	}
+	p.Key, off, err = decodeString(data, off)
+	if err != nil {
+		return p, off, err
+	}
+	if off+8 > len(data) {
+		return p, off, fmt.Errorf("DecodePoint: not enough data for time")
+	}
+	p.Time = time.Unix(0, int64(binary.LittleEndian.Uint64(data[off:off+8])))
+	off += 8
+	if off+1 > len(data) {
+		return p, off, fmt.Errorf("DecodePoint: not enough data for dataType")
+	}
+	p.DataType = PointDataType(data[off])
+	off++
+	p.Data, off, err = decodeBytes(data, off)
+	if err != nil {
+		return p, off, err
+	}
+	if off+4 > len(data) {
+		return p, off, fmt.Errorf("DecodePoint: not enough data for tombstone")
+	}
+	p.Tombstone = int(int32(binary.LittleEndian.Uint32(data[off : off+4])))
+	off += 4
+	p.Origin, off, err = decodeString(data, off)
+	if err != nil {
+		return p, off, err
+	}
+	return p, off, nil
+}
+
+// maxPointsPerMessage bounds the point count a decoder will accept, so a
+// corrupt or hostile count cannot make it allocate without limit.
+const maxPointsPerMessage = 10000
+
+// Encode serializes a Points array to binary format: uint32 count + repeated Point.
+func (ps *Points) Encode() []byte {
+	buf := &bytes.Buffer{}
+	ps.encode(buf)
+	return buf.Bytes()
+}
+
+// encode writes the Points array to buf in the Encode format.
+func (ps *Points) encode(buf *bytes.Buffer) {
+	c := make([]byte, 4)
+	binary.LittleEndian.PutUint32(c, uint32(len(*ps)))
+	buf.Write(c)
+	for _, p := range *ps {
+		p.Encode(buf)
+	}
+}
+
+// DecodePoints deserializes a Points array from binary data.
+func DecodePoints(data []byte) (Points, error) {
+	pts, _, err := decodePointsAt(data, 0)
+	return pts, err
+}
+
+// decodePointsAt deserializes a Points array from data at offset and returns
+// the offset just past it.
+func decodePointsAt(data []byte, off int) (Points, int, error) {
+	if off+4 > len(data) {
+		return nil, off, fmt.Errorf("DecodePoints: not enough data for count")
+	}
+	count := int(binary.LittleEndian.Uint32(data[off : off+4]))
+	if count > maxPointsPerMessage {
+		return nil, off, fmt.Errorf("DecodePoints: count %d exceeds maximum", count)
+	}
+	off += 4
+	pts := make(Points, count)
+	for i := 0; i < count; i++ {
+		var err error
+		pts[i], off, err = DecodePoint(data, off)
+		if err != nil {
+			return nil, off, fmt.Errorf("DecodePoints: error at point %d: %w", i, err)
+		}
+	}
+	return pts, off, nil
+}
+
+// question -- should be using []*Point instead of []Point?
+
+// Hash returns the hash of points
+func (ps *Points) Hash() uint32 {
+	var ret uint32
+
+	for _, p := range *ps {
+		ret = ret ^ p.CRC()
+	}
+
+	return ret
+}
+
+// Add takes a point and updates an existing array of points. Existing points
+// are replaced if the Timestamp in pIn is > than the existing timestamp. If
+// the pIn timestamp is zero, the current time is used.
+func (ps *Points) Add(pIn Point) {
+	pFound := false
+
+	if pIn.Key == "" {
+		pIn.Key = "0"
+	}
+
+	if pIn.Time.IsZero() {
+		pIn.Time = time.Now()
+	}
+
+	for i, p := range *ps {
+		if p.Key == pIn.Key && p.Type == pIn.Type {
+			pFound = true
+			// largest tombstone value always wins
+			tombstone := p.Tombstone
+			if pIn.Tombstone > p.Tombstone {
+				tombstone = pIn.Tombstone
+			}
+
+			if pIn.Time.After(p.Time) {
+				(*ps)[i] = pIn
+			}
+			(*ps)[i].Tombstone = tombstone
+			break
+		}
+	}
+
+	if !pFound {
+		*ps = append(*ps, pIn)
+	}
+}
+
+// Merge is used to update points. Any points that are changed
+// are returned. maxDuration can be used to return points
+// if they have not been updated in maxDuration -- this can
+// be used to send out points every X duration even if they
+// are not changing which is useful for making graphs look
+// nice. Set maxTime to zero to disable.
+func (ps *Points) Merge(in Points, maxTime time.Duration) Points {
+	var ret Points
+
+	for _, pIn := range in {
+		pFound := false
+		modified := false
+		if pIn.Time.IsZero() {
+			pIn.Time = time.Now()
+		}
+
+		for i, p := range *ps {
+			if p.Key == pIn.Key && p.Type == pIn.Type {
+				pFound = true
+				// largest tombstone value always wins
+				if pIn.Tombstone > p.Tombstone {
+					(*ps)[i].Tombstone = pIn.Tombstone
+					modified = true
+				}
+
+				if !pIn.Time.After(p.Time) {
+					break
+				}
+
+				if !bytes.Equal(pIn.Data, p.Data) || pIn.DataType != p.DataType {
+					(*ps)[i] = p
+					modified = true
+				}
+
+				if maxTime > 0 && pIn.Time.Sub(p.Time) > maxTime {
+					(*ps)[i] = p
+					modified = true
+				}
+
+				(*ps)[i] = pIn
+			}
+		}
+
+		if !pFound {
+			*ps = append(*ps, pIn)
+			modified = true
+		}
+
+		if modified {
+			ret = append(ret, pIn)
+		}
+	}
+
+	return ret
+}
+
+// Collapse is used to merge any common points and keep the latest
+func (ps *Points) Collapse() {
+	if len(*ps) <= 1 {
+		return
+	}
+
+	pts := make(map[string]Point)
+
+	for _, p := range *ps {
+		pA, OK := pts[p.Type+p.Key]
+		if OK {
+			if pA.Time.Before(p.Time) || pA.Time.Equal(p.Time) {
+				pts[p.Type+p.Key] = p
+			}
+		} else {
+			pts[p.Type+p.Key] = p
+		}
+	}
+
+	*ps = make(Points, len(pts))
+	i := 0
+	for _, p := range pts {
+		(*ps)[i] = p
+		i++
+	}
+}
+
+// Implement methods needed by sort.Interface
+
+// Len returns the number of points
+func (ps Points) Len() int {
+	return len([]Point(ps))
+}
+
+// Less is required by sort.Interface
+func (ps Points) Less(i, j int) bool {
+	return ps[i].Time.Before(ps[j].Time)
+}
+
+// Swap is required by sort.Interface
+func (ps Points) Swap(i, j int) {
+	ps[i], ps[j] = ps[j], ps[i]
+}
+
+// ByTypeKey can be used to sort points by type then key
+type ByTypeKey []Point
+
+func (b ByTypeKey) Len() int      { return len(b) }
+func (b ByTypeKey) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
+func (b ByTypeKey) Less(i, j int) bool {
+	if b[i].Type != b[j].Type {
+		return b[i].Type < b[j].Type
+	}
+
+	return b[i].Key < b[j].Key
+}
+
+// DecodeSerialHrPayload decodes a serial high-rate payload. Payload format.
+//   - type         (off:0, 16 bytes) point type
+//   - key          (off:16, 16 bytes) point key
+//   - starttime    (off:32, uint64) starting time of samples in ns since Unix Epoch
+//   - sampleperiod (off:40, uint32) time between samples in ns
+//   - data         (off:44) packed 32-bit floating point samples
+func DecodeSerialHrPayload(payload []byte, callback func(Point)) error {
+	if len(payload) < 16+16+8+4+4 {
+		return fmt.Errorf("payload is not long enough")
+	}
+
+	typ := string(bytes.Trim(payload[0:16], "\x00"))
+	key := string(bytes.Trim(payload[16:32], "\x00"))
+	startNs := int64(binary.LittleEndian.Uint64(payload[32:40]))
+	if startNs == 0 {
+		// if MCU does not send a time, fill in current time
+		startNs = time.Now().UnixNano()
+	}
+	sampNs := int64(binary.LittleEndian.Uint32(payload[40:44]))
+
+	// FIXME, this API should not use a callback for each
+	// point, that is probably why it is so slow
+
+	sampCount := (len(payload) - (16 + 16 + 8 + 4)) / 4
+	for i := 0; i < sampCount; i++ {
+		p := Point{
+			Time: time.Unix(0, startNs+int64(i)*sampNs),
+			Type: typ,
+			Key:  key,
+		}
+		p.PutFloat(float64(math.Float32frombits(
+			binary.LittleEndian.Uint32(payload[44+i*4 : 44+4+i*4]))))
+		callback(p)
+	}
+
+	return nil
+}
+
+// PointFilter is used to send points upstream. It only sends
+// the data has changed, and at a max frequency
+type PointFilter struct {
+	minSend          time.Duration
+	periodicSend     time.Duration
+	points           []Point
+	lastSent         time.Time
+	lastPeriodicSend time.Time
+}
+
+// NewPointFilter is used to creat a new point filter
+// If points have changed that get sent out at a minSend interval
+// frequency of minSend.
+// All points are periodically sent at lastPeriodicSend interval.
+// Set minSend to 0 for things like config settings where you want them
+// to be sent whenever anything changes.
+func NewPointFilter(minSend, periodicSend time.Duration) *PointFilter {
+	return &PointFilter{
+		minSend:      minSend,
+		periodicSend: periodicSend,
+	}
+}
+
+// returns true if point has changed, and merges point with saved points
+func (sf *PointFilter) add(point Point) bool {
+	for i, p := range sf.points {
+		if point.Key == p.Key &&
+			point.Type == p.Type {
+			if bytes.Equal(point.Data, p.Data) && point.DataType == p.DataType {
+				return false
+			}
+
+			sf.points[i].Data = point.Data
+			sf.points[i].DataType = point.DataType
+			return true
+		}
+	}
+
+	// point not found, add to array
+	sf.points = append(sf.points, point)
+	return true
+}
+
+// Add adds points and returns points that meet the filter criteria
+func (sf *PointFilter) Add(points []Point) []Point {
+	if time.Since(sf.lastPeriodicSend) > sf.periodicSend {
+		// send all points
+		for _, s := range points {
+			sf.add(s)
+		}
+
+		sf.lastPeriodicSend = time.Now()
+		sf.lastSent = sf.lastPeriodicSend
+		return sf.points
+	}
+
+	if sf.minSend != 0 && time.Since(sf.lastSent) < sf.minSend {
+		// don't return anything as
+		return []Point{}
+	}
+
+	// now check if anything has changed and just send what has changed
+	// only
+	var ret []Point
+
+	for _, s := range points {
+		if sf.add(s) {
+			ret = append(ret, s)
+		}
+	}
+
+	if len(ret) > 0 {
+		sf.lastSent = time.Now()
+	}
+
+	return ret
+}
+
+// FloatToBool converts a float to bool
+func FloatToBool(v float64) bool {
+	return v == 1
+}
+
+// BoolToFloat converts bool to float
+func BoolToFloat(v bool) float64 {
+	if !v {
+		return 0
+	}
+	return 1
+}
