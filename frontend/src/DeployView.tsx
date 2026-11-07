@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { ApiError, downloadCSV, request } from "./api"
+import DeployWizard from "./DeployWizard"
 
 type RuntimeInfo = {
   source: string
@@ -73,8 +74,20 @@ type EmsChannel = {
   devices?: ChannelDevice[]
 }
 
-type CsvError = { line: number; reason: string }
-type CsvResult = { preview?: boolean; imported?: number; count?: number; errors?: CsvError[] }
+type CsvPoint = {
+  description: string
+  server_id: number
+  address: number
+  io_type: string
+  data_format: string
+  read_only: boolean
+  scale: number
+  offset: number
+  units: string
+}
+type CsvDiffChange = { name: string; before: CsvPoint; after: CsvPoint; fields: string[] }
+type CsvDiff = { diff: boolean; added: CsvPoint[]; changed: CsvDiffChange[]; removed: CsvPoint[]; unchanged: number }
+type CsvApplied = { applied: boolean; added: number; updated: number; removed: number }
 
 const statusText = { passed: "通过", warning: "需关注", failed: "需处理" } as const
 
@@ -111,7 +124,10 @@ export default function DeployView({ token, isAdmin, goDelivery }: { token: stri
   const [channelID, setChannelID] = useState("")
   const [csv, setCSV] = useState("")
   const [csvName, setCSVName] = useState("")
-  const [csvResult, setCSVResult] = useState<CsvResult | null>(null)
+  const [csvDiff, setCSVDiff] = useState<CsvDiff | null>(null)
+  const [removeMissing, setRemoveMissing] = useState(false)
+  const [applied, setApplied] = useState<CsvApplied | null>(null)
+  const [wizard, setWizard] = useState(false)
 
   const loadChannels = useCallback(async () => {
     setBusy("channels")
@@ -234,26 +250,74 @@ export default function DeployView({ token, isAdmin, goDelivery }: { token: stri
     }
   }
 
-  async function uploadPoints(preview: boolean) {
+  async function postCSV<T>(query: string): Promise<T> {
+    const response = await fetch(`/api/modbus/${channelID}/io/import${query}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "text/csv" },
+      body: csv,
+    })
+    const result = (await response.json().catch(() => ({}))) as T & { error?: string; line?: number; reason?: string }
+    if (!response.ok) {
+      if (response.status === 501) throw new ApiError("not_implemented", 501)
+      const detail = result.line ? `第 ${result.line} 行：${result.reason || result.error || "格式错误"}` : result.error || "点表校验失败"
+      throw new Error(detail)
+    }
+    return result
+  }
+
+  async function loadDiff() {
     if (!channelID || !csv) return
-    setBusy(preview ? "preview" : "import")
+    setBusy("diff")
     setError("")
-    setCSVResult(null)
+    setApplied(null)
+    setCSVDiff(null)
     try {
-      const path = `/api/modbus/${channelID}/io/import${preview ? "?preview=true" : ""}`
-      const response = await fetch(path, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "text/csv" },
-        body: csv,
+      const diff = await postCSV<CsvDiff>("?diff=true")
+      setCSVDiff(diff)
+      setRemoveMissing(false)
+      setNotice("差异已生成，尚未写入任何点位。确认后才会应用。")
+    } catch (cause) {
+      setError(messageOf(cause))
+    } finally {
+      setBusy("")
+    }
+  }
+
+  async function applyDiff() {
+    if (!channelID || !csv || !csvDiff) return
+    setBusy("apply")
+    setError("")
+    try {
+      const result = await postCSV<CsvApplied>(`?apply=diff${removeMissing ? "&remove=true" : ""}`)
+      setApplied(result)
+      setCSVDiff(null)
+      setNotice(`差异已应用：新增 ${result.added}、修改 ${result.updated}、删除 ${result.removed}。`)
+      void loadChannels()
+    } catch (cause) {
+      setError(messageOf(cause))
+    } finally {
+      setBusy("")
+    }
+  }
+
+  async function exportEvidence() {
+    setBusy("evidence")
+    setError("")
+    try {
+      const response = await fetch("/api/delivery/evidence", {
+        headers: { Authorization: `Bearer ${token}` },
       })
-      const result = (await response.json().catch(() => ({}))) as CsvResult & { error?: string; line?: number; reason?: string }
       if (!response.ok) {
-        if (response.status === 501) throw new ApiError("not_implemented", 501)
-        const detail = result.line ? `第 ${result.line} 行：${result.reason || result.error || "格式错误"}` : result.error || "点表校验失败"
-        throw new Error(detail)
+        const result = (await response.json().catch(() => ({}))) as { error?: string }
+        throw new Error(result.error === "ems_unavailable" ? "运行时不可用，无法导出证据包。" : result.error || "证据包导出失败")
       }
-      setCSVResult(result)
-      setNotice(preview ? "预检通过，尚未写入任何点位。" : `已导入 ${result.imported ?? result.count ?? 0} 个点位。`)
+      const url = URL.createObjectURL(await response.blob())
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `easyems-evidence-${new Date().toISOString().slice(0, 10)}.zip`
+      link.click()
+      URL.revokeObjectURL(url)
+      setNotice("证据包已导出：设备台账、验证记录、通信测试报告、报警统计。不含密码或令牌。")
     } catch (cause) {
       setError(messageOf(cause))
     } finally {
@@ -310,6 +374,7 @@ export default function DeployView({ token, isAdmin, goDelivery }: { token: stri
           <div className="deploy-actions">
             <button className="secondary-button" disabled={busy === "latest"} onClick={() => void loadLatest()}>{busy === "latest" ? "读取中…" : "读取最近"}</button>
             <button className="secondary-button" onClick={goDelivery}>交付检查</button>
+            <button className="secondary-button" disabled={!isAdmin || busy === "evidence"} onClick={() => void exportEvidence()}>{busy === "evidence" ? "导出中…" : "导出证据包"}</button>
             <button className="primary-button" disabled={!isAdmin || busy === "acceptance"} onClick={() => void runAcceptance()}>{busy === "acceptance" ? "检查中…" : "运行验收"}</button>
           </div>
         </div>
@@ -330,7 +395,10 @@ export default function DeployView({ token, isAdmin, goDelivery }: { token: stri
     <article className="panel deploy-card">
       <div className="deploy-card-head">
         <div><span className="section-kicker">只读探测，不写设备</span><h2>扫描与识别</h2></div>
-        <button className="secondary-button" disabled={!isAdmin || busy === "scan"} onClick={() => void runScan()}>{busy === "scan" ? "扫描中…" : "扫描站号"}</button>
+        <div className="deploy-actions">
+          <button className="secondary-button" disabled={!isAdmin || busy === "scan"} onClick={() => void runScan()}>{busy === "scan" ? "扫描中…" : "扫描站号"}</button>
+          <button className="primary-button" disabled={!isAdmin || channels.length === 0} title={channels.length === 0 ? "先在工作台或通道页接入 Modbus 通道" : ""} onClick={() => setWizard(true)}>接入向导</button>
+        </div>
       </div>
       <div className="scan-form">
         <label>协议<select value={protocol} onChange={(event) => setProtocol(event.target.value)}><option value="tcp">Modbus TCP</option><option value="rtu">Modbus RTU</option></select></label>
@@ -376,31 +444,68 @@ export default function DeployView({ token, isAdmin, goDelivery }: { token: stri
 
     <article className="panel deploy-card">
       <div className="deploy-card-head">
-        <div><span className="section-kicker">预检通过才写入</span><h2>点表校验</h2></div>
+        <div><span className="section-kicker">先看差异，确认后才应用</span><h2>点表校验</h2></div>
         <button className="secondary-button" disabled={!channelID || busy === "export"} onClick={() => void exportPoints()}>导出当前点表</button>
       </div>
       {channels.length === 0 ? <p className="inline-note">还没有持久化通道。先在工作台接入 Modbus，或在通道页确认节点已生成。</p> : <>
         <div className="point-table-tools">
-          <label>通道<select value={channelID} onChange={(event) => setChannelID(event.target.value)}>{channels.map((channel) => <option key={channel.id} value={channel.id}>{channel.address || channel.id} · {channel.devices?.length ?? 0} 台设备</option>)}</select></label>
+          <label>通道<select value={channelID} onChange={(event) => { setChannelID(event.target.value); setCSVDiff(null); setApplied(null) }}>{channels.map((channel) => <option key={channel.id} value={channel.id}>{channel.address || channel.id} · {channel.devices?.length ?? 0} 台设备</option>)}</select></label>
           <label className="file-label">CSV 点表<input type="file" accept=".csv,text/csv" onChange={(event) => {
             const file = event.target.files?.[0]
             if (!file) return
             setCSVName(file.name)
-            setCSVResult(null)
+            setCSVDiff(null)
+            setApplied(null)
             void file.text().then(setCSV)
           }} /><span>{csvName || "选择文件"}</span></label>
-          <button className="secondary-button" disabled={!csv || busy === "preview"} onClick={() => void uploadPoints(true)}>{busy === "preview" ? "预检中…" : "预检点表"}</button>
-          <button className="primary-button" disabled={!csv || busy === "import"} onClick={() => void uploadPoints(false)}>{busy === "import" ? "导入中…" : "确认导入"}</button>
+          <button className="secondary-button" disabled={!csv || busy === "diff"} onClick={() => void loadDiff()}>{busy === "diff" ? "对比中…" : "查看差异"}</button>
+          <button className="primary-button" disabled={!csvDiff || busy === "apply"} onClick={() => void applyDiff()}>{busy === "apply" ? "应用中…" : "确认应用"}</button>
         </div>
-        <p className="inline-note">列：名称,站号,地址,类型,数据格式,只读,缩放,偏移,单位。预检失败不写入任何点位。</p>
+        <p className="inline-note">列：名称,站号,地址,类型,数据格式,只读,缩放,偏移,单位。以名称对应点位；差异确认前不写入任何点位。</p>
         {selectedChannel && <div className="channel-point-summary">{(selectedChannel.devices || []).map((device, index) => <span key={device.id || device.device_id || index}>站号 {device.server_id ?? "—"} · {device.points?.length ?? 0} 点位 · {device.health}</span>)}</div>}
-        {csvResult && <div className="csv-result">
-          <strong>{csvResult.preview ? `预检通过：${csvResult.count ?? 0} 个点位` : `已导入 ${csvResult.imported ?? csvResult.count ?? 0} 个点位`}</strong>
-          {csvResult.errors && csvResult.errors.length > 0 && <ul>{csvResult.errors.map((item) => <li key={`${item.line}-${item.reason}`}>第 {item.line} 行：{item.reason}</li>)}</ul>}
+        {csvDiff && <div className="csv-diff">
+          <div className="csv-diff-counts">
+            <span className="add">新增 {csvDiff.added.length}</span>
+            <span className="change">修改 {csvDiff.changed.length}</span>
+            <span className="remove">CSV 中缺失 {csvDiff.removed.length}</span>
+            <span>不变 {csvDiff.unchanged}</span>
+          </div>
+          {(csvDiff.added.length > 0 || csvDiff.changed.length > 0 || csvDiff.removed.length > 0) ? <div className="csv-diff-list">
+            {csvDiff.added.map((point) => <div className="csv-diff-row add" key={`a-${point.description}`}>
+              <span className="csv-diff-tag">新增</span><strong>{point.description}</strong>
+              <span>站号 {point.server_id} · 地址 {point.address}{point.units ? ` · ${point.units}` : ""}</span>
+            </div>)}
+            {csvDiff.changed.map((change) => <div className="csv-diff-row change" key={`c-${change.name}`}>
+              <span className="csv-diff-tag">修改</span><strong>{change.name}</strong>
+              <span>{change.fields.map((field) => {
+                const details: Record<string, [string | number, string | number]> = {
+                  站号: [change.before.server_id, change.after.server_id],
+                  地址: [change.before.address, change.after.address],
+                  类型: [change.before.io_type, change.after.io_type],
+                  数据格式: [change.before.data_format, change.after.data_format],
+                  只读: [change.before.read_only ? "是" : "否", change.after.read_only ? "是" : "否"],
+                  缩放: [change.before.scale, change.after.scale],
+                  偏移: [change.before.offset, change.after.offset],
+                  单位: [change.before.units || "—", change.after.units || "—"],
+                }
+                const detail = details[field]
+                return detail ? `${field} ${detail[0]} → ${detail[1]}` : field
+              }).join("；")}</span>
+            </div>)}
+            {csvDiff.removed.map((point) => <div className="csv-diff-row remove" key={`r-${point.description}`}>
+              <span className="csv-diff-tag">缺失</span><strong>{point.description}</strong>
+              <span>站号 {point.server_id} · 地址 {point.address} · 默认保留，勾选下方选项才会删除</span>
+            </div>)}
+          </div> : <p className="inline-note">点表与 CSV 一致，没有需要应用的差异。</p>}
+          {csvDiff.removed.length > 0 && <label className="csv-diff-remove-check"><input type="checkbox" checked={removeMissing} onChange={(event) => setRemoveMissing(event.target.checked)} /> 同时删除 CSV 中不存在的 {csvDiff.removed.length} 个点位（删除会移除点位及其映射）</label>}
+        </div>}
+        {applied && <div className="csv-result">
+          <strong>差异已应用：新增 {applied.added} · 修改 {applied.updated} · 删除 {applied.removed}</strong>
         </div>}
       </>}
     </article>
 
     {(error || notice) && <div className={error ? "inline-error" : "success-message"} role={error ? "alert" : "status"}>{error || notice}</div>}
+    {wizard && <DeployWizard token={token} channels={channels} onClose={() => { setWizard(false); void loadChannels() }} />}
   </section>
 }

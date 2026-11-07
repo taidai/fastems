@@ -206,11 +206,15 @@ func (h *Handler) importModbusCSV(w http.ResponseWriter, r *http.Request, identi
 			return
 		}
 	}
+	query := r.URL.Query()
+	diffMode := query.Get("diff") == "true" || query.Get("apply") == "diff"
 	existing := map[string]bool{}
-	children, _ := client.GetNodes(h.nc, busID, "all", "", false)
-	for _, child := range children {
-		name, _ := child.Points.Text(data.PointTypeDescription, "")
-		existing[name] = true
+	if !diffMode {
+		children, _ := client.GetNodes(h.nc, busID, "all", "", false)
+		for _, child := range children {
+			name, _ := child.Points.Text(data.PointTypeDescription, "")
+			existing[name] = true
+		}
 	}
 
 	inputs := []ModbusIOInput{}
@@ -298,6 +302,10 @@ func (h *Handler) importModbusCSV(w http.ResponseWriter, r *http.Request, identi
 		writeError(w, http.StatusBadRequest, "empty_or_invalid_csv")
 		return
 	}
+	if diffMode {
+		h.modbusCSVDiff(w, r, identity, busID, inputs)
+		return
+	}
 	if r.URL.Query().Get("preview") == "true" {
 		writeJSON(w, map[string]any{"preview": true, "count": len(inputs), "points": inputs})
 		return
@@ -337,6 +345,164 @@ func (h *Handler) createModbusBatch(busID string, inputs []ModbusIOInput, origin
 		created = append(created, node)
 	}
 	return nil
+}
+
+type modbusDiffChange struct {
+	Name   string        `json:"name"`
+	Before ModbusIOInput `json:"before"`
+	After  ModbusIOInput `json:"after"`
+	Fields []string      `json:"fields"`
+}
+
+type existingModbusIO struct {
+	NodeID string
+	Input  ModbusIOInput
+}
+
+func (h *Handler) existingModbusIOs(busID string) ([]existingModbusIO, error) {
+	children, err := client.GetNodes(h.nc, busID, "all", "", false)
+	if err != nil {
+		return nil, err
+	}
+	items := []existingModbusIO{}
+	for _, node := range children {
+		if node.Type != data.NodeTypeModbusIO {
+			continue
+		}
+		serverID, _ := node.Points.Value(data.PointTypeID, "")
+		address, _ := node.Points.Value(data.PointTypeAddress, "")
+		scale, _ := node.Points.Value(data.PointTypeScale, "")
+		if scale == 0 {
+			scale = 1
+		}
+		offset, _ := node.Points.Value(data.PointTypeOffset, "")
+		readOnly, _ := node.Points.Value(data.PointTypeReadOnly, "")
+		items = append(items, existingModbusIO{NodeID: node.ID, Input: ModbusIOInput{
+			Parent:      busID,
+			Description: textPoint(node.Points, data.PointTypeDescription),
+			ServerID:    int(serverID), Address: int(address),
+			IOType:     textPoint(node.Points, data.PointTypeModbusIOType),
+			DataFormat: textPoint(node.Points, data.PointTypeDataFormat),
+			ReadOnly:   readOnly != 0, Scale: scale, Offset: offset,
+			Units: textPoint(node.Points, data.PointTypeUnits),
+		}})
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].Input.Address != items[j].Input.Address {
+			return items[i].Input.Address < items[j].Input.Address
+		}
+		return items[i].Input.Description < items[j].Input.Description
+	})
+	return items, nil
+}
+
+func modbusDiffFields(before, after ModbusIOInput) []string {
+	fields := []string{}
+	if before.ServerID != after.ServerID {
+		fields = append(fields, "站号")
+	}
+	if before.Address != after.Address {
+		fields = append(fields, "地址")
+	}
+	if before.IOType != after.IOType {
+		fields = append(fields, "类型")
+	}
+	register := after.IOType == data.PointValueModbusHoldingRegister || after.IOType == data.PointValueModbusInputRegister
+	if register && before.DataFormat != after.DataFormat {
+		fields = append(fields, "数据格式")
+	}
+	if before.ReadOnly != after.ReadOnly {
+		fields = append(fields, "只读")
+	}
+	if before.Scale != after.Scale {
+		fields = append(fields, "缩放")
+	}
+	if before.Offset != after.Offset {
+		fields = append(fields, "偏移")
+	}
+	if strings.TrimSpace(before.Units) != strings.TrimSpace(after.Units) {
+		fields = append(fields, "单位")
+	}
+	return fields
+}
+
+// modbusCSVDiff compares a validated CSV against the channel's current point
+// table. Names identify points; apply=diff creates/updates the differences and
+// only deletes missing points when remove=true is passed explicitly.
+func (h *Handler) modbusCSVDiff(w http.ResponseWriter, r *http.Request, identity Identity, busID string, inputs []ModbusIOInput) {
+	existing, err := h.existingModbusIOs(busID)
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, "diff_unavailable")
+		return
+	}
+	byName := map[string]existingModbusIO{}
+	for _, item := range existing {
+		if _, duplicate := byName[item.Input.Description]; duplicate {
+			writeError(w, http.StatusConflict, "duplicate_existing_point_name: "+item.Input.Description)
+			return
+		}
+		byName[item.Input.Description] = item
+	}
+	added := []ModbusIOInput{}
+	changed := []modbusDiffChange{}
+	removedItems := []existingModbusIO{}
+	unchanged := 0
+	inCSV := map[string]bool{}
+	for i := range inputs {
+		if inputs[i].Scale == 0 {
+			inputs[i].Scale = 1
+		}
+		input := inputs[i]
+		inCSV[input.Description] = true
+		current, ok := byName[input.Description]
+		if !ok {
+			added = append(added, input)
+			continue
+		}
+		fields := modbusDiffFields(current.Input, input)
+		if len(fields) == 0 {
+			unchanged++
+			continue
+		}
+		changed = append(changed, modbusDiffChange{Name: input.Description, Before: current.Input, After: input, Fields: fields})
+	}
+	for _, item := range existing {
+		if !inCSV[item.Input.Description] {
+			removedItems = append(removedItems, item)
+		}
+	}
+	removed := make([]ModbusIOInput, 0, len(removedItems))
+	for _, item := range removedItems {
+		removed = append(removed, item.Input)
+	}
+	if r.URL.Query().Get("apply") != "diff" {
+		writeJSON(w, map[string]any{
+			"diff": true, "added": added, "changed": changed,
+			"removed": removed, "unchanged": unchanged,
+		})
+		return
+	}
+	if err := h.createModbusBatch(busID, added, identity.UserID); err != nil {
+		writeError(w, http.StatusInternalServerError, "import_rolled_back")
+		return
+	}
+	for _, change := range changed {
+		if err := h.updateModbusIOFields(byName[change.Name].NodeID, busID, change.After, identity.UserID); err != nil {
+			writeError(w, http.StatusInternalServerError, "sync_update_failed: "+change.Name)
+			return
+		}
+	}
+	removedCount := 0
+	if r.URL.Query().Get("remove") == "true" {
+		for _, item := range removedItems {
+			if err := client.DeleteNode(h.nc, item.NodeID, busID, identity.UserID); err != nil {
+				writeError(w, http.StatusInternalServerError, "sync_delete_failed: "+item.Input.Description)
+				return
+			}
+			removedCount++
+		}
+	}
+	writeJSON(w, map[string]any{"applied": true, "added": len(added), "updated": len(changed), "removed": removedCount})
 }
 
 func (h *Handler) testModbus(w http.ResponseWriter, r *http.Request, identity Identity) {
@@ -440,28 +606,31 @@ func (h *Handler) updateModbusIO(w http.ResponseWriter, r *http.Request, identit
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	if err := h.updateModbusIOFields(id, node.Parent, input, identity.UserID); err != nil {
+		writeError(w, http.StatusBadRequest, "save_failed")
+		return
+	}
+	writeJSON(w, map[string]bool{"saved": true})
+}
+
+func (h *Handler) updateModbusIOFields(id, parent string, input ModbusIOInput, origin string) error {
 	if input.Scale == 0 {
 		input.Scale = 1
 	}
 	encoded, err := data.Encode(client.ModbusIo{
-		ID: id, Parent: node.Parent, Description: input.Description,
+		ID: id, Parent: parent, Description: input.Description,
 		ServerID: input.ServerID, Address: input.Address,
 		ModbusIOType: input.IOType, DataFormat: input.DataFormat,
 		ReadOnly: input.ReadOnly, Scale: input.Scale, Offset: input.Offset, Disabled: input.Disabled,
 	})
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_modbus_point")
-		return
+		return err
 	}
 	encoded.Points = append(encoded.Points, data.NewPointString(data.PointTypeUnits, "", input.Units))
 	for i := range encoded.Points {
-		encoded.Points[i].Origin = identity.UserID
+		encoded.Points[i].Origin = origin
 	}
-	if err := client.SendNodePoints(h.nc, id, encoded.Points, true); err != nil {
-		writeError(w, http.StatusBadRequest, "save_failed")
-		return
-	}
-	writeJSON(w, map[string]bool{"saved": true})
+	return client.SendNodePoints(h.nc, id, encoded.Points, true)
 }
 
 func (h *Handler) exportModbusCSV(w http.ResponseWriter, identity Identity, busID string) {

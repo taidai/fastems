@@ -80,7 +80,7 @@ export type ProfileSpec = {
   notes?: string[]
   custom?: boolean
   point_specs?: { name: string; unit?: string; read_only?: boolean; role?: string }[]
-  command_specs?: { id: string; name: string }[]
+  command_specs?: { id: string; name: string; point?: string; parameters?: { name: string; label?: string; point?: string }[] }[]
 }
 
 export type UnitModel = {

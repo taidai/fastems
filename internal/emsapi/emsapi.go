@@ -880,6 +880,13 @@ func (h *Handler) clearFrames(w http.ResponseWriter, access Access) {
 }
 
 func (h *Handler) quality(w http.ResponseWriter) {
+	channelStats, deviceStats := h.QualityReport()
+	writeJSON(w, map[string]any{"channels": channelStats, "devices": deviceStats})
+}
+
+// QualityReport returns the rolling per-channel and per-device communication
+// statistics shared by /api/ems/quality and the delivery evidence export.
+func (h *Handler) QualityReport() ([]contract.QualityStats, []contract.QualityStats) {
 	now := time.Now()
 	channels := h.Service.Channels()
 	channelStats := make([]contract.QualityStats, 0, len(channels))
@@ -927,7 +934,7 @@ func (h *Handler) quality(w http.ResponseWriter) {
 		aggregate.MaxLatencyMS = maxLatency
 		channelStats = append(channelStats, aggregate)
 	}
-	writeJSON(w, map[string]any{"channels": channelStats, "devices": deviceStats})
+	return channelStats, deviceStats
 }
 
 func (h *Handler) maintainAlarm(w http.ResponseWriter, r *http.Request, access Access, id string) {

@@ -30,10 +30,25 @@ func (h *Handler) profileVerifications(w http.ResponseWriter, r *http.Request, i
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}
-	nodes, err := h.visibleNodes(identity)
+	list, err := h.verificationList(identity)
 	if err != nil {
 		writeError(w, http.StatusServiceUnavailable, "nodes_unavailable")
 		return
+	}
+	if r.URL.Query().Get("format") == "csv" {
+		w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+		w.Header().Set("Content-Disposition", `attachment; filename="easyems-profile-verifications.csv"`)
+		writer := csv.NewWriter(w)
+		writeVerificationCSV(writer, list)
+		return
+	}
+	writeJSON(w, map[string]any{"verifications": list})
+}
+
+func (h *Handler) verificationList(identity Identity) ([]profileVerification, error) {
+	nodes, err := h.visibleNodes(identity)
+	if err != nil {
+		return nil, err
 	}
 	list := []profileVerification{}
 	for _, node := range nodes {
@@ -53,8 +68,10 @@ func (h *Handler) profileVerifications(w http.ResponseWriter, r *http.Request, i
 				continue
 			}
 			vendor, modelName := "", ""
-			if profile, ok := h.ems.Profiles.Get(model.ProfileID); ok {
-				vendor, modelName = profile.Vendor, profile.Model
+			if h.ems != nil && h.ems.Profiles != nil {
+				if profile, ok := h.ems.Profiles.Get(model.ProfileID); ok {
+					vendor, modelName = profile.Vendor, profile.Model
+				}
 			}
 			list = append(list, profileVerification{
 				ChannelID: node.ID, ChannelName: node.Desc(), ServerID: server,
@@ -64,24 +81,21 @@ func (h *Handler) profileVerifications(w http.ResponseWriter, r *http.Request, i
 			})
 		}
 	}
-	if r.URL.Query().Get("format") == "csv" {
-		w.Header().Set("Content-Type", "text/csv; charset=utf-8")
-		w.Header().Set("Content-Disposition", `attachment; filename="easyems-profile-verifications.csv"`)
-		writer := csv.NewWriter(w)
-		_ = writer.Write([]string{"通道", "站号", "设备名称", "Profile", "厂商", "型号", "已验证", "验证人", "验证日期", "设备序列号", "备注", "点位数"})
-		for _, item := range list {
-			verified := "否"
-			if item.Verified {
-				verified = "是"
-			}
-			_ = writer.Write([]string{
-				item.ChannelName, strconv.Itoa(item.ServerID), item.UnitName, item.ProfileID,
-				item.Vendor, item.Model, verified, item.Verifier, item.VerifiedAt,
-				item.DeviceSerial, item.Note, strconv.Itoa(item.PointCount),
-			})
+	return list, nil
+}
+
+func writeVerificationCSV(writer *csv.Writer, list []profileVerification) {
+	_ = writer.Write([]string{"通道", "站号", "设备名称", "Profile", "厂商", "型号", "已验证", "验证人", "验证日期", "设备序列号", "备注", "点位数"})
+	for _, item := range list {
+		verified := "否"
+		if item.Verified {
+			verified = "是"
 		}
-		writer.Flush()
-		return
+		_ = writer.Write([]string{
+			item.ChannelName, strconv.Itoa(item.ServerID), item.UnitName, item.ProfileID,
+			item.Vendor, item.Model, verified, item.Verifier, item.VerifiedAt,
+			item.DeviceSerial, item.Note, strconv.Itoa(item.PointCount),
+		})
 	}
-	writeJSON(w, map[string]any{"verifications": list})
+	writer.Flush()
 }

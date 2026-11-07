@@ -81,6 +81,10 @@ func (h *Handler) alarmStats(w http.ResponseWriter, r *http.Request, identity Id
 	if value, err := strconv.Atoi(r.URL.Query().Get("days")); err == nil && value >= 1 && value <= 30 {
 		days = value
 	}
+	writeJSON(w, h.alarmStatsData(identity, days))
+}
+
+func (h *Handler) alarmStatsData(identity Identity, days int) AlarmStats {
 	events := h.readAlarmEvents()
 	now := time.Now()
 	location := now.Location()
@@ -150,10 +154,10 @@ func (h *Handler) alarmStats(w http.ResponseWriter, r *http.Request, identity Id
 	if len(ranked) > 10 {
 		ranked = ranked[:10]
 	}
-	writeJSON(w, AlarmStats{
+	return AlarmStats{
 		Today: day(now), Yesterday: day(now.AddDate(0, 0, -1)),
 		Trend: trend, Ranking: ranked, Since: since,
-	})
+	}
 }
 
 func (h *Handler) readAlarmEvents() []alarmEvent {

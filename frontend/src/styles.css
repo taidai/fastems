@@ -2595,3 +2595,52 @@ body::after {
   .kpi-value { font-size: 24px; }
   .kpi-note { font-size: 10.5px; }
 }
+
+/* Deploy wizard and point-table diff */
+.deploy-wizard { width: min(980px, calc(100vw - 32px)); }
+.wizard-steps { display: flex; gap: 6px; flex-wrap: wrap; margin: 14px 0 12px; padding: 0; list-style: none; }
+.wizard-steps li { display: flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 12px; }
+.wizard-steps li span { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: rgba(120, 143, 168, 0.16); font-size: 10.5px; font-weight: 650; }
+.wizard-steps li.active { border-color: rgba(47, 111, 159, 0.4); background: rgba(47, 111, 159, 0.08); color: var(--ink); }
+.wizard-steps li.active span { background: #2f6f9f; color: #fff; }
+.wizard-steps li.done { border-color: rgba(45, 143, 120, 0.3); color: #2d7b68; }
+.wizard-steps li.done span { background: rgba(45, 143, 120, 0.18); color: #2d7b68; }
+.wizard-body { display: grid; gap: 12px; }
+.wizard-pick-list { display: grid; gap: 6px; max-height: 180px; overflow-y: auto; }
+.wizard-pick-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 42px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255, 255, 255, 0.35); color: var(--ink); font-size: 12px; text-align: left; }
+.wizard-pick-row span { color: var(--muted); }
+.wizard-pick-row.active { border-color: rgba(47, 111, 159, 0.45); background: rgba(47, 111, 159, 0.08); }
+.wizard-scan { padding-top: 10px; border-top: 1px solid var(--line); display: grid; gap: 8px; }
+.wizard-scan-form { display: flex; align-items: end; gap: 10px; flex-wrap: wrap; }
+.wizard-scan-form label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; }
+.wizard-scan-form input { width: 110px; min-height: 38px; }
+.wizard-profile-hint { display: grid; gap: 4px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 255, 255, 0.4); font-size: 12px; }
+.wizard-profile-hint span { color: var(--muted); }
+.wizard-profile-hint small { color: var(--faint); }
+.wizard-check-summary { padding: 8px 12px; border-radius: 8px; background: rgba(47, 111, 159, 0.07); color: var(--ink); font-size: 12px; }
+.wizard-wide { grid-column: 1 / -1; }
+.wizard-wide textarea { min-height: 70px; font-size: 13px; }
+.wizard-done { padding: 18px 4px; }
+.wizard-done strong { font-size: 17px; color: #2d7b68; }
+.csv-diff { margin-top: 12px; display: grid; gap: 8px; }
+.csv-diff-counts { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.csv-diff-counts .add { color: #2d7b68; font-weight: 650; }
+.csv-diff-counts .change { color: #8a5a1d; font-weight: 650; }
+.csv-diff-counts .remove { color: #8a3b41; font-weight: 650; }
+.csv-diff-list { display: grid; gap: 4px; max-height: 240px; overflow-y: auto; }
+.csv-diff-row { display: grid; grid-template-columns: 44px 160px 1fr; gap: 10px; align-items: center; padding: 7px 10px; border: 1px solid var(--line); border-radius: 9px; font-size: 12px; }
+.csv-diff-row strong { font-size: 12px; overflow-wrap: anywhere; }
+.csv-diff-row span:last-child { color: var(--muted); overflow-wrap: anywhere; }
+.csv-diff-row.add { border-color: rgba(45, 143, 120, 0.25); background: rgba(45, 143, 120, 0.05); }
+.csv-diff-row.change { border-color: rgba(176, 122, 42, 0.28); background: rgba(176, 122, 42, 0.05); }
+.csv-diff-row.remove { border-color: rgba(176, 72, 80, 0.25); background: rgba(176, 72, 80, 0.04); }
+.csv-diff-tag { display: inline-flex; align-items: center; justify-content: center; min-height: 22px; border-radius: 999px; background: rgba(120, 143, 168, 0.12); color: var(--muted); font-size: 10.5px; }
+.csv-diff-row.add .csv-diff-tag { background: rgba(45, 143, 120, 0.14); color: #2d7b68; }
+.csv-diff-row.change .csv-diff-tag { background: rgba(176, 122, 42, 0.16); color: #8a5a1d; }
+.csv-diff-row.remove .csv-diff-tag { background: rgba(176, 72, 80, 0.14); color: #8a3b41; }
+.csv-diff-remove-check { display: flex; align-items: center; gap: 8px; color: #8a3b41; font-size: 12px; }
+.csv-diff-remove-check input { width: 15px; height: 15px; }
+@media (max-width: 1100px) {
+  .csv-diff-row { grid-template-columns: 44px 1fr; }
+  .csv-diff-row span:last-child { grid-column: 1 / -1; }
+}

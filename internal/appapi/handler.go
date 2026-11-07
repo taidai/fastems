@@ -138,6 +138,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.deviceLedger(w, r, identity)
 	case path == "delivery/check" && r.Method == http.MethodGet:
 		h.deliveryCheck(w, identity)
+	case path == "delivery/evidence" && r.Method == http.MethodGet:
+		h.deliveryEvidence(w, r, identity)
 	case path == "history" && r.Method == http.MethodGet:
 		h.history(w, r, identity, false)
 	case path == "history/export" && r.Method == http.MethodGet:

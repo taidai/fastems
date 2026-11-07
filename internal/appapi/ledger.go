@@ -1,6 +1,7 @@
 package appapi
 
 import (
+	"errors"
 	"net/http"
 	"sort"
 	"strconv"
@@ -40,14 +41,21 @@ type DeviceLedgerResponse struct {
 }
 
 func (h *Handler) deviceLedger(w http.ResponseWriter, r *http.Request, identity Identity) {
-	nodes, err := h.visibleNodes(identity)
+	devices, err := h.ledgerDevices(identity)
 	if err != nil {
-		writeError(w, http.StatusServiceUnavailable, "nodes_unavailable")
+		writeError(w, http.StatusServiceUnavailable, err.Error())
 		return
 	}
+	writeJSON(w, DeviceLedgerResponse{Devices: devices})
+}
+
+func (h *Handler) ledgerDevices(identity Identity) ([]LedgerDevice, error) {
+	nodes, err := h.visibleNodes(identity)
+	if err != nil {
+		return nil, errors.New("nodes_unavailable")
+	}
 	if h.ems == nil || h.ems.Profiles == nil {
-		writeError(w, http.StatusServiceUnavailable, "ems_unavailable")
-		return
+		return nil, errors.New("ems_unavailable")
 	}
 	names := map[string]string{}
 	for _, node := range nodes {
@@ -133,5 +141,5 @@ func (h *Handler) deviceLedger(w http.ResponseWriter, r *http.Request, identity 
 		}
 		return devices[i].ServerID < devices[j].ServerID
 	})
-	writeJSON(w, DeviceLedgerResponse{Devices: devices})
+	return devices, nil
 }
