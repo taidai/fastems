@@ -836,8 +836,8 @@ export default function DecisionEditor({ token, rule, nodes, onRefresh, onError,
         {result.time_checks?.length ? <span>{result.time_checks.map(timeCheckText).join("；")}</span> : null}
       </div>}
 
-      <div className="scenario-panel">
-        <div className="logic-title"><span>场景测试集 · 存在草稿里，不影响发布版本</span></div>
+      <details className="scenario-panel">
+        <summary className="logic-title">场景测试集 · 存在草稿里，不影响发布版本</summary>
         {!readOnly && <div className="scenario-form">
           <input aria-label="场景名称" placeholder="场景名称" value={scenarioName} onChange={(event) => setScenarioName(event.target.value)} />
           <label>期望结果
@@ -875,7 +875,7 @@ export default function DecisionEditor({ token, rule, nodes, onRefresh, onError,
             {Object.keys(scenarioResults).length > 0 && <span role="status">{scenarios.filter((scenario) => scenarioResults[scenario.scenario_id]?.passed).length}/{scenarios.length} 通过 · 模拟运行，不会操作设备</span>}
           </div>
         </>}
-      </div>
+      </details>
     </div>
 
     {runtimeError && <div className="inline-error">运行异常：{runtimeError}</div>}

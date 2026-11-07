@@ -355,6 +355,9 @@ h3 { margin-bottom: 0; }
 .weekday-picks input { width: 15px; height: 15px; margin: 0; }
 .time-hint { flex-basis: 100%; color: var(--faint); font-size: 11px; }
 .scenario-panel { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 14px; display: grid; gap: 10px; }
+.scenario-panel summary { cursor: pointer; list-style: none; margin-bottom: 0; }
+.scenario-panel summary::-webkit-details-marker { display: none; }
+.scenario-panel[open] summary { margin-bottom: 12px; }
 .scenario-form { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
 .scenario-form > input { max-width: 180px; }
 .scenario-list { display: grid; gap: 8px; }
