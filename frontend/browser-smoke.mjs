@@ -121,6 +121,7 @@ try {
 
   // Scenario set: save two expectations and run them in one click; pure simulation.
   await page.getByLabel("模拟时刻").fill("2026-01-05T23:30")
+  await page.locator(".scenario-panel summary").click()
   await page.getByLabel("场景名称").fill("夜间命中")
   await page.getByLabel("期望结果").selectOption({ label: "第 1 行" })
   await page.getByRole("button", { name: "把当前输入和时刻存为场景" }).click()
