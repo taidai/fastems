@@ -78,6 +78,20 @@ func TestDistributeWeightBiasesShare(t *testing.T) {
 	}
 }
 
+func TestDistributeWeightCappedAtCapacity(t *testing.T) {
+	a := resolved("A", 100, 100)
+	a.weight = 2
+	b := resolved("B", 100, 100)
+	b.weight = 1
+	result := distribute(180, []resolvedMember{a, b})
+	if got := shareByIDTest(t, result, "A").Setpoint; got != 100 {
+		t.Errorf("A setpoint = %v, want 100 (capped at capacity)", got)
+	}
+	if got := shareByIDTest(t, result, "B").Setpoint; got != 80 {
+		t.Errorf("B setpoint = %v, want 80", got)
+	}
+}
+
 func TestDistributeMinPowerExcludesSmallShare(t *testing.T) {
 	big := resolved("big", 1000, 1000)
 	small := resolved("small", 10, 10)

@@ -145,7 +145,9 @@ func fillByPriority(target, direction float64, candidates []resolvedMember, shar
 }
 
 // fillProportional distributes target across one priority group by weighted
-// capability, re-allocating any member whose share falls below MinPower.
+// capability. A member whose weighted share would exceed its hard capacity is
+// frozen at capacity and the remainder re-split; a share below MinPower is
+// excluded.
 func fillProportional(target, direction float64, group []resolvedMember, allocations map[string]float64, shares map[string]*alloc.Share) {
 	active := append([]resolvedMember(nil), group...)
 	remaining := target
@@ -157,28 +159,32 @@ func fillProportional(target, direction float64, group []resolvedMember, allocat
 		if sum <= 0 {
 			return
 		}
-		if remaining >= sum {
-			for _, m := range active {
-				allocations[m.member.ID] = memberCapacity(m.member, direction)
-			}
-			return
-		}
 		next := make([]resolvedMember, 0, len(active))
-		excluded := 0
+		changed := false
 		for _, m := range active {
-			value := remaining * memberCapacity(m.member, direction) * m.weightFactor() / sum
+			capacity := memberCapacity(m.member, direction)
+			value := remaining * capacity * m.weightFactor() / sum
+			if value >= capacity-1e-9 {
+				allocations[m.member.ID] = capacity
+				remaining -= capacity
+				changed = true
+				continue
+			}
 			if m.member.MinPower > 0 && value < m.member.MinPower {
 				if share := shares[m.member.ID]; share != nil {
 					share.Excluded = true
 					share.Reason = fmt.Sprintf("share %.1f kW is below the %.1f kW minimum", value, m.member.MinPower)
 				}
-				excluded++
+				changed = true
 				continue
 			}
-			allocations[m.member.ID] = value
 			next = append(next, m)
 		}
-		if excluded == 0 {
+		if !changed {
+			for _, m := range next {
+				capacity := memberCapacity(m.member, direction)
+				allocations[m.member.ID] = remaining * capacity * m.weightFactor() / sum
+			}
 			return
 		}
 		active = next
