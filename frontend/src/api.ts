@@ -204,6 +204,36 @@ export async function downloadHistory(token: string, nodeId: string, start: Date
   URL.revokeObjectURL(url)
 }
 
+export type EmsStateValue = {
+  device_id: string
+  point_id: string
+  value: { kind: string; number?: number; bool?: boolean; enum?: string }
+  quality: string
+  source_time: string
+  received_time: string
+}
+
+export type EmsHistorySample = {
+  value: { kind: string; number?: number; bool?: boolean; enum?: string }
+  quality: string
+  source_time: string
+}
+
+export async function fetchEmsState(token: string) {
+  return request<{ values: EmsStateValue[] }>(token, "/ems/state")
+}
+
+export async function fetchEmsHistory(token: string, deviceId: string, pointId: string, start: Date, end: Date) {
+  const query = new URLSearchParams({
+    device_id: deviceId,
+    point_id: pointId,
+    start: start.toISOString(),
+    end: end.toISOString(),
+    limit: "5000",
+  })
+  return request<{ device_id: string; point_id: string; samples: EmsHistorySample[] }>(token, `/ems/history?${query.toString()}`)
+}
+
 export type ScreenConfig = {
   title: string
   columns: number

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { downloadHistory, fetchHistory, nameOf, Node, point, Point, request } from "./api"
+import { downloadHistory, EmsAlarm, fetchAlarms, fetchEmsHistory, fetchEmsState, fetchHistory, nameOf, Node, point, Point, request } from "./api"
 
 const ranges = [
   { key: "1h", label: "1 小时", hours: 1 },
@@ -7,27 +7,18 @@ const ranges = [
   { key: "7d", label: "7 天", hours: 24 * 7 },
 ]
 
-function Trend({ values }: { values: number[] }) {
-  if (values.length < 2) return <div className="trend-empty">这段时间内没有足够的数据点</div>
-  const width = 760
-  const height = 240
-  const pad = 28
-  const min = Math.min(...values)
-  const max = Math.max(...values)
-  const span = max - min || 1
-  const step = (width - pad * 2) / (values.length - 1)
-  const coords = values.map((value, index) => ({
-    x: pad + index * step,
-    y: height - pad - ((value - min) / span) * (height - pad * 2),
-  }))
-  const last = coords[coords.length - 1]
-  return <svg className="trend-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="历史趋势">
-    {[0.25, 0.5, 0.75].map((ratio) => <line key={ratio} x1={pad} x2={width - pad} y1={pad + ratio * (height - pad * 2)} y2={pad + ratio * (height - pad * 2)} className="trend-grid" />)}
-    <polyline points={coords.map(({ x, y }) => `${x},${y}`).join(" ")} className="trend-line" />
-    <circle cx={last.x} cy={last.y} r="4.5" className="trend-dot" />
-    <text x={pad} y={pad - 8} className="trend-label">{max.toFixed(1)}</text>
-    <text x={pad} y={height - pad + 16} className="trend-label">{min.toFixed(1)}</text>
-  </svg>
+const seriesColors = ["#2f6f9f", "#c07a1f", "#2d8f78", "#b14f6f", "#6b4fa0", "#5f8f3f", "#8a5a2b", "#3f7f7f"]
+const severityColors: Record<string, string> = { critical: "#b14f6f", warning: "#b07a2a", info: "#2f6f9f" }
+
+type SavedQuery = { name: string; points: string[]; range: string; interval: string }
+type QualityCounts = { good: number; stale: number; invalid: number; none: number }
+type TrendSeries = { id: string; name: string; color: string; units: string; latestValue?: number; samples: { time: number; value: number }[] }
+type AlarmMark = { at: number; severity: string; title: string }
+
+const savedQueryKey = "easyems-history-queries"
+
+function loadSavedQueries(): SavedQuery[] {
+  try { return JSON.parse(localStorage.getItem(savedQueryKey) || "[]") as SavedQuery[] } catch { return [] }
 }
 
 function recentPoint(points: Node[]) {
@@ -38,6 +29,67 @@ function recentPoint(points: Node[]) {
   return ranked[0]?.id || points[0]?.id || ""
 }
 
+function aggregate(samples: Point[], interval: string): { time: number; value: number }[] {
+  const raw = samples
+    .map((sample) => ({ time: new Date(sample.time).getTime(), value: Number(sample.value) }))
+    .filter((item) => Number.isFinite(item.time) && Number.isFinite(item.value))
+  if (interval === "raw") return raw
+  const size = interval === "5m" ? 5 * 60_000 : 60 * 60_000
+  const buckets = new Map<number, { sum: number; count: number }>()
+  for (const item of raw) {
+    const key = Math.floor(item.time / size) * size
+    const bucket = buckets.get(key)
+    if (bucket) { bucket.sum += item.value; bucket.count += 1 }
+    else buckets.set(key, { sum: item.value, count: 1 })
+  }
+  return [...buckets.entries()].sort((a, b) => a[0] - b[0]).map(([time, bucket]) => ({ time, value: bucket.sum / bucket.count }))
+}
+
+function Trend({ series, alarms, start, end }: { series: TrendSeries[]; alarms: AlarmMark[]; start: number; end: number }) {
+  const width = 760
+  const height = 260
+  const pad = 30
+  const plotW = width - pad * 2
+  const plotH = height - pad * 2
+  const values = series.flatMap((item) => item.samples.map((sample) => sample.value))
+  const min = values.length ? Math.min(...values) : 0
+  const max = values.length ? Math.max(...values) : 1
+  const span = max - min || 1
+  const domain = end > start ? end - start : 1
+  const xOf = (time: number) => pad + ((time - start) / domain) * plotW
+  const yOf = (value: number) => height - pad - ((value - min) / span) * plotH
+  const lines = series.map((item) => ({
+    ...item,
+    coords: item.samples
+      .filter((sample) => sample.time >= start && sample.time <= end)
+      .map((sample) => ({ x: xOf(sample.time), y: yOf(sample.value) })),
+  }))
+  const marks = alarms.filter((alarm) => alarm.at >= start && alarm.at <= end)
+
+  return <div className="trend-wrap">
+    <div className="trend-legend" role="list" aria-label="对比图例">
+      {series.map((item) => <span key={item.id} className="trend-legend-item" role="listitem">
+        <i style={{ background: item.color }} />
+        <b>{item.name}</b>
+        <em>{item.latestValue === undefined ? "无数据" : `${item.latestValue}${item.units}`}</em>
+      </span>)}
+    </div>
+    {values.length < 2 ? <div className="trend-empty">这段时间内没有足够的数据点</div> : <svg className="trend-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="历史趋势">
+      {[0.25, 0.5, 0.75].map((ratio) => <line key={ratio} x1={pad} x2={width - pad} y1={pad + ratio * plotH} y2={pad + ratio * plotH} className="trend-grid" />)}
+      {marks.map((alarm) => {
+        const x = xOf(alarm.at)
+        return <line key={`${alarm.at}-${alarm.title}`} x1={x} x2={x} y1={pad} y2={height - pad} className="trend-alarm" style={{ stroke: severityColors[alarm.severity] || severityColors.info }}>
+          <title>{alarm.title} · {new Date(alarm.at).toLocaleString("zh-CN", { hour12: false })}</title>
+        </line>
+      })}
+      {lines.map((item) => <polyline key={item.id} points={item.coords.map(({ x, y }) => `${x},${y}`).join(" ")} className="trend-line" style={{ stroke: item.color }} />)}
+      <text x={pad} y={pad - 8} className="trend-label">{max.toFixed(1)}</text>
+      <text x={pad} y={height - pad + 16} className="trend-label">{min.toFixed(1)}</text>
+    </svg>}
+    {marks.length > 0 && <p className="trend-alarm-note">图上竖线为所选时间段内与所选点位相关的报警事件，悬停查看详情。</p>}
+  </div>
+}
+
 export default function HistoryView({ token, points, initialPoint, onError, isAdmin = false }: {
   token: string
   points: Node[]
@@ -45,18 +97,24 @@ export default function HistoryView({ token, points, initialPoint, onError, isAd
   onError: (message: string) => void
   isAdmin?: boolean
 }) {
-  const [selected, setSelected] = useState(() => initialPoint && points.some((item) => item.id === initialPoint) ? initialPoint : recentPoint(points))
+  const [selected, setSelected] = useState<string[]>(() => {
+    const first = initialPoint && points.some((item) => item.id === initialPoint) ? initialPoint : recentPoint(points)
+    return first ? [first] : []
+  })
   const [range, setRange] = useState("24h")
   const [interval, setInterval] = useState("raw")
-  const [samples, setSamples] = useState<Point[]>([])
+  const [seriesData, setSeriesData] = useState<Record<string, Point[]>>({})
   const [loading, setLoading] = useState(false)
+  const [alarms, setAlarms] = useState<EmsAlarm[]>([])
+  const [showAlarms, setShowAlarms] = useState(true)
+  const [quality, setQuality] = useState<Record<string, QualityCounts>>({})
+  const [savedQueries, setSavedQueries] = useState<SavedQuery[]>(loadSavedQueries)
+  const [queryName, setQueryName] = useState("")
   const [limitDraft, setLimitDraft] = useState(20000)
   const [limitBusy, setLimitBusy] = useState(false)
   const [limitNotice, setLimitNotice] = useState("")
 
   const hours = ranges.find((item) => item.key === range)?.hours || 24
-  const node = points.find((item) => item.id === selected)
-  const units = node ? point(node, "units")?.text || "" : ""
 
   const bounds = useMemo(() => {
     const end = new Date()
@@ -65,14 +123,17 @@ export default function HistoryView({ token, points, initialPoint, onError, isAd
   }, [hours])
 
   const load = useCallback(async () => {
-    if (!selected) {
-      setSamples([])
+    if (selected.length === 0) {
+      setSeriesData({})
       return
     }
     setLoading(true)
     try {
-      const result = await fetchHistory(token, selected, bounds.start, bounds.end)
-      setSamples(result.points || [])
+      const entries = await Promise.all(selected.map(async (id) => {
+        const result = await fetchHistory(token, id, bounds.start, bounds.end)
+        return [id, result.points || []] as const
+      }))
+      setSeriesData(Object.fromEntries(entries))
     } catch (cause) {
       onError(cause instanceof Error ? cause.message : "历史读取失败")
     } finally {
@@ -83,6 +144,54 @@ export default function HistoryView({ token, points, initialPoint, onError, isAd
   useEffect(() => {
     void load()
   }, [load])
+
+  useEffect(() => {
+    let cancelled = false
+    const loadAlarms = async () => {
+      try {
+        const result = await fetchAlarms(token)
+        if (!cancelled) setAlarms(result.alarms || [])
+      } catch {
+        // 报警叠加是补充信息，失败不阻塞趋势。
+      }
+    }
+    void loadAlarms()
+    const timer = window.setInterval(() => void loadAlarms(), 5000)
+    return () => { cancelled = true; window.clearInterval(timer) }
+  }, [token])
+
+  useEffect(() => {
+    let cancelled = false
+    const loadQuality = async () => {
+      try {
+        const state = await fetchEmsState(token)
+        const deviceByPoint = new Map((state.values || []).map((item) => [item.point_id, item.device_id]))
+        const counts: Record<string, QualityCounts> = {}
+        await Promise.all(selected.map(async (id) => {
+          const deviceId = deviceByPoint.get(id)
+          if (!deviceId) return
+          try {
+            const result = await fetchEmsHistory(token, deviceId, id, bounds.start, bounds.end)
+            const bucket: QualityCounts = { good: 0, stale: 0, invalid: 0, none: 0 }
+            for (const sample of result.samples || []) {
+              if (sample.quality === "good") bucket.good += 1
+              else if (sample.quality === "stale") bucket.stale += 1
+              else if (sample.quality === "invalid") bucket.invalid += 1
+              else bucket.none += 1
+            }
+            counts[id] = bucket
+          } catch {
+            // 单个点位质量缺失不影响其他点位。
+          }
+        }))
+        if (!cancelled) setQuality(counts)
+      } catch {
+        // 质量摘要只覆盖已接入运行时的点位，失败不阻塞趋势。
+      }
+    }
+    void loadQuality()
+    return () => { cancelled = true }
+  }, [token, selected, bounds])
 
   useEffect(() => {
     if (!isAdmin) return
@@ -103,27 +212,96 @@ export default function HistoryView({ token, points, initialPoint, onError, isAd
     }
   }
 
-  const displaySamples = useMemo(() => {
-    if (interval === "raw") return samples
-    const size = interval === "5m" ? 5 * 60_000 : 60 * 60_000
-    const buckets = new Map<number, { sum: number; count: number; last: Point }>()
-    for (const sample of samples) {
-      const value = Number(sample.value)
-      if (!Number.isFinite(value)) continue
-      const at = new Date(sample.time).getTime()
-      if (!Number.isFinite(at)) continue
-      const key = Math.floor(at / size) * size
-      const current = buckets.get(key)
-      if (current) { current.sum += value; current.count += 1; current.last = sample }
-      else buckets.set(key, { sum: value, count: 1, last: sample })
+  const series = useMemo<TrendSeries[]>(() => selected.map((id, index) => {
+    const node = points.find((item) => item.id === id)
+    const samples = aggregate(seriesData[id] || [], interval)
+    return {
+      id,
+      name: node ? nameOf(node) : id,
+      color: seriesColors[index % seriesColors.length],
+      units: node ? point(node, "units")?.text || "" : "",
+      latestValue: samples.length ? samples[samples.length - 1].value : undefined,
+      samples,
     }
-    return [...buckets.entries()].sort((a, b) => a[0] - b[0]).map(([time, bucket]) => ({ ...bucket.last, time: new Date(time).toISOString(), value: bucket.sum / bucket.count }))
-  }, [interval, samples])
+  }), [selected, points, seriesData, interval])
 
-  const values = displaySamples
-    .map((sample) => Number(sample.value))
-    .filter((value) => Number.isFinite(value))
-  const latest = values.length ? values[values.length - 1] : undefined
+  const qualityTotals = useMemo(() => {
+    const totals: QualityCounts = { good: 0, stale: 0, invalid: 0, none: 0 }
+    for (const id of selected) {
+      const bucket = quality[id]
+      if (!bucket) continue
+      totals.good += bucket.good
+      totals.stale += bucket.stale
+      totals.invalid += bucket.invalid
+      totals.none += bucket.none
+    }
+    return totals
+  }, [selected, quality])
+
+  const qualityEntries = [
+    { key: "good", label: "正常", value: qualityTotals.good },
+    { key: "stale", label: "过期", value: qualityTotals.stale },
+    { key: "invalid", label: "无效", value: qualityTotals.invalid },
+    { key: "none", label: "无值", value: qualityTotals.none },
+  ]
+  const qualityTotal = qualityEntries.reduce((sum, entry) => sum + entry.value, 0)
+
+  const alarmMarks = useMemo<AlarmMark[]>(() => {
+    if (!showAlarms) return []
+    const selectedSet = new Set(selected)
+    return alarms
+      .filter((alarm) => {
+        const at = new Date(alarm.created_at).getTime()
+        if (!Number.isFinite(at) || at < bounds.start.getTime() || at > bounds.end.getTime()) return false
+        return selectedSet.has(alarm.point_id || alarm.device_id || "")
+      })
+      .map((alarm) => ({ at: new Date(alarm.created_at).getTime(), severity: alarm.severity, title: alarm.title }))
+  }, [showAlarms, alarms, selected, bounds])
+
+  const primary = series[0]
+  const title = selected.length <= 1 ? (primary?.name || "选择点位") : `对比 ${selected.length} 个点位`
+
+  function addPoint(id: string) {
+    if (!id || selected.includes(id)) return
+    setSelected([...selected, id])
+  }
+
+  function removePoint(id: string) {
+    if (selected.length <= 1) return
+    setSelected(selected.filter((item) => item !== id))
+  }
+
+  const saveQueries = (list: SavedQuery[]) => {
+    setSavedQueries(list)
+    localStorage.setItem(savedQueryKey, JSON.stringify(list))
+  }
+
+  const defaultQueryName = useMemo(() => {
+    const parts = [
+      ...selected.map((id) => points.find((item) => item.id === id) ? nameOf(points.find((item) => item.id === id)!) : id),
+      ranges.find((item) => item.key === range)?.label || range,
+      interval === "raw" ? "原始" : interval === "5m" ? "5 分钟" : "1 小时",
+    ]
+    return parts.filter(Boolean).join("·")
+  }, [selected, points, range, interval])
+
+  const matchedQuery = savedQueries.find((query) =>
+    query.points.join("\u0000") === selected.join("\u0000") && query.range === range && query.interval === interval)
+
+  function applyQuery(name: string) {
+    const query = savedQueries.find((item) => item.name === name)
+    if (!query) return
+    setSelected(query.points.filter((id) => points.some((item) => item.id === id)))
+    setRange(query.range)
+    setInterval(query.interval)
+    setQueryName(query.name)
+  }
+
+  function saveQuery() {
+    const name = queryName.trim() || defaultQueryName
+    saveQueries([...savedQueries.filter((query) => query.name !== name), { name, points: selected, range, interval }])
+    setQueryName(name)
+  }
 
   if (points.length === 0) {
     return <div className="panel empty-state large">
@@ -134,11 +312,23 @@ export default function HistoryView({ token, points, initialPoint, onError, isAd
 
   return <section className="history-page">
     <div className="panel history-toolbar">
-      <label>设备点位
-        <select value={selected} onChange={(event) => setSelected(event.target.value)}>
+      <label className="history-add-label">对比点位
+        <select aria-label="添加对比点位" value="" onChange={(event) => addPoint(event.target.value)}>
+          <option value="">＋ 添加点位…</option>
           {points.map((item) => <option key={item.id} value={item.id}>{nameOf(item)}</option>)}
         </select>
       </label>
+      <div className="history-series" role="list" aria-label="已选对比点位">
+        {selected.map((id) => {
+          const node = points.find((item) => item.id === id)
+          const color = seriesColors[selected.indexOf(id) % seriesColors.length]
+          return <span key={id} className="history-series-chip" role="listitem">
+            <i style={{ background: color }} />
+            <b>{node ? nameOf(node) : id}</b>
+            <button aria-label={`移除 ${node ? nameOf(node) : id}`} disabled={selected.length <= 1} onClick={() => removePoint(id)}>×</button>
+          </span>
+        })}
+      </div>
       <div className="range-buttons" role="group" aria-label="时间范围">
         {ranges.map((item) => <button key={item.key} className={range === item.key ? "active" : ""} onClick={() => setRange(item.key)}>{item.label}</button>)}
       </div>
@@ -147,17 +337,50 @@ export default function HistoryView({ token, points, initialPoint, onError, isAd
           <option value="raw">原始</option><option value="5m">5 分钟平均</option><option value="1h">1 小时平均</option>
         </select>
       </label>
-      <button className="secondary-button" disabled={!selected} onClick={() => void downloadHistory(token, selected, bounds.start, bounds.end).catch((cause) => onError(cause instanceof Error ? cause.message : "导出失败"))}>导出 CSV</button>
+      <label className="history-alarm-toggle"><input type="checkbox" checked={showAlarms} onChange={(event) => setShowAlarms(event.target.checked)} />叠加报警</label>
+      <button className="secondary-button" disabled={selected.length === 0} onClick={() => void downloadHistory(token, selected[0], bounds.start, bounds.end).catch((cause) => onError(cause instanceof Error ? cause.message : "导出失败"))}>导出 CSV</button>
       {isAdmin && <div className="history-limit"><span>每个点位保留</span><input aria-label="历史保留条数" type="number" min={1000} max={200000} step={1000} value={limitDraft} onChange={(event) => setLimitDraft(Number(event.target.value))} /><span>条</span><button className="secondary-button" disabled={limitBusy} onClick={() => void saveLimit()}>{limitBusy ? "保存中…" : "保存"}</button>{limitNotice && <small>{limitNotice}</small>}</div>}
+      <div className="history-query-row">
+        {savedQueries.length > 0 && <select aria-label="保存的查询" value="" onChange={(event) => applyQuery(event.target.value)}>
+          <option value="">查询/模板…</option>
+          {savedQueries.map((query) => <option key={query.name} value={query.name}>{query.name}</option>)}
+        </select>}
+        <input aria-label="查询名称" value={queryName} onChange={(event) => setQueryName(event.target.value)} placeholder="查询/模板名称" />
+        {matchedQuery
+          ? <button className="secondary-button" onClick={() => saveQueries(savedQueries.filter((query) => query !== matchedQuery))}>删查询</button>
+          : <button className="secondary-button" disabled={selected.length === 0} onClick={saveQuery}>保存查询</button>}
+      </div>
       <span className="history-hint">类型 value · 单次最多 2000 点 · 聚合只影响显示</span>
     </div>
 
     <div className="panel trend-panel">
       <div className="trend-head">
-        <div><span className="section-kicker">最近变化</span><h2>{node ? nameOf(node) : "选择点位"}</h2></div>
-        <div className="trend-value">{latest !== undefined ? latest : "—"}<small>{units}</small></div>
+        <div><span className="section-kicker">最近变化</span><h2>{title}</h2></div>
+        {selected.length === 1 && primary && <div className="trend-value">{primary.latestValue ?? "—"}<small>{primary.units}</small></div>}
       </div>
-      {loading ? <div className="trend-empty">正在读取历史…</div> : <Trend values={values} />}
+      <div className="trend-body">
+        <div className="trend-main">
+          {loading ? <div className="trend-empty">正在读取历史…</div> : <Trend series={series} alarms={alarmMarks} start={bounds.start.getTime()} end={bounds.end.getTime()} />}
+        </div>
+        <aside className="quality-summary" aria-label="数据质量摘要">
+          <span className="section-kicker">数据质量</span>
+          <h3>所选时间段</h3>
+          {qualityTotal === 0
+            ? <p className="quality-empty">所选点位暂无运行质量样本。</p>
+            : <ul className="quality-bars">
+              {qualityEntries.map((entry) => {
+                const ratio = qualityTotal ? Math.round((entry.value / qualityTotal) * 100) : 0
+                return <li key={entry.key} className={`quality-row ${entry.key}`}>
+                  <span className="quality-name">{entry.label}</span>
+                  <span className="quality-track"><i style={{ width: `${ratio}%` }} /></span>
+                  <span className="quality-count">{entry.value}<em>{ratio}%</em></span>
+                </li>
+              })}
+              <li className="quality-total">共 {qualityTotal} 个样本</li>
+            </ul>}
+          <p className="quality-note">质量来自接入运行时的 Modbus 点位；测试变量不经运行时质量判定。</p>
+        </aside>
+      </div>
       <p className="trend-note">缺失段不插值；数据来自内嵌历史，按点位保留上限裁剪。过期或无效的数据不会冒充实时值。</p>
     </div>
   </section>
