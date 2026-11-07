@@ -51,8 +51,11 @@ type ProfilePointSpec = {
   offset: number
   unit: string
   read_only: boolean
+  role?: string
   note?: string
 }
+
+const pointRoleNames: Record<string, string> = { telemetry: "遥测", status: "遥信", energy: "电度", setpoint: "定值", protection: "压板" }
 
 type ProfileCommandSpec = {
   id: string
@@ -71,6 +74,7 @@ type UnitProfile = {
   commands: number
   verified: boolean
   verification?: string
+  custom?: boolean
   point_specs?: ProfilePointSpec[]
   command_specs?: ProfileCommandSpec[]
 }
@@ -106,6 +110,7 @@ type UnitModelData = {
   server_id: number
   model?: UnitModelConfig
   profiles: UnitProfile[]
+  profile_errors?: string[]
   points: UnitPoint[]
   commands: UnitCommand[]
   missing?: string[]
@@ -500,7 +505,7 @@ export default function CommunicationView({ token, nodes, roots, groups, canConf
                 <label>设备名称<input disabled={!canConfigure} value={modelDraft.name} onChange={(event) => setModelDraft({ ...modelDraft, name: event.target.value })} /></label>
                 <label>设备 Profile<select disabled={!canConfigure} value={modelDraft.profile_id} onChange={(event) => selectProfile(event.target.value)}>
                   <option value="">选择 Profile</option>
-                  {modelData.profiles.filter((profile) => profile.points > 0).map((profile) => <option key={profile.id} value={profile.id}>{profile.vendor} {profile.model}{profile.verified ? "" : "（未验证）"}</option>)}
+                  {modelData.profiles.filter((profile) => profile.points > 0).map((profile) => <option key={profile.id} value={profile.id}>{profile.vendor} {profile.model}{profile.custom ? "（自定义）" : ""}{profile.verified ? "" : "（未验证）"}</option>)}
                 </select></label>
                 <label>业务节点（可选）<select disabled={!canConfigure} value={modelDraft.business_node_id || ""} onChange={(event) => setModelDraft({ ...modelDraft, business_node_id: event.target.value })}><option value="">不绑定业务节点</option>{groups.map((group) => <option key={group.id} value={group.id}>{roots.includes(group.id) ? "根节点" : nameOf(group)}</option>)}</select></label>
                 <label>验证人<input disabled={!canConfigure} value={modelDraft.verifier || ""} onChange={(event) => setModelDraft({ ...modelDraft, verifier: event.target.value })} placeholder="现场核对人员" /></label>
@@ -510,6 +515,8 @@ export default function CommunicationView({ token, nodes, roots, groups, canConf
                 <label className="comm-check"><input type="checkbox" disabled={!canConfigure} checked={modelDraft.verified} onChange={(event) => setModelDraft({ ...modelDraft, verified: event.target.checked })} /> 已完成现场验证</label>
               </div>
 
+              {(modelData.profile_errors || []).length > 0 && <div className="inline-note" role="alert">自定义 Profile 文件有 {modelData.profile_errors!.length} 个未加载：{modelData.profile_errors!.join("；")}</div>}
+
               {!modelProfile ? <div className="empty-state"><span>先选择设备 Profile，再按名称自动匹配点位。</span></div> : <>
                 <div className="unit-map-head">
                   <div><strong>点位映射</strong><span>{Object.keys(modelDraft.point_map).length} / {modelProfile.point_specs?.length || 0} 已映射</span></div>
@@ -517,13 +524,14 @@ export default function CommunicationView({ token, nodes, roots, groups, canConf
                 </div>
                 <div className="unit-map-wrap">
                   <table className="unit-map-table">
-                    <thead><tr><th>Profile 变量</th><th>地址</th><th>单位</th><th>读写</th><th>映射到点位</th><th>状态</th></tr></thead>
+                    <thead><tr><th>Profile 变量</th><th>角色</th><th>地址</th><th>单位</th><th>读写</th><th>映射到点位</th><th>状态</th></tr></thead>
                     <tbody>
                       {(modelProfile.point_specs || []).map((spec) => {
                         const mapped = modelDraft.point_map[spec.name] || ""
                         const required = modelRequiredPoints.has(spec.name)
                         return <tr key={spec.name}>
                           <td><strong>{spec.name}</strong>{spec.note && <small>{spec.note}</small>}</td>
+                          <td>{spec.role ? <span className={`point-role ${spec.role}`}>{pointRoleNames[spec.role] || spec.role}</span> : "—"}</td>
                           <td>{spec.address}</td>
                           <td>{spec.unit || "—"}</td>
                           <td>{spec.read_only ? "只读" : "可写"}</td>

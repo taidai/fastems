@@ -54,6 +54,10 @@ function pointRole(row: { ioType: string; readOnly: boolean; name: string; units
 
 function roleLabel(role: PointRole) { return roleNames[role] || role }
 
+const savedViewsKey = "easyems-point-views"
+type SavedPointView = { name: string; query: string; bus: string; quality: string; access: string; role: string }
+const qualityFilterNames: Record<string, string> = { normal: "正常", stale: "过期", offline: "离线", unknown: "无值", disabled: "已停用" }
+
 function qualityReason(row: { disabled: boolean; quality: Quality; valueTime: string; errorCount: number }) {
   if (row.disabled) return "已停用"
   if (row.quality === "offline") return "通道或设备离线"
@@ -170,6 +174,9 @@ export default function PointsView({ token, nodes, isAdmin, canOperate, busy, ru
   const [qualityFilter, setQualityFilter] = useState("all")
   const [accessFilter, setAccessFilter] = useState("all")
   const [roleFilter, setRoleFilter] = useState("all")
+  const [savedViews, setSavedViews] = useState<SavedPointView[]>(() => {
+    try { return JSON.parse(localStorage.getItem(savedViewsKey) || "[]") as SavedPointView[] } catch { return [] }
+  })
   const [selected, setSelected] = useState<Set<string>>(() => new Set())
   const [openID, setOpenID] = useState("")
   const [safetyOpen, setSafetyOpen] = useState(false)
@@ -535,6 +542,34 @@ export default function PointsView({ token, nodes, isAdmin, canOperate, busy, ru
         <select aria-label="过滤读写" value={accessFilter} onChange={(event) => setAccessFilter(event.target.value)}>
           <option value="all">全部读写</option><option value="writable">可写</option><option value="readonly">只读</option>
         </select>
+        {(() => {
+          const isDefault = !query.trim() && !busFilter && qualityFilter === "all" && roleFilter === "all" && accessFilter === "all"
+          const viewName = [
+            query.trim() ? `搜"${query.trim()}"` : "",
+            busFilter ? (buses.find((bus) => bus.id === busFilter) ? text(buses.find((bus) => bus.id === busFilter)!, "description") || busFilter : busFilter) : "",
+            qualityFilter !== "all" ? qualityFilterNames[qualityFilter] || qualityFilter : "",
+            roleFilter !== "all" ? roleNames[roleFilter as PointRole] || roleFilter : "",
+            accessFilter !== "all" ? (accessFilter === "writable" ? "可写" : "只读") : "",
+          ].filter(Boolean).join("·")
+          const matched = savedViews.find((view) => view.query === query && view.bus === busFilter && view.quality === qualityFilter && view.role === roleFilter && view.access === accessFilter)
+          const saveViews = (views: SavedPointView[]) => { setSavedViews(views); localStorage.setItem(savedViewsKey, JSON.stringify(views)) }
+          return <>
+            {savedViews.length > 0 && <select aria-label="保存的视图" value="" onChange={(event) => {
+              const view = savedViews.find((item) => item.name === event.target.value)
+              if (!view) return
+              setQuery(view.query); setBusFilter(view.bus); setQualityFilter(view.quality); setRoleFilter(view.role); setAccessFilter(view.access)
+            }}>
+              <option value="">视图…</option>
+              {savedViews.map((view) => <option key={view.name} value={view.name}>{view.name}</option>)}
+            </select>}
+            {matched
+              ? <button className="secondary-button" onClick={() => saveViews(savedViews.filter((view) => view !== matched))}>删视图</button>
+              : <button className="secondary-button" disabled={isDefault} title={isDefault ? "先设置筛选条件" : undefined} onClick={() => {
+                  const name = viewName || "视图"
+                  saveViews([...savedViews.filter((view) => view.name !== name), { name, query, bus: busFilter, quality: qualityFilter, role: roleFilter, access: accessFilter }])
+                }}>存视图</button>}
+          </>
+        })()}
         <button className="secondary-button" onClick={goChannels}>通道视图</button>
         {isAdmin && <button className="primary-button" disabled={!buses.length || busy} title={!buses.length ? "先接入 Modbus 通道" : undefined} onClick={openCreate}>+ 批量新增</button>}
       </div>

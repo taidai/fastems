@@ -26,6 +26,25 @@ type Identity struct {
 	Label        string
 }
 
+// Point roles declare the business meaning of a point. The UI groups and
+// colors points by role; a declared role always beats name-based guessing.
+const (
+	RoleTelemetry  = "telemetry"  // 遥测：连续测量值
+	RoleStatus     = "status"     // 遥信：状态/故障/告警位
+	RoleEnergy     = "energy"     // 电度：累计电量
+	RoleSetpoint   = "setpoint"   // 定值：可写目标值
+	RoleProtection = "protection" // 压板：投退/使能开关
+)
+
+// ValidRole reports whether role is empty or one of the declared roles.
+func ValidRole(role string) bool {
+	switch role {
+	case "", RoleTelemetry, RoleStatus, RoleEnergy, RoleSetpoint, RoleProtection:
+		return true
+	}
+	return false
+}
+
 // PointSpec is one point proposed by a vendor profile. It uses the same
 // function/address/format vocabulary as the Modbus point-table CSV.
 type PointSpec struct {
@@ -37,6 +56,7 @@ type PointSpec struct {
 	Offset   float64          `json:"offset"`
 	Unit     string           `json:"unit"`
 	ReadOnly bool             `json:"read_only"`
+	Role     string           `json:"role,omitempty"`
 	Note     string           `json:"note,omitempty"`
 }
 
@@ -78,15 +98,18 @@ type Profile struct {
 	Source       string        `json:"source,omitempty"`
 	IdentityHint string        `json:"identity_hint,omitempty"`
 	Notes        []string      `json:"notes,omitempty"`
+	Custom       bool          `json:"custom,omitempty"`
 	PointSpecs   []PointSpec   `json:"point_specs,omitempty"`
 	CommandSpecs []CommandSpec `json:"command_specs,omitempty"`
 	Identity     *Identity     `json:"-"`
 	Probes       []Identity    `json:"-"`
 }
 
-// Registry is a read-only set of profiles.
+// Registry is a read-only set of profiles. LoadErrors lists operator profile
+// files that were skipped and why, so the UI can surface them.
 type Registry struct {
-	profiles []Profile
+	profiles   []Profile
+	LoadErrors []string
 }
 
 // Default returns the built-in profiles. The generic entry is a manual choice,

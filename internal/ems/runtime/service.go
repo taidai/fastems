@@ -202,6 +202,9 @@ func (s *Service) updateDeviceAlarms(now time.Time, ch *channel.Channel) {
 
 func (s *Service) updateCommandAlarms(now time.Time) {
 	for _, outcome := range s.commands.List() {
+		if outcome.Restored {
+			continue
+		}
 		switch outcome.State {
 		case command.Failed, command.Unknown:
 			key := "command-" + string(outcome.State) + ":" + outcome.RequestID

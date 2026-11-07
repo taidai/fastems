@@ -1,0 +1,30 @@
+{
+  "id": "acme-pump",
+  "vendor": "ACME",
+  "model": "泵控制器 P-100",
+  "protocol": "modbus",
+  "verification": "《P-100 Modbus 协议》V2.1 解析；未实机核对",
+  "notes": [
+    "地址为 0 基帧地址，导入时不要加 4xxxx 前缀。",
+    "启停写入前先确认现场写授权。"
+  ],
+  "point_specs": [
+    { "name": "出口压力", "function": "holdingRegister", "address": 100, "format": "uint16", "scale": 0.01, "unit": "MPa", "read_only": true, "role": "telemetry" },
+    { "name": "电机转速", "function": "holdingRegister", "address": 102, "format": "uint16", "scale": 1, "unit": "rpm", "read_only": true, "role": "telemetry" },
+    { "name": "累计运行电量", "function": "holdingRegister", "address": 110, "format": "uint32", "scale": 0.1, "unit": "kWh", "read_only": true, "role": "energy", "note": "两个寄存器，高字在前" },
+    { "name": "故障字", "function": "holdingRegister", "address": 120, "format": "uint16", "read_only": true, "role": "status", "note": "位域，按协议 §4 解释" },
+    { "name": "启停指令", "function": "holdingRegister", "address": 1, "format": "uint16", "role": "setpoint", "note": "写 1 启动、0 停止" },
+    { "name": "目标转速", "function": "holdingRegister", "address": 2, "format": "uint16", "unit": "rpm", "role": "setpoint" }
+  ],
+  "command_specs": [
+    { "id": "start", "name": "启动", "point": "启停指令", "value": 1 },
+    { "id": "stop", "name": "停止", "point": "启停指令", "value": 0 },
+    {
+      "id": "set-speed",
+      "name": "设定转速",
+      "parameters": [
+        { "name": "rpm", "label": "目标转速", "point": "目标转速", "unit": "rpm", "kind": "number", "has_range": true, "min": 0, "max": 2900, "default": 1450 }
+      ]
+    }
+  ]
+}

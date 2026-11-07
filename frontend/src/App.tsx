@@ -728,6 +728,50 @@ function ChannelWorkspace({ token, channels, ioCounts, isAdmin, canOperate, node
     const timer = window.setInterval(() => void load(), 2000)
     return () => { cancelled = true; window.clearInterval(timer) }
   }, [tab, token])
+  const exportReport = async () => {
+    try {
+      const [qualityResult, stateResult] = await Promise.all([
+        request<{ channels: QualityStats[]; devices: QualityStats[] }>(token, "/ems/quality"),
+        request<{ values: { device_id: string; quality: string }[] }>(token, "/ems/state"),
+      ])
+      const channelName = (id: string) => { const node = channels.find((item) => item.id === id); return node ? nameOf(node) : id }
+      const pct = (item: QualityStats) => item.polls > 0 ? item.success_rate.toFixed(1) : ""
+      const ms = (value: number) => value > 0 ? Math.round(value).toString() : ""
+      const timeOf = (value?: string) => value && !value.startsWith("0001") ? new Date(value).toLocaleString() : ""
+      const rows: string[][] = [
+        ["通信测试报告"],
+        ["导出时间", new Date().toLocaleString()],
+        ["说明", "统计为本次运行期间的轮询计数，进程重启后清零；交付验收时附在验证记录后"],
+        [],
+        ["通道", "轮询次数", "失败次数", "成功率%", "平均延迟ms", "最大延迟ms", "最近成功", "最近错误"],
+      ]
+      for (const item of qualityResult.channels || []) {
+        rows.push([channelName(item.channel_id), String(item.polls), String(item.failures), pct(item), ms(item.avg_latency_ms), ms(item.max_latency_ms), timeOf(item.last_success), item.last_error || ""])
+      }
+      rows.push([], ["设备", "通道", "健康", "轮询次数", "失败次数", "成功率%", "平均延迟ms", "最大延迟ms", "最近成功", "最近错误"])
+      const pointCounts: Record<string, Record<string, number>> = {}
+      for (const value of stateResult.values || []) {
+        const bucket = pointCounts[value.device_id] || (pointCounts[value.device_id] = {})
+        bucket[value.quality] = (bucket[value.quality] || 0) + 1
+      }
+      for (const item of qualityResult.devices || []) {
+        rows.push([item.device_id || "", channelName(item.channel_id), item.health || "", String(item.polls), String(item.failures), pct(item), ms(item.avg_latency_ms), ms(item.max_latency_ms), timeOf(item.last_success), item.last_error || ""])
+      }
+      rows.push([], ["设备点位质量", "正常", "过期", "无效", "未初始化"])
+      for (const [deviceID, bucket] of Object.entries(pointCounts)) {
+        rows.push([deviceID, String(bucket.good || 0), String(bucket.stale || 0), String(bucket.invalid || 0), String(bucket.uninitialized || 0)])
+      }
+      const csv = rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",")).join(String.fromCharCode(10))
+      const url = URL.createObjectURL(new Blob([String.fromCharCode(0xFEFF) + csv], { type: "text/csv;charset=utf-8" }))
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `easyems-通信报告-${new Date().toISOString().slice(0, 10)}.csv`
+      link.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      onError("通信报告导出失败：质量统计接口不可用")
+    }
+  }
   return <section className="channel-workspace">
     <div className="channel-workspace-tabs">
       <div className="channel-workspace-switch" role="group" aria-label="通道">
@@ -735,6 +779,7 @@ function ChannelWorkspace({ token, channels, ioCounts, isAdmin, canOperate, node
         <button className={tab === "config" ? "active" : ""} onClick={() => setTab("config")}>端口配置</button>
         <button className={tab === "tools" ? "active" : ""} onClick={() => setTab("tools")}>点表与模板</button>
       </div>
+      {tab === "status" && <button className="secondary-button" onClick={() => void exportReport()}>通信报告</button>}
       <button className="secondary-button" onClick={goPoints}>点位表</button>
     </div>
     {tab === "status" ? <ChannelsView channels={channels} ioCounts={ioCounts} isAdmin={isAdmin} canOperate={canOperate} quality={quality} goConfigure={() => setTab("config")} onFrames={setFrameChannel} onRestart={(id) => void run(() => request(token, `/ems/channels/${id}/restart`, "POST", {}))} /> :

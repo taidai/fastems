@@ -32,6 +32,7 @@ import (
 	"easyems/internal/ems/bridge"
 	"easyems/internal/ems/channel"
 	"easyems/internal/ems/modbusrt"
+	"easyems/internal/ems/profile"
 	"easyems/internal/ems/runtime"
 	"easyems/internal/emsapi"
 	"easyems/internal/web"
@@ -92,7 +93,12 @@ func Start(ctx context.Context, cfg Config) (*App, error) {
 	historyLimit := appapi.ReadHistoryLimit(cfg.DataDir)
 	emsService := runtime.NewService(nil, 15*time.Second, 5*time.Second, historyLimit)
 	appapi.LoadAlarmMaintenance(cfg.DataDir, emsService.Alarms)
+	appapi.WireCommandHistory(cfg.DataDir, emsService.Commands())
 	emsHandler := emsapi.New(emsService, 15*time.Second)
+	emsHandler.Profiles = profile.Load(filepath.Join(cfg.DataDir, "profiles"))
+	for _, message := range emsHandler.Profiles.LoadErrors {
+		log.Println("easyems profiles:", message)
+	}
 	handlerRef := new(atomic.Value)
 	options := server.Options{
 		ID:           "easyems",

@@ -12,6 +12,7 @@ const stateNames: Record<string, string> = {
   queued: "排队", running: "执行中", confirmed: "已确认", failed: "失败", timeout: "超时", unknown: "结果未知",
 }
 const roleNames: Record<string, string> = { info: "提示", warning: "警告", critical: "严重" }
+const pointRoleNames: Record<string, string> = { telemetry: "遥测", status: "遥信", energy: "电度", setpoint: "定值", protection: "压板" }
 
 function formatNumber(value?: number) {
   if (value === undefined || !Number.isFinite(value)) return "—"
@@ -131,6 +132,15 @@ export default function DeviceDetail({ token, device, canConfigure, canOperate, 
   }, [model])
 
   const profile = useMemo(() => model?.profiles.find((item) => item.id === model?.model?.profile_id), [model])
+  const rolesByPointID = useMemo(() => {
+    const specRoles = new Map((profile?.point_specs || []).map((spec) => [spec.name, spec.role || ""]))
+    const roles: Record<string, string> = {}
+    for (const [specName, pointID] of Object.entries(model?.model?.point_map || {})) {
+      const role = specRoles.get(specName)
+      if (pointID && role) roles[pointID] = role
+    }
+    return roles
+  }, [model, profile])
   const modelName = model?.model?.name || ""
   const businessName = device.business_node_name || model?.model?.business_node_id || ""
   const displayName = businessName || (modelName && modelName !== `站号 ${device.server_id}` ? modelName : `${device.channel_name} · 站号 ${device.server_id}`)
@@ -336,11 +346,13 @@ export default function DeviceDetail({ token, device, canConfigure, canOperate, 
 
         {!loading && tab === "points" && <div className="device-tab-page">
           <div className="device-toolbar"><input aria-label="搜索点位" placeholder="搜索点位名称、地址或类型" value={query} onChange={(event) => setQuery(event.target.value)} /><span>已映射 {mappedCount} / {points.length}</span></div>
-          <div className="device-table-wrap"><table className="device-table"><thead><tr><th>点位</th><th>地址</th><th>类型</th><th>读/写</th><th>缩放 / 单位</th><th>当前值</th><th>质量</th><th>更新时间</th><th>映射</th></tr></thead><tbody>
+          <div className="device-table-wrap"><table className="device-table"><thead><tr><th>点位</th><th>角色</th><th>地址</th><th>类型</th><th>读/写</th><th>缩放 / 单位</th><th>当前值</th><th>质量</th><th>更新时间</th><th>映射</th></tr></thead><tbody>
             {shownPoints.map((point) => {
               const value = values[point.id]
+              const role = rolesByPointID[point.id]
               return <tr key={point.id}>
                 <td><strong>{point.name || point.id}</strong><small>{point.id}</small></td>
+                <td>{role ? <span className={`point-role ${role}`}>{pointRoleNames[role] || role}</span> : "—"}</td>
                 <td>{point.address}</td><td>{point.io_type || "—"}</td><td>{point.read_only ? "只读" : "可写"}</td>
                 <td>{point.scale && point.scale !== 1 ? point.scale : "1"} {point.unit || ""}</td>
                 <td className="device-value">{formatValue(value)}</td>

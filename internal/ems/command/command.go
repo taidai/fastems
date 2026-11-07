@@ -45,6 +45,9 @@ type Outcome struct {
 	Writes    []device.Write
 	Readback  []device.Readback
 	Reason    string
+	// Restored marks an outcome replayed from a previous run: shown in
+	// history, deduplicated by request id, but never re-raising alarms.
+	Restored bool
 }
 
 // Dispatcher writes command values to a device. It must not retry internally.
@@ -62,8 +65,11 @@ type Manager struct {
 	Samples  func(deviceID string, now time.Time) map[string]signal.Sample
 	MaxAge   time.Duration
 	Writer   Dispatcher
-	orders   map[string]Outcome
-	order    []string
+	// Persist, when set, receives every stored state change. It is called
+	// under the manager lock, so it must not call back into the manager.
+	Persist func(Outcome)
+	orders  map[string]Outcome
+	order   []string
 }
 
 // New returns an empty manager with a default command timeout.
@@ -170,6 +176,31 @@ func (m *Manager) store(outcome Outcome) {
 		m.order = append(m.order, outcome.RequestID)
 	}
 	m.orders[outcome.RequestID] = outcome
+	if m.Persist != nil {
+		m.Persist(outcome)
+	}
+}
+
+// Preload seeds the manager with outcomes from a previous run. Anything not
+// yet terminal becomes Unknown: after a restart nobody can confirm it.
+func (m *Manager) Preload(outcomes []Outcome) {
+	m.Mu.Lock()
+	defer m.Mu.Unlock()
+	for _, outcome := range outcomes {
+		if outcome.RequestID == "" {
+			continue
+		}
+		if _, exists := m.orders[outcome.RequestID]; exists {
+			continue
+		}
+		if outcome.State == Accepted || outcome.State == Executing {
+			outcome.State = Unknown
+			outcome.Reason = "进程重启，结果未知"
+		}
+		outcome.Restored = true
+		m.order = append(m.order, outcome.RequestID)
+		m.orders[outcome.RequestID] = outcome
+	}
 }
 
 // SetProfiles replaces the profile resolver used by submissions and ticks.
@@ -193,7 +224,7 @@ func (m *Manager) Tick(now time.Time) {
 			outcome.State = Failed
 			outcome.Reason = "device disappeared"
 			outcome.UpdatedAt = now
-			m.orders[id] = outcome
+			m.store(outcome)
 			continue
 		}
 		timeout := m.Default
@@ -204,13 +235,13 @@ func (m *Manager) Tick(now time.Time) {
 			outcome.State = Confirmed
 			outcome.Reason = ""
 			outcome.UpdatedAt = now
-			m.orders[id] = outcome
+			m.store(outcome)
 			continue
 		} else if now.Sub(outcome.StartedAt) >= timeout {
 			outcome.State = Unknown
 			outcome.Reason = "no readback before timeout: " + reason
 			outcome.UpdatedAt = now
-			m.orders[id] = outcome
+			m.store(outcome)
 		}
 	}
 }

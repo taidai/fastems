@@ -10,7 +10,7 @@
 - 产品目标、v1 范围与验收标准：[`docs/product-spec-v1.md`](docs/product-spec-v1.md)（2026-11-04 冻结）。
 - M4 部署与验收步骤：[`docs/m4-acceptance.md`](docs/m4-acceptance.md)。
 - 一页看懂的总图：[`docs/master-map.html`](docs/master-map.html)。
-- 厂商 Profile 库：[`docs/vendor-profiles.md`](docs/vendor-profiles.md)；M5 现场执行：[`docs/m5-site-acceptance.md`](docs/m5-site-acceptance.md)。
+- 厂商 Profile 库：[`docs/vendor-profiles.md`](docs/vendor-profiles.md)；自定义 Profile（无需改代码）：[`docs/custom-profiles.md`](docs/custom-profiles.md)；M5 现场执行：[`docs/m5-site-acceptance.md`](docs/m5-site-acceptance.md)。
 - 最终验收状态：[`evidence/final-acceptance.md`](evidence/final-acceptance.md)。
 - 新需求进入 v1.1 候选；冻结期内只修缺陷，不扩大范围。
 

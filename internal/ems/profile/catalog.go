@@ -54,26 +54,26 @@ func makeProfile(id, vendor, model, protocol, verification, source, identityHint
 	}
 }
 
-func point(name string, function channel.Function, address uint16, format string, scale, offset float64, unit string, readOnly bool, note string) PointSpec {
-	return PointSpec{Name: name, Function: function, Address: address, Format: format, Scale: scale, Offset: offset, Unit: unit, ReadOnly: readOnly, Note: note}
+func point(name string, function channel.Function, address uint16, format string, scale, offset float64, unit string, readOnly bool, role, note string) PointSpec {
+	return PointSpec{Name: name, Function: function, Address: address, Format: format, Scale: scale, Offset: offset, Unit: unit, ReadOnly: readOnly, Role: role, Note: note}
 }
 
 func enjoPCS() Profile {
 	points := []PointSpec{
-		point("开机/关机指令", channel.HoldingRegister, 657, "int16", 1, 0, "", false, "写 1 开机、0 关机；现场先确认写授权"),
-		point("有功功率设定", channel.HoldingRegister, 20494, "int16", 0.1, 0, "kW", false, "0x500E；旧固件可能使用 0x0D57"),
-		point("交流输出总有功功率", channel.HoldingRegister, 24633, "int16", 0.1, 0, "kW", true, "放电为正、充电为负"),
-		point("直流功率", channel.HoldingRegister, 24661, "int16", 0.1, 0, "kW", true, ""),
-		point("电池电压", channel.HoldingRegister, 24659, "int16", 0.1, 0, "V", true, ""),
-		point("电池电流", channel.HoldingRegister, 24660, "int16", 0.1, 0, "A", true, ""),
-		point("电网频率", channel.HoldingRegister, 24620, "int16", 0.01, 0, "Hz", true, ""),
-		point("IGBT 温度", channel.HoldingRegister, 24664, "int16", 0.1, 0, "℃", true, ""),
-		point("环境温度", channel.HoldingRegister, 24665, "int16", 0.1, 0, "℃", true, ""),
-		point("工作状态", channel.HoldingRegister, 24663, "uint16", 1, 0, "", true, "位域，按协议 §3.1 解释"),
-		point("硬件故障字 1", channel.HoldingRegister, 5888, "uint16", 1, 0, "", true, "位域"),
-		point("硬件故障字 2", channel.HoldingRegister, 5889, "uint16", 1, 0, "", true, "位域"),
-		point("电网故障字", channel.HoldingRegister, 5890, "uint16", 1, 0, "", true, "位域"),
-		point("系统故障字", channel.HoldingRegister, 5893, "uint16", 1, 0, "", true, "位域"),
+		point("开机/关机指令", channel.HoldingRegister, 657, "int16", 1, 0, "", false, RoleSetpoint, "写 1 开机、0 关机；现场先确认写授权"),
+		point("有功功率设定", channel.HoldingRegister, 20494, "int16", 0.1, 0, "kW", false, RoleSetpoint, "0x500E；旧固件可能使用 0x0D57"),
+		point("交流输出总有功功率", channel.HoldingRegister, 24633, "int16", 0.1, 0, "kW", true, RoleTelemetry, "放电为正、充电为负"),
+		point("直流功率", channel.HoldingRegister, 24661, "int16", 0.1, 0, "kW", true, RoleTelemetry, ""),
+		point("电池电压", channel.HoldingRegister, 24659, "int16", 0.1, 0, "V", true, RoleTelemetry, ""),
+		point("电池电流", channel.HoldingRegister, 24660, "int16", 0.1, 0, "A", true, RoleTelemetry, ""),
+		point("电网频率", channel.HoldingRegister, 24620, "int16", 0.01, 0, "Hz", true, RoleTelemetry, ""),
+		point("IGBT 温度", channel.HoldingRegister, 24664, "int16", 0.1, 0, "℃", true, RoleTelemetry, ""),
+		point("环境温度", channel.HoldingRegister, 24665, "int16", 0.1, 0, "℃", true, RoleTelemetry, ""),
+		point("工作状态", channel.HoldingRegister, 24663, "uint16", 1, 0, "", true, RoleStatus, "位域，按协议 §3.1 解释"),
+		point("硬件故障字 1", channel.HoldingRegister, 5888, "uint16", 1, 0, "", true, RoleStatus, "位域"),
+		point("硬件故障字 2", channel.HoldingRegister, 5889, "uint16", 1, 0, "", true, RoleStatus, "位域"),
+		point("电网故障字", channel.HoldingRegister, 5890, "uint16", 1, 0, "", true, RoleStatus, "位域"),
+		point("系统故障字", channel.HoldingRegister, 5893, "uint16", 1, 0, "", true, RoleStatus, "位域"),
 	}
 	commands := []CommandSpec{
 		{ID: "on", Name: "开机", Point: "开机/关机指令", Value: 1, Note: "写 1"},
@@ -92,23 +92,23 @@ func enjoPCS() Profile {
 
 func esbcmBMS() Profile {
 	points := []PointSpec{
-		point("电池簇电压", channel.InputRegister, 1, "uint16", 0.1, 0, "V", true, ""),
-		point("电池簇电流", channel.InputRegister, 2, "uint16", 0.1, -1600, "A", true, "充电为正、放电为负"),
-		point("电池簇 SOC", channel.InputRegister, 3, "uint16", 0.1, 0, "%", true, ""),
-		point("电池簇 SOH", channel.InputRegister, 4, "uint16", 1, 0, "%", true, ""),
-		point("电池簇 SOE", channel.InputRegister, 5, "uint16", 0.1, 0, "%", true, ""),
-		point("正绝缘电阻", channel.InputRegister, 6, "uint16", 1, 0, "kΩ", true, ""),
-		point("负绝缘电阻", channel.InputRegister, 7, "uint16", 1, 0, "kΩ", true, ""),
-		point("最高温度", channel.InputRegister, 12, "uint16", 0.1, -40, "℃", true, ""),
-		point("最低温度", channel.InputRegister, 15, "uint16", 0.1, -40, "℃", true, ""),
-		point("平均温度", channel.InputRegister, 18, "uint16", 0.1, -40, "℃", true, ""),
-		point("最高单体电压", channel.InputRegister, 21, "uint16", 0.001, 0, "V", true, ""),
-		point("最低单体电压", channel.InputRegister, 24, "uint16", 0.001, 0, "V", true, ""),
-		point("系统心跳", channel.InputRegister, 71, "uint16", 1, 0, "", true, "每秒加 1；停更即链路/主控异常"),
-		point("系统告警状态", channel.InputRegister, 73, "uint16", 1, 0, "", true, "bit0 禁充、bit1 禁放、bit2 告警、bit3 充满、bit4 放空"),
-		point("系统故障码", channel.InputRegister, 74, "uint16", 1, 0, "", true, "按协议 §3.6 解释"),
-		point("累计充电电量", channel.InputRegister, 59, "uint32", 0.1, 0, "kWh", true, "两个连续寄存器，高字在前"),
-		point("累计放电电量", channel.InputRegister, 61, "uint32", 0.1, 0, "kWh", true, "两个连续寄存器，高字在前"),
+		point("电池簇电压", channel.InputRegister, 1, "uint16", 0.1, 0, "V", true, RoleTelemetry, ""),
+		point("电池簇电流", channel.InputRegister, 2, "uint16", 0.1, -1600, "A", true, RoleTelemetry, "充电为正、放电为负"),
+		point("电池簇 SOC", channel.InputRegister, 3, "uint16", 0.1, 0, "%", true, RoleTelemetry, ""),
+		point("电池簇 SOH", channel.InputRegister, 4, "uint16", 1, 0, "%", true, RoleTelemetry, ""),
+		point("电池簇 SOE", channel.InputRegister, 5, "uint16", 0.1, 0, "%", true, RoleTelemetry, ""),
+		point("正绝缘电阻", channel.InputRegister, 6, "uint16", 1, 0, "kΩ", true, RoleTelemetry, ""),
+		point("负绝缘电阻", channel.InputRegister, 7, "uint16", 1, 0, "kΩ", true, RoleTelemetry, ""),
+		point("最高温度", channel.InputRegister, 12, "uint16", 0.1, -40, "℃", true, RoleTelemetry, ""),
+		point("最低温度", channel.InputRegister, 15, "uint16", 0.1, -40, "℃", true, RoleTelemetry, ""),
+		point("平均温度", channel.InputRegister, 18, "uint16", 0.1, -40, "℃", true, RoleTelemetry, ""),
+		point("最高单体电压", channel.InputRegister, 21, "uint16", 0.001, 0, "V", true, RoleTelemetry, ""),
+		point("最低单体电压", channel.InputRegister, 24, "uint16", 0.001, 0, "V", true, RoleTelemetry, ""),
+		point("系统心跳", channel.InputRegister, 71, "uint16", 1, 0, "", true, RoleStatus, "每秒加 1；停更即链路/主控异常"),
+		point("系统告警状态", channel.InputRegister, 73, "uint16", 1, 0, "", true, RoleStatus, "bit0 禁充、bit1 禁放、bit2 告警、bit3 充满、bit4 放空"),
+		point("系统故障码", channel.InputRegister, 74, "uint16", 1, 0, "", true, RoleStatus, "按协议 §3.6 解释"),
+		point("累计充电电量", channel.InputRegister, 59, "uint32", 0.1, 0, "kWh", true, RoleEnergy, "两个连续寄存器，高字在前"),
+		point("累计放电电量", channel.InputRegister, 61, "uint32", 0.1, 0, "kWh", true, RoleEnergy, "两个连续寄存器，高字在前"),
 	}
 	return makeProfile(
 		"esbcm-bms", "高特", "ESBCM BMS（V1.18）", "modbus",
@@ -125,16 +125,16 @@ func esbcmBMS() Profile {
 
 func dtsdMeter() Profile {
 	points := []PointSpec{
-		point("正向有功总电能", channel.HoldingRegister, 266, "int32", 0.01, 0, "kWh", true, "0x10A，高字在前"),
-		point("反向有功总电能", channel.HoldingRegister, 276, "int32", 0.01, 0, "kWh", true, "0x114，方向语义待现场核对"),
-		point("瞬时总有功功率", channel.HoldingRegister, 378, "int32", 0.0001, 0, "kW", true, "0x17A，负数为补码"),
-		point("A 相电压", channel.HoldingRegister, 366, "uint32", 0.0001, 0, "V", true, "0x16E"),
-		point("B 相电压", channel.HoldingRegister, 368, "uint32", 0.0001, 0, "V", true, "0x170"),
-		point("C 相电压", channel.HoldingRegister, 370, "uint32", 0.0001, 0, "V", true, "0x172"),
-		point("A 相电流", channel.HoldingRegister, 372, "uint32", 0.0001, 0, "A", true, "0x174"),
-		point("B 相电流", channel.HoldingRegister, 374, "uint32", 0.0001, 0, "A", true, "0x176"),
-		point("C 相电流", channel.HoldingRegister, 376, "uint32", 0.0001, 0, "A", true, "0x178"),
-		point("频率", channel.HoldingRegister, 409, "uint16", 0.01, 0, "Hz", true, "0x199"),
+		point("正向有功总电能", channel.HoldingRegister, 266, "int32", 0.01, 0, "kWh", true, RoleEnergy, "0x10A，高字在前"),
+		point("反向有功总电能", channel.HoldingRegister, 276, "int32", 0.01, 0, "kWh", true, RoleEnergy, "0x114，方向语义待现场核对"),
+		point("瞬时总有功功率", channel.HoldingRegister, 378, "int32", 0.0001, 0, "kW", true, RoleTelemetry, "0x17A，负数为补码"),
+		point("A 相电压", channel.HoldingRegister, 366, "uint32", 0.0001, 0, "V", true, RoleTelemetry, "0x16E"),
+		point("B 相电压", channel.HoldingRegister, 368, "uint32", 0.0001, 0, "V", true, RoleTelemetry, "0x170"),
+		point("C 相电压", channel.HoldingRegister, 370, "uint32", 0.0001, 0, "V", true, RoleTelemetry, "0x172"),
+		point("A 相电流", channel.HoldingRegister, 372, "uint32", 0.0001, 0, "A", true, RoleTelemetry, "0x174"),
+		point("B 相电流", channel.HoldingRegister, 374, "uint32", 0.0001, 0, "A", true, RoleTelemetry, "0x176"),
+		point("C 相电流", channel.HoldingRegister, 376, "uint32", 0.0001, 0, "A", true, RoleTelemetry, "0x178"),
+		point("频率", channel.HoldingRegister, 409, "uint16", 0.01, 0, "Hz", true, RoleTelemetry, "0x199"),
 	}
 	return makeProfile(
 		"dtsd3366d-meter", "TOKY", "DTSD3366D-J P4 电表", "modbus",
@@ -149,16 +149,16 @@ func dtsdMeter() Profile {
 
 func yd2037Meter() Profile {
 	points := []PointSpec{
-		point("正向有功总电能", channel.HoldingRegister, 32778, "int32", 0.01, 0, "kWh", true, "0x800A，高字在前"),
-		point("反向有功总电能", channel.HoldingRegister, 32788, "int32", 0.01, 0, "kWh", true, "0x8014，方向语义待现场核对"),
-		point("有功总功率", channel.HoldingRegister, 36122, "int32", 0.0001, 0, "kW", true, "0x8D1A，正=受电、负=馈电待核对"),
-		point("A 相电压", channel.HoldingRegister, 36096, "uint32", 0.001, 0, "V", true, "0x8D00"),
-		point("B 相电压", channel.HoldingRegister, 36098, "uint32", 0.001, 0, "V", true, "0x8D02"),
-		point("C 相电压", channel.HoldingRegister, 36100, "uint32", 0.001, 0, "V", true, "0x8D04"),
-		point("A 相电流", channel.HoldingRegister, 36110, "uint32", 0.001, 0, "A", true, "0x8D0E"),
-		point("B 相电流", channel.HoldingRegister, 36112, "uint32", 0.001, 0, "A", true, "0x8D10"),
-		point("C 相电流", channel.HoldingRegister, 36114, "uint32", 0.001, 0, "A", true, "0x8D12"),
-		point("电网频率", channel.HoldingRegister, 36159, "uint16", 0.01, 0, "Hz", true, "0x8D3F"),
+		point("正向有功总电能", channel.HoldingRegister, 32778, "int32", 0.01, 0, "kWh", true, RoleEnergy, "0x800A，高字在前"),
+		point("反向有功总电能", channel.HoldingRegister, 32788, "int32", 0.01, 0, "kWh", true, RoleEnergy, "0x8014，方向语义待现场核对"),
+		point("有功总功率", channel.HoldingRegister, 36122, "int32", 0.0001, 0, "kW", true, RoleTelemetry, "0x8D1A，正=受电、负=馈电待核对"),
+		point("A 相电压", channel.HoldingRegister, 36096, "uint32", 0.001, 0, "V", true, RoleTelemetry, "0x8D00"),
+		point("B 相电压", channel.HoldingRegister, 36098, "uint32", 0.001, 0, "V", true, RoleTelemetry, "0x8D02"),
+		point("C 相电压", channel.HoldingRegister, 36100, "uint32", 0.001, 0, "V", true, RoleTelemetry, "0x8D04"),
+		point("A 相电流", channel.HoldingRegister, 36110, "uint32", 0.001, 0, "A", true, RoleTelemetry, "0x8D0E"),
+		point("B 相电流", channel.HoldingRegister, 36112, "uint32", 0.001, 0, "A", true, RoleTelemetry, "0x8D10"),
+		point("C 相电流", channel.HoldingRegister, 36114, "uint32", 0.001, 0, "A", true, RoleTelemetry, "0x8D12"),
+		point("电网频率", channel.HoldingRegister, 36159, "uint16", 0.01, 0, "Hz", true, RoleTelemetry, "0x8D3F"),
 	}
 	return makeProfile(
 		"yd2037-meter", "雅达", "YD2037Y-F 电表", "modbus",
@@ -173,14 +173,14 @@ func yd2037Meter() Profile {
 
 func huaweiInverter() Profile {
 	points := []PointSpec{
-		point("有功功率", channel.HoldingRegister, 32080, "int32", 0.001, 0, "kW", true, "0x7D50，高字在前"),
-		point("直流功率", channel.HoldingRegister, 32064, "int32", 0.001, 0, "kW", true, "0x7D40"),
-		point("累计发电电量", channel.HoldingRegister, 32106, "uint32", 0.01, 0, "kWh", true, "0x7D6A"),
-		point("设备状态", channel.HoldingRegister, 32089, "uint16", 1, 0, "", true, "0x7D59"),
-		point("故障码", channel.HoldingRegister, 32090, "uint16", 1, 0, "", true, "0x7D5A"),
-		point("内部温度", channel.HoldingRegister, 32087, "int16", 0.1, 0, "℃", true, "CSV 标注 ℃ 10，定标待现场核对"),
-		point("有功功率百分比控制", channel.HoldingRegister, 40199, "int16", 1, 0, "%", false, "0x9D07，低精度，写入范围待现场核对"),
-		point("远程功率调度", channel.HoldingRegister, 42014, "uint16", 1, 0, "", false, "0xA41E，写入语义待现场核对"),
+		point("有功功率", channel.HoldingRegister, 32080, "int32", 0.001, 0, "kW", true, RoleTelemetry, "0x7D50，高字在前"),
+		point("直流功率", channel.HoldingRegister, 32064, "int32", 0.001, 0, "kW", true, RoleTelemetry, "0x7D40"),
+		point("累计发电电量", channel.HoldingRegister, 32106, "uint32", 0.01, 0, "kWh", true, RoleEnergy, "0x7D6A"),
+		point("设备状态", channel.HoldingRegister, 32089, "uint16", 1, 0, "", true, RoleStatus, "0x7D59"),
+		point("故障码", channel.HoldingRegister, 32090, "uint16", 1, 0, "", true, RoleStatus, "0x7D5A"),
+		point("内部温度", channel.HoldingRegister, 32087, "int16", 0.1, 0, "℃", true, RoleTelemetry, "CSV 标注 ℃ 10，定标待现场核对"),
+		point("有功功率百分比控制", channel.HoldingRegister, 40199, "int16", 1, 0, "%", false, RoleSetpoint, "0x9D07，低精度，写入范围待现场核对"),
+		point("远程功率调度", channel.HoldingRegister, 42014, "uint16", 1, 0, "", false, RoleSetpoint, "0xA41E，写入语义待现场核对"),
 	}
 	commands := []CommandSpec{
 		{
@@ -205,14 +205,14 @@ func huaweiInverter() Profile {
 
 func jiwaMPPT() Profile {
 	points := []PointSpec{
-		point("输入侧总功率", channel.HoldingRegister, 45217, "int16", 0.1, 0, "kW", true, "0xB0A1，有符号"),
-		point("母线电压", channel.HoldingRegister, 45221, "int16", 0.1, 0, "V", true, "0xB0A5"),
-		point("散热器温度", channel.HoldingRegister, 45282, "int16", 0.1, 0, "℃", true, "0xB0E2"),
-		point("状态字 1", channel.HoldingRegister, 45200, "uint16", 1, 0, "", true, "位域"),
-		point("告警字 1", channel.HoldingRegister, 45205, "uint16", 1, 0, "", true, "位域"),
-		point("故障字 1", channel.HoldingRegister, 45210, "uint16", 1, 0, "", true, "位域"),
-		point("协议版本高字", channel.HoldingRegister, 45054, "uint16", 1, 0, "", true, "联调先核对 V2.5"),
-		point("协议版本低字", channel.HoldingRegister, 45055, "uint16", 1, 0, "", true, ""),
+		point("输入侧总功率", channel.HoldingRegister, 45217, "int16", 0.1, 0, "kW", true, RoleTelemetry, "0xB0A1，有符号"),
+		point("母线电压", channel.HoldingRegister, 45221, "int16", 0.1, 0, "V", true, RoleTelemetry, "0xB0A5"),
+		point("散热器温度", channel.HoldingRegister, 45282, "int16", 0.1, 0, "℃", true, RoleTelemetry, "0xB0E2"),
+		point("状态字 1", channel.HoldingRegister, 45200, "uint16", 1, 0, "", true, RoleStatus, "位域"),
+		point("告警字 1", channel.HoldingRegister, 45205, "uint16", 1, 0, "", true, RoleStatus, "位域"),
+		point("故障字 1", channel.HoldingRegister, 45210, "uint16", 1, 0, "", true, RoleStatus, "位域"),
+		point("协议版本高字", channel.HoldingRegister, 45054, "uint16", 1, 0, "", true, RoleStatus, "联调先核对 V2.5"),
+		point("协议版本低字", channel.HoldingRegister, 45055, "uint16", 1, 0, "", true, RoleStatus, ""),
 	}
 	return makeProfile(
 		"jiwa-mppt", "吉瓦时代", "MPPT（V2.5）", "modbus",

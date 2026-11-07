@@ -44,13 +44,14 @@ type unitModelPointView struct {
 }
 
 type unitModelView struct {
-	ChannelID string               `json:"channel_id"`
-	ServerID  int                  `json:"server_id"`
-	Model     *unitModelConfig     `json:"model,omitempty"`
-	Profiles  []profile.Profile    `json:"profiles"`
-	Points    []unitModelPointView `json:"points"`
-	Commands  []unitModelCommand   `json:"commands"`
-	Missing   []string             `json:"missing,omitempty"`
+	ChannelID     string               `json:"channel_id"`
+	ServerID      int                  `json:"server_id"`
+	Model         *unitModelConfig     `json:"model,omitempty"`
+	Profiles      []profile.Profile    `json:"profiles"`
+	ProfileErrors []string             `json:"profile_errors,omitempty"`
+	Points        []unitModelPointView `json:"points"`
+	Commands      []unitModelCommand   `json:"commands"`
+	Missing       []string             `json:"missing,omitempty"`
 }
 
 type unitModelParameter struct {
@@ -162,7 +163,8 @@ func unitModelResponse(channelID string, server int, model unitModelConfig, hasM
 	view := unitModelView{
 		ChannelID: channelID, ServerID: server,
 		Points: points, Profiles: registry.List(),
-		Commands: []unitModelCommand{},
+		ProfileErrors: registry.LoadErrors,
+		Commands:      []unitModelCommand{},
 	}
 	if hasModel {
 		view.Model = &model

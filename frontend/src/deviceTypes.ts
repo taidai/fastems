@@ -78,7 +78,8 @@ export type ProfileSpec = {
   verified: boolean
   verification?: string
   notes?: string[]
-  point_specs?: { name: string; unit?: string; read_only?: boolean }[]
+  custom?: boolean
+  point_specs?: { name: string; unit?: string; read_only?: boolean; role?: string }[]
   command_specs?: { id: string; name: string }[]
 }
 
@@ -87,6 +88,7 @@ export type UnitModel = {
   server_id: number
   model?: UnitModelConfig
   profiles: ProfileSpec[]
+  profile_errors?: string[]
   points: UnitPoint[]
   commands: UnitCommand[]
   missing?: string[]
