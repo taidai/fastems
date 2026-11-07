@@ -181,6 +181,15 @@ export default function App() {
   const [password, setPassword] = useState("")
   const [busy, setBusy] = useState(false)
   const [selectedRule, setSelectedRule] = useState("")
+  // ruleAnchor remembers the rule that was open before a copy, so deleting the
+  // copy falls back to the source instead of the first rule in the list.
+  const ruleAnchor = useRef("")
+  const selectRule = useCallback((id: string) => {
+    setSelectedRule((prev) => {
+      if (prev && prev !== id && id) ruleAnchor.current = prev
+      return id
+    })
+  }, [])
   const [historyPoint, setHistoryPoint] = useState("")
   const [stationID, setStationID] = useState("")
   const [directoryOpen, setDirectoryOpen] = useState(false)
@@ -374,7 +383,9 @@ export default function App() {
     return value?.value === undefined || !Number.isFinite(time) || clock.getTime() - time > 15000
   })
   const errors = view.nodes.filter((node) => point(node, "error")?.text || (point(node, "errorCount")?.value || 0) > 0 || ["unknown", "failed"].includes(commandStatus(node)))
-  const currentRule = selectedRule ? rules.find((rule) => rule.id === selectedRule) : rules[0]
+  const currentRule = (selectedRule ? rules.find((rule) => rule.id === selectedRule) : undefined)
+    || rules.find((rule) => rule.id === ruleAnchor.current)
+    || rules[0]
 
   function openPoint(keywords: string[], fallback: Page = "channels") {
     const match = keywords.length ? points.find((node) => {
@@ -547,7 +558,7 @@ export default function App() {
 
       {page === "rules" && <section className="rules-page">
         <div className="page-toolbar">
-          <div className="rule-tabs">{rules.map((rule) => <button key={rule.id} className={currentRule?.id === rule.id ? "active" : ""} onClick={() => setSelectedRule(rule.id)}>{nameOf(rule)}</button>)}</div>
+          <div className="rule-tabs">{rules.map((rule) => <button key={rule.id} className={currentRule?.id === rule.id ? "active" : ""} onClick={() => selectRule(rule.id)}>{nameOf(rule)}</button>)}</div>
           {canConfigure && <button className="primary-button" disabled={busy} onClick={() => void (async () => {
             const previous = selectedRule
             setSelectedRule("__creating__")
@@ -560,7 +571,7 @@ export default function App() {
             if (!ok) setSelectedRule(previous)
           })()}>+ 新建决策表</button>}
         </div>
-        {currentRule ? <DecisionEditor key={currentRule.id} token={token} rule={currentRule} nodes={view.nodes} onRefresh={refresh} onError={setError} onSelect={setSelectedRule} readOnly={!canConfigure} /> :
+        {currentRule ? <DecisionEditor key={currentRule.id} token={token} rule={currentRule} nodes={view.nodes} onRefresh={refresh} onError={setError} onSelect={selectRule} readOnly={!canConfigure} /> :
           selectedRule ? <div className="empty-state large"><strong>正在打开决策表…</strong><span>读取最新草稿与点位绑定。</span></div> :
           <div className="empty-state large"><strong>从第一张决策表开始</strong><span>选择多个输入条件，按顺序执行多个输出；第一行命中后停止。</span>{canConfigure && <span>点击右上方“新建决策表”。</span>}</div>}
       </section>}
