@@ -1879,7 +1879,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline-color:
   .console-stage .rules-page .strategy-panel,
   .console-stage .rules-page .scenario-panel,
   .console-stage .rules-page .simulation-panel,
-  .console-stage .rules-page .publish-bar { flex: 0 0 auto; }
+  .console-stage .rules-page .publish-bar { flex: 0 1 auto; }
   .console-stage .rules-page .editor-fields { flex: 1; min-height: 0; overflow: auto; }
   .console-stage .rules-page .publish-bar { position: static; }
 }
@@ -2030,7 +2030,7 @@ body::after {
   .console-stage .rules-page .add-row-actions,
   .console-stage .rules-page .last-check,
   .console-stage .rules-page .simulation-panel,
-  .console-stage .rules-page .publish-bar { flex: 0 0 auto; }
+  .console-stage .rules-page .publish-bar { flex: 0 1 auto; }
   .console-stage .rules-page .editor-fields { flex: 1; min-height: 0; overflow: auto; }
   .console-stage .rules-page .publish-bar { position: static; }
   .console-stage .rules-page .last-check[open] { max-height: 150px; overflow: auto; }
