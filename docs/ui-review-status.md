@@ -85,9 +85,15 @@
 - **画面模板与版本回滚**：运行画面可保存当前布局为模板、套用/删除模板（本机 localStorage `easyems-screen-templates`）；每次保存画面自动记录版本快照（`easyems-screen-versions:{nodeId}`），可回滚到历史版本。
 - **画布内嵌趋势/报警**：画面卡片内嵌迷你趋势（复用点位历史接口）与报警状态角标（只读 `/ems/alarms`，按点位/设备计数）。
 
+### 第九轮新增完成（2026-11-07，动作级权限与会话策略）
+- **动作级权限**：`AccessPolicy` 新增 `actions` 白名单；集中式 `canAction(identity, action)` 与 11 个动作常量（配置/写值/命令执行/规则发布/报警确认/报警维护/删除/导出/账号管理/审计查看/站点设置）；角色保留为默认动作集快捷方式，白名单覆盖角色默认，未知动作默认拒绝。`canConfigure`/`canOperateIdentity` 保留为角色默认谓词。
+- **路由细化**：`internal/appapi/*.go` 与 `internal/emsapi` 的 `access.Admin/Configure/Operate` 判断细化为具体动作；报警确认/关闭新增动作校验（此前任何登录者可确认报警）。
+- **账号管理**：`GET /users` 列出账号与动作、`PUT /users/{id}` 编辑角色与白名单、`POST /users/{id}/password` 管理员重置他人密码（口令仅写入本机账号节点，不记审计/导出）；前端账号页支持逐账号勾选动作白名单与重置密码。
+- **会话策略**：登录签发 easyems 会话令牌（不再直发上游 token）；会话空闲超时（默认 30 分钟，`EASYEMS_SESSION_TIMEOUT_MINUTES` 可配）+ 同账号并发会话上限（默认 5，`EASYEMS_MAX_SESSIONS` 可配）；前端按快照返回的超时主动退出。审计记录不含密码/令牌。
+- **单测**：`internal/appapi/permission_test.go` 表驱动覆盖 admin/implementer/operator/viewer × 全部动作，及白名单覆盖、默认拒绝、管理员豁免。
+
 ## 仍未完成（P2 / v1.1）
 
-- 动作级权限、会话策略。
 - 真实设备 M5 现场签收。
 
-这些 P2/v1.1 项不是“界面上再补一个按钮”就能安全完成，涉及规则引擎、分配器约束、历史存储和交付流程；本次没有用占位按钮冒充完成。
+真实设备 M5 现场签收仍依赖现场环境，未用占位按钮冒充完成。

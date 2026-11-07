@@ -1,7 +1,10 @@
 package appapi
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"io"
 	"math"
 	"net/http"
@@ -34,10 +37,20 @@ type Handler struct {
 	audit            *audit.Store
 	dataDir          string
 	alarmEventsMu    sync.Mutex
+
+	sessionMu      sync.Mutex
+	sessions       map[string]sessionState
+	sessionTimeout time.Duration
+	maxSessions    int
 }
 
 func New(nc *nats.Conn, users api.UserAuthority, ready *atomic.Bool) *Handler {
-	return &Handler{nc: nc, users: users, ready: ready}
+	return &Handler{
+		nc: nc, users: users, ready: ready,
+		sessions:       map[string]sessionState{},
+		sessionTimeout: 30 * time.Minute,
+		maxSessions:    5,
+	}
 }
 
 // SetEMS mounts the EMS runtime API under /api/ems/.
@@ -55,10 +68,80 @@ func (h *Handler) SetEMS(handler *emsapi.Handler) {
 	}
 }
 
+// SetSessionPolicy tunes idle session expiry and the per-account concurrent
+// session ceiling. Non-positive values keep the current defaults.
+func (h *Handler) SetSessionPolicy(timeout time.Duration, maxSessions int) {
+	if timeout > 0 {
+		h.sessionTimeout = timeout
+	}
+	if maxSessions > 0 {
+		h.maxSessions = maxSessions
+	}
+}
+
+type sessionState struct {
+	userID   string
+	lastSeen time.Time
+}
+
+func (h *Handler) resolveSession(id string) (string, bool) {
+	h.sessionMu.Lock()
+	defer h.sessionMu.Unlock()
+	if h.sessions == nil {
+		return "", false
+	}
+	state, ok := h.sessions[id]
+	if !ok {
+		return "", false
+	}
+	if h.sessionTimeout > 0 && time.Since(state.lastSeen) > h.sessionTimeout {
+		delete(h.sessions, id)
+		return "", false
+	}
+	state.lastSeen = time.Now()
+	h.sessions[id] = state
+	return state.userID, true
+}
+
+var errSessionLimit = errors.New("session_limit_reached")
+
+func (h *Handler) registerSession(userID string) (string, error) {
+	h.sessionMu.Lock()
+	defer h.sessionMu.Unlock()
+	if h.sessions == nil {
+		h.sessions = map[string]sessionState{}
+	}
+	now := time.Now()
+	for id, state := range h.sessions {
+		if h.sessionTimeout > 0 && now.Sub(state.lastSeen) > h.sessionTimeout {
+			delete(h.sessions, id)
+		}
+	}
+	if h.maxSessions > 0 {
+		active := 0
+		for _, state := range h.sessions {
+			if state.userID == userID {
+				active++
+			}
+		}
+		if active >= h.maxSessions {
+			return "", errSessionLimit
+		}
+	}
+	raw := make([]byte, 32)
+	if _, err := rand.Read(raw); err != nil {
+		return "", err
+	}
+	id := base64.RawURLEncoding.EncodeToString(raw)
+	h.sessions[id] = sessionState{userID: userID, lastSeen: now}
+	return id, nil
+}
+
 type AccessPolicy struct {
 	Admin       bool     `json:"admin"`
 	Role        string   `json:"role"`
 	RootNodeIDs []string `json:"root_node_ids"`
+	Actions     []string `json:"actions,omitempty"`
 }
 
 type Identity struct {
@@ -77,6 +160,63 @@ func canConfigure(identity Identity) bool {
 
 func canOperateIdentity(identity Identity) bool {
 	return identity.Policy.Admin || identity.Policy.Role == "operator" || identity.Policy.Role == "implementer"
+}
+
+// Action constants. A role is only a shortcut that expands to a default action
+// set; an explicit Actions whitelist on the policy overrides the role.
+const (
+	ActionConfigure     = "configure"      // 通道/设备/点位/规则草稿/画面/分配器/聚合/报警类型/验收/模板
+	ActionWriteValue    = "write_value"    // 控制写入（含人工接管）
+	ActionCommand       = "command"        // 命令执行与通信报文诊断
+	ActionRulePublish   = "rule_publish"   // 规则发布/启用/恢复
+	ActionAlarmAck      = "alarm_ack"      // 报警确认/关闭
+	ActionAlarmMaintain = "alarm_maintain" // 报警维护/结束维护
+	ActionDelete        = "delete"         // 删除节点/通道
+	ActionExport        = "export"         // 导出点表/验证/证据/历史
+	ActionAccountManage = "account_manage" // 账号管理（创建/重置密码）
+	ActionAuditView     = "audit_view"     // 审计查看/导出
+	ActionSiteSettings  = "site_settings"  // 站点设置（电价/历史保留）
+)
+
+// allActions is the canonical action list, exposed to the frontend and reused
+// to build the resolved capability set passed to the EMS API.
+var allActions = []string{
+	ActionConfigure, ActionWriteValue, ActionCommand, ActionRulePublish,
+	ActionAlarmAck, ActionAlarmMaintain, ActionDelete, ActionExport,
+	ActionAccountManage, ActionAuditView, ActionSiteSettings,
+}
+
+// canAction is the single permission decision point. Admin always passes; an
+// explicit whitelist overrides the role default; otherwise the role's default
+// action set applies. Unknown actions are denied.
+func canAction(identity Identity, action string) bool {
+	if identity.Policy.Admin {
+		return true
+	}
+	if len(identity.Policy.Actions) > 0 {
+		for _, allowed := range identity.Policy.Actions {
+			if allowed == action {
+				return true
+			}
+		}
+		return false
+	}
+	return roleAllows(identity.Policy, action)
+}
+
+// roleAllows expands a role into its default action set via the two kept
+// role-default predicates, so action granularity never drifts from them.
+func roleAllows(policy AccessPolicy, action string) bool {
+	switch action {
+	case ActionConfigure, ActionRulePublish, ActionDelete, ActionExport:
+		return canConfigure(Identity{Policy: policy})
+	case ActionWriteValue, ActionCommand, ActionAlarmAck, ActionAlarmMaintain:
+		return canOperateIdentity(Identity{Policy: policy})
+	case ActionAccountManage, ActionAuditView, ActionSiteSettings:
+		return policy.Admin
+	default:
+		return false
+	}
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -117,7 +257,18 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		!strings.HasPrefix(path, "ems/screen/") &&
 		!strings.HasPrefix(path, "ems/acceptance/") &&
 		!strings.HasPrefix(path, "ems/allocators/") {
-		h.ems.ServeHTTP(w, r, emsapi.Access{UserID: identity.UserID, Actor: identity.Email, Admin: identity.Policy.Admin, Configure: canConfigure(identity), Operate: canOperateIdentity(identity)})
+		actions := map[string]bool{}
+		for _, action := range allActions {
+			actions[action] = canAction(identity, action)
+		}
+		h.ems.ServeHTTP(w, r, emsapi.Access{
+			UserID: identity.UserID, Actor: identity.Email, Admin: identity.Policy.Admin,
+			Configure:     actions[ActionConfigure],
+			Command:       actions[ActionCommand],
+			AlarmAck:      actions[ActionAlarmAck],
+			AlarmMaintain: actions[ActionAlarmMaintain],
+			Delete:        actions[ActionDelete],
+		})
 		return
 	}
 	parts := strings.Split(path, "/")
@@ -229,6 +380,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.alarmTypes(w, r, identity)
 	case path == "users" && r.Method == http.MethodPost:
 		h.createUser(w, r, identity)
+	case path == "users" && r.Method == http.MethodGet:
+		h.listUsers(w, identity)
+	case len(parts) == 2 && parts[0] == "users" && r.Method == http.MethodPut:
+		h.updateUserPolicy(w, r, identity, parts[1])
+	case len(parts) == 3 && parts[0] == "users" && parts[2] == "password" && r.Method == http.MethodPost:
+		h.resetUserPassword(w, r, identity, parts[1])
 	case len(parts) == 3 && parts[0] == "ems" && parts[1] == "screen" && r.Method == http.MethodGet:
 		h.getScreen(w, identity, parts[2])
 	case len(parts) == 3 && parts[0] == "ems" && parts[1] == "screen" && r.Method == http.MethodPut:
@@ -276,17 +433,29 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, "invalid_login")
 		return
 	}
+	userID, _, ok := h.users.UserFromToken(token)
+	if !ok {
+		h.auditLogin(input.Email, "failure", "invalid credentials", r)
+		writeError(w, http.StatusForbidden, "invalid_login")
+		return
+	}
+	sessionID, err := h.registerSession(userID)
+	if err != nil {
+		h.auditLogin(input.Email, "failure", "session limit reached", r)
+		writeError(w, http.StatusConflict, "session_limit_reached")
+		return
+	}
 	h.auditLogin(input.Email, "success", "login", r)
-	writeJSON(w, map[string]string{"token": token})
+	writeJSON(w, map[string]string{"token": sessionID})
 }
 
 func (h *Handler) authenticate(w http.ResponseWriter, r *http.Request) (Identity, bool) {
-	token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
-	if !ok || token == "" {
+	sessionID, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+	if !ok || sessionID == "" {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return Identity{}, false
 	}
-	userID, _, ok := h.users.UserFromToken(token)
+	userID, ok := h.resolveSession(sessionID)
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return Identity{}, false
@@ -343,6 +512,7 @@ func (h *Handler) snapshot(w http.ResponseWriter, identity Identity) {
 	}
 	writeJSON(w, map[string]any{
 		"user": identity, "roots": identity.Anchors, "nodes": data.RedactNodes(nodes),
+		"session_timeout_seconds": int(h.sessionTimeout / time.Second),
 	})
 }
 
@@ -388,7 +558,7 @@ func (h *Handler) visibleNodes(identity Identity) ([]data.NodeEdge, error) {
 }
 
 func (h *Handler) createNode(w http.ResponseWriter, r *http.Request, identity Identity) {
-	if !canConfigure(identity) {
+	if !canAction(identity, ActionConfigure) {
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}
@@ -434,7 +604,7 @@ func (h *Handler) createNode(w http.ResponseWriter, r *http.Request, identity Id
 }
 
 func (h *Handler) writeValue(w http.ResponseWriter, r *http.Request, identity Identity, id string) {
-	if !canOperateIdentity(identity) {
+	if !canAction(identity, ActionWriteValue) {
 		writeError(w, http.StatusForbidden, "operation_not_allowed")
 		return
 	}
@@ -521,7 +691,7 @@ func (h *Handler) writeValue(w http.ResponseWriter, r *http.Request, identity Id
 }
 
 func (h *Handler) setManual(w http.ResponseWriter, r *http.Request, identity Identity, id string) {
-	if !canOperateIdentity(identity) {
+	if !canAction(identity, ActionWriteValue) {
 		writeError(w, http.StatusForbidden, "operation_not_allowed")
 		return
 	}
@@ -552,7 +722,7 @@ func (h *Handler) setManual(w http.ResponseWriter, r *http.Request, identity Ide
 }
 
 func (h *Handler) createRule(w http.ResponseWriter, r *http.Request, identity Identity) {
-	if !canConfigure(identity) {
+	if !canAction(identity, ActionConfigure) {
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}
@@ -585,7 +755,7 @@ func (h *Handler) saveDraft(w http.ResponseWriter, r *http.Request, identity Ide
 }
 
 func (h *Handler) writeRuleDocument(w http.ResponseWriter, r *http.Request, identity Identity, id, pointType string) {
-	if !canConfigure(identity) {
+	if !canAction(identity, ActionConfigure) {
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}
@@ -616,7 +786,7 @@ func (h *Handler) writeRuleDocument(w http.ResponseWriter, r *http.Request, iden
 }
 
 func (h *Handler) enableRule(w http.ResponseWriter, r *http.Request, identity Identity, id string) {
-	if !canConfigure(identity) {
+	if !canAction(identity, ActionRulePublish) {
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}
@@ -657,7 +827,7 @@ func (h *Handler) enableRule(w http.ResponseWriter, r *http.Request, identity Id
 // It is deliberately one number: enough to estimate today's grid cost from an
 // existing kWh point without inventing a billing engine.
 func (h *Handler) setTariff(w http.ResponseWriter, r *http.Request, identity Identity) {
-	if !canConfigure(identity) {
+	if !canAction(identity, ActionSiteSettings) {
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}
@@ -720,21 +890,23 @@ func (h *Handler) testRule(w http.ResponseWriter, r *http.Request, identity Iden
 }
 
 func (h *Handler) createUser(w http.ResponseWriter, r *http.Request, identity Identity) {
-	if !identity.Policy.Admin {
+	if !canAction(identity, ActionAccountManage) {
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}
 	var input struct {
-		Parent   string `json:"parent"`
-		Email    string `json:"email"`
-		Password string `json:"password"`
-		Role     string `json:"role"`
+		Parent   string   `json:"parent"`
+		Email    string   `json:"email"`
+		Password string   `json:"password"`
+		Role     string   `json:"role"`
+		Actions  []string `json:"actions"`
 	}
 	if !decodeJSON(w, r, &input) {
 		return
 	}
 	if !h.allows(identity, input.Parent) || input.Email == "" || len(input.Password) < 12 ||
-		(input.Role != "admin" && input.Role != "implementer" && input.Role != "operator" && input.Role != "viewer") {
+		(input.Role != "admin" && input.Role != "implementer" && input.Role != "operator" && input.Role != "viewer") ||
+		!validActions(input.Actions) {
 		writeError(w, http.StatusBadRequest, "invalid_user")
 		return
 	}
@@ -755,7 +927,7 @@ func (h *Handler) createUser(w http.ResponseWriter, r *http.Request, identity Id
 		writeError(w, http.StatusBadRequest, "create_failed")
 		return
 	}
-	policy := AccessPolicy{Admin: input.Role == "admin", Role: input.Role, RootNodeIDs: []string{input.Parent}}
+	policy := AccessPolicy{Admin: input.Role == "admin", Role: input.Role, RootNodeIDs: []string{input.Parent}, Actions: input.Actions}
 	encoded, _ := json.Marshal(policy)
 	point := data.NewPointString("easyemsAccess", "", string(encoded))
 	point.Origin = identity.UserID
@@ -765,6 +937,132 @@ func (h *Handler) createUser(w http.ResponseWriter, r *http.Request, identity Id
 		return
 	}
 	writeJSON(w, map[string]string{"id": id})
+}
+
+func validActions(actions []string) bool {
+	known := map[string]bool{}
+	for _, action := range allActions {
+		known[action] = true
+	}
+	seen := map[string]bool{}
+	for _, action := range actions {
+		if !known[action] || seen[action] {
+			return false
+		}
+		seen[action] = true
+	}
+	return true
+}
+
+type userDTO struct {
+	ID     string       `json:"id"`
+	Email  string       `json:"email"`
+	Policy AccessPolicy `json:"policy"`
+}
+
+func (h *Handler) listUsers(w http.ResponseWriter, identity Identity) {
+	if !canAction(identity, ActionAccountManage) {
+		writeError(w, http.StatusForbidden, "admin_required")
+		return
+	}
+	users, err := client.GetNodes(h.nc, "all", "all", data.NodeTypeUser, false)
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, "users_unavailable")
+		return
+	}
+	out := make([]userDTO, 0, len(users))
+	for _, node := range users {
+		email, _ := node.Points.Text(data.PointTypeEmail, "")
+		var policy AccessPolicy
+		if point, ok := node.Points.Find("easyemsAccess", ""); ok {
+			_ = json.Unmarshal([]byte(point.Txt()), &policy)
+		}
+		out = append(out, userDTO{ID: node.ID, Email: email, Policy: policy})
+	}
+	writeJSON(w, map[string]any{"users": out, "actions": allActions})
+}
+
+func (h *Handler) updateUserPolicy(w http.ResponseWriter, r *http.Request, identity Identity, id string) {
+	if !canAction(identity, ActionAccountManage) {
+		writeError(w, http.StatusForbidden, "admin_required")
+		return
+	}
+	nodes, err := client.GetNodes(h.nc, "all", id, data.NodeTypeUser, false)
+	if err != nil || len(nodes) == 0 {
+		writeError(w, http.StatusNotFound, "user_not_found")
+		return
+	}
+	var policy AccessPolicy
+	if point, ok := nodes[0].Points.Find("easyemsAccess", ""); ok {
+		_ = json.Unmarshal([]byte(point.Txt()), &policy)
+	}
+	var input struct {
+		Role    string   `json:"role"`
+		Actions []string `json:"actions"`
+	}
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	if (input.Role != "admin" && input.Role != "implementer" && input.Role != "operator" && input.Role != "viewer") ||
+		!validActions(input.Actions) {
+		writeError(w, http.StatusBadRequest, "invalid_user")
+		return
+	}
+	if id == identity.UserID && input.Role != "admin" {
+		writeError(w, http.StatusConflict, "cannot_demote_self")
+		return
+	}
+	policy.Admin = input.Role == "admin"
+	policy.Role = input.Role
+	policy.Actions = input.Actions
+	encoded, _ := json.Marshal(policy)
+	point := data.NewPointString("easyemsAccess", "", string(encoded))
+	point.Origin = identity.UserID
+	if err := client.SendNodePoint(h.nc, id, point, true); err != nil {
+		writeError(w, http.StatusBadRequest, "save_failed")
+		return
+	}
+	writeJSON(w, map[string]bool{"saved": true})
+}
+
+// resetUserPassword lets an administrator set a new local password for another
+// account. The password is written to the user node only and never enters the
+// audit log or any export; existing sessions of the target account are revoked.
+func (h *Handler) resetUserPassword(w http.ResponseWriter, r *http.Request, identity Identity, id string) {
+	if !canAction(identity, ActionAccountManage) {
+		writeError(w, http.StatusForbidden, "admin_required")
+		return
+	}
+	var input struct {
+		Password string `json:"password"`
+	}
+	if !decodeJSON(w, r, &input) || len(input.Password) < 12 {
+		writeError(w, http.StatusBadRequest, "invalid_password")
+		return
+	}
+	if id == identity.UserID {
+		writeError(w, http.StatusBadRequest, "reset_self_not_allowed")
+		return
+	}
+	existing, err := client.GetNodes(h.nc, "all", id, data.NodeTypeUser, false)
+	if err != nil || len(existing) == 0 {
+		writeError(w, http.StatusNotFound, "user_not_found")
+		return
+	}
+	point := data.NewPointString(data.PointTypePass, "", input.Password)
+	point.Origin = identity.UserID
+	if err := client.SendNodePoint(h.nc, id, point, true); err != nil {
+		writeError(w, http.StatusNotFound, "user_not_found")
+		return
+	}
+	h.sessionMu.Lock()
+	for sessionID, state := range h.sessions {
+		if state.userID == id {
+			delete(h.sessions, sessionID)
+		}
+	}
+	h.sessionMu.Unlock()
+	writeJSON(w, map[string]bool{"reset": true})
 }
 
 func (h *Handler) node(w http.ResponseWriter, identity Identity, id string) (data.NodeEdge, bool) {

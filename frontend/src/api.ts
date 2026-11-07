@@ -52,9 +52,10 @@ export type Document = {
   scenarios?: Scenario[]
 }
 export type Snapshot = {
-  user: { user_id: string; policy: { admin: boolean; role: string } }
+  user: { user_id: string; policy: { admin: boolean; role: string; actions?: string[] } }
   roots: string[]
   nodes: Node[]
+  session_timeout_seconds?: number
 }
 export type TimeCheck = { start?: string; end?: string; weekday_mask?: number; satisfied: boolean }
 export type Evaluation = { row_id?: string; actions?: Action[]; time_checks?: TimeCheck[] }
@@ -340,4 +341,36 @@ export async function replayRule(token: string, ruleId: string, versionId: strin
 
 export async function fetchRuleDeps(token: string, ruleId: string, document: Document) {
   return request<DependencyGraph>(token, `/rules/${ruleId}/deps`, "POST", { document })
+}
+
+export const permissionActions: { key: string; label: string }[] = [
+  { key: "configure", label: "配置（通道/设备/点位/规则/画面）" },
+  { key: "write_value", label: "写值（控制写入）" },
+  { key: "command", label: "命令执行" },
+  { key: "rule_publish", label: "规则发布" },
+  { key: "alarm_ack", label: "报警确认" },
+  { key: "alarm_maintain", label: "报警维护" },
+  { key: "delete", label: "删除" },
+  { key: "export", label: "导出" },
+  { key: "account_manage", label: "账号管理" },
+  { key: "audit_view", label: "审计查看" },
+  { key: "site_settings", label: "站点设置" },
+]
+
+export type UserAccount = {
+  id: string
+  email: string
+  policy: { admin: boolean; role: string; root_node_ids?: string[]; actions?: string[] }
+}
+
+export async function listUsers(token: string) {
+  return request<{ users: UserAccount[]; actions: string[] }>(token, "/users")
+}
+
+export async function updateUserPolicy(token: string, id: string, role: string, actions: string[]) {
+  return request<{ saved: boolean }>(token, `/users/${encodeURIComponent(id)}`, "PUT", { role, actions })
+}
+
+export async function resetUserPassword(token: string, id: string, password: string) {
+  return request<{ reset: boolean }>(token, `/users/${encodeURIComponent(id)}/password`, "POST", { password })
 }

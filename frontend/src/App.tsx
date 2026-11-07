@@ -31,13 +31,18 @@ import {
   Document,
   EmsAlarm,
   fetchAlarms,
+  listUsers,
   login,
   nameOf,
   Node,
+  permissionActions,
   Point,
   point,
   request,
+  resetUserPassword,
   Snapshot,
+  updateUserPolicy,
+  type UserAccount,
 } from "./api"
 
 const emptyDocument: Document = { table: { rows: [] }, bindings: { points: {}, actions: {} } }
@@ -234,6 +239,27 @@ export default function App() {
     const timer = window.setInterval(() => setClock(new Date()), 1000)
     return () => window.clearInterval(timer)
   }, [])
+
+  const lastActivity = useRef(Date.now())
+  useEffect(() => {
+    const mark = () => { lastActivity.current = Date.now() }
+    const events: (keyof WindowEventMap)[] = ["pointerdown", "keydown", "mousemove", "touchstart", "scroll"]
+    events.forEach((name) => window.addEventListener(name, mark, { passive: true }))
+    return () => events.forEach((name) => window.removeEventListener(name, mark))
+  }, [])
+
+  useEffect(() => {
+    if (!token) return
+    const timeoutSeconds = snapshot?.session_timeout_seconds ?? 1800
+    if (timeoutSeconds <= 0) return
+    const timer = window.setInterval(() => {
+      if (Date.now() - lastActivity.current > timeoutSeconds * 1000) {
+        sessionStorage.removeItem("easyems-token")
+        window.location.reload()
+      }
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [token, snapshot?.session_timeout_seconds])
 
   useEffect(() => {
     const resize = () => setStageScale(window.innerWidth >= 1000 ? Math.min((window.innerWidth - 8) / 1632, (window.innerHeight - 8) / 1000) : 1)
@@ -465,7 +491,7 @@ export default function App() {
             <label>玻璃透明度<span>{display.glass}%</span>
               <input type="range" min="30" max="90" step="1" value={display.glass} onChange={(event) => setDisplay({ ...display, glass: Number(event.target.value) })} />
             </label>
-            {canConfigure && <label>站点电价（元/kWh）<span>{tariff === null ? "未设置" : tariff.toFixed(2)}</span>
+            {isAdmin && <label>站点电价（元/kWh）<span>{tariff === null ? "未设置" : tariff.toFixed(2)}</span>
               <div className="tariff-row">
                 <input type="number" min="0" max="100" step="0.01" value={tariffDraft} placeholder="例如 0.65" aria-label="站点电价" onChange={(event) => setTariffDraft(event.target.value)} />
                 <button className="secondary-button" disabled={busy} onClick={() => {
@@ -827,21 +853,64 @@ function ChannelsView({ channels, ioCounts, isAdmin, canOperate, quality, goConf
   </section>
 }
 
+function toggleAction(list: string[], key: string) {
+  return list.includes(key) ? list.filter((item) => item !== key) : [...list, key]
+}
+
 function UsersView({ snapshot, groups, busy, run }: { snapshot: Snapshot; groups: Node[]; busy: boolean; run: Run }) {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [role, setRole] = useState("viewer")
   const [parent, setParent] = useState(snapshot.roots[0])
+  const [actions, setActions] = useState<string[]>([])
+  const [accounts, setAccounts] = useState<UserAccount[]>([])
+  const [notice, setNotice] = useState("")
   const token = sessionStorage.getItem("easyems-token") || ""
-  return <section className="panel users-panel"><div className="panel-heading"><div><span className="section-kicker">默认无权限</span><h2>添加人员账号</h2><p>账号只能访问所属分组。查看者只读，操作员可控制，管理员可配置。</p></div></div>
+
+  const load = useCallback(async () => {
+    setAccounts((await listUsers(token)).users || [])
+  }, [token])
+
+  useEffect(() => {
+    void load().catch(() => setAccounts([]))
+  }, [load])
+
+  return <section className="panel users-panel"><div className="panel-heading"><div><span className="section-kicker">动作级权限</span><h2>账号与权限</h2><p>角色是默认动作集的快捷方式；勾选动作白名单后按白名单覆盖角色默认，未勾选的动作一律拒绝。</p></div></div>
+    {notice && <div className="success-message" role="status">{notice}</div>}
     <form className="user-form" onSubmit={(event) => {
       event.preventDefault()
       void run(async () => {
-        await request(token, "/users", "POST", { parent, email, password, role })
+        await request(token, "/users", "POST", { parent, email, password, role, actions })
         setEmail("")
         setPassword("")
+        setActions([])
+        setNotice("已创建账号")
+        await load()
       })
-    }}><label>登录账号<input value={email} onChange={(event) => setEmail(event.target.value)} required /></label><label>初始密码<input type="password" autoComplete="new-password" minLength={12} value={password} onChange={(event) => setPassword(event.target.value)} required /><small>至少 12 位，不写入导出或日志。</small></label><label>角色<select value={role} onChange={(event) => setRole(event.target.value)}><option value="viewer">查看者</option><option value="operator">操作员</option><option value="implementer">实施</option><option value="admin">管理员</option></select></label><label>可见与操作范围<select value={parent} onChange={(event) => setParent(event.target.value)}>{groups.map((group) => <option key={group.id} value={group.id}>{snapshot.roots.includes(group.id) ? "整个设备树" : nameOf(group)}</option>)}</select></label><button className="primary-button" disabled={busy}>创建账号</button></form>
-    <div className="permission-note"><strong>服务端权限边界</strong><p>通用 Simple IoT 节点接口与工程界面未开放；每个请求都检查当前账号、角色和树范围。</p></div>
+    }}><label>登录账号<input value={email} onChange={(event) => setEmail(event.target.value)} required /></label><label>初始密码<input type="password" autoComplete="new-password" minLength={12} value={password} onChange={(event) => setPassword(event.target.value)} required /><small>至少 12 位，不写入导出或日志。</small></label><label>角色<select value={role} onChange={(event) => setRole(event.target.value)}>{Object.entries(roleNames).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label>可见与操作范围<select value={parent} onChange={(event) => setParent(event.target.value)}>{groups.map((group) => <option key={group.id} value={group.id}>{snapshot.roots.includes(group.id) ? "整个设备树" : nameOf(group)}</option>)}</select></label><fieldset className="permission-actions"><legend>动作白名单（留空 = 按角色默认）</legend>{permissionActions.map((action) => <label key={action.key} className="comm-check"><input type="checkbox" checked={actions.includes(action.key)} onChange={() => setActions(toggleAction(actions, action.key))} />{action.label}</label>)}</fieldset><button className="primary-button" disabled={busy}>创建账号</button></form>
+    <div className="user-list">
+      {accounts.length === 0 && <p className="inline-note">尚未创建其他账号。</p>}
+      {accounts.map((account) => <UserRow key={account.id} account={account} token={token} busy={busy} run={run} onSaved={() => void load()} />)}
+    </div>
+    <div className="permission-note"><strong>服务端权限边界</strong><p>通用 Simple IoT 节点接口与工程界面未开放；每个请求都检查当前账号、动作与树范围，未知动作默认拒绝并记审计。</p></div>
   </section>
+}
+
+function UserRow({ account, token, busy, run, onSaved }: { account: UserAccount; token: string; busy: boolean; run: Run; onSaved: () => void }) {
+  const [role, setRole] = useState(account.policy.role || "viewer")
+  const [actions, setActions] = useState<string[]>(account.policy.actions || [])
+  const [newPassword, setNewPassword] = useState("")
+  const [showReset, setShowReset] = useState(false)
+  const [notice, setNotice] = useState("")
+  return <div className="user-row">
+    <div className="user-row-head"><strong>{account.email}</strong><span>{roleNames[role] || role}{account.policy.admin ? " · 管理员" : ""}</span></div>
+    <label>角色<select value={role} onChange={(event) => setRole(event.target.value)}>{Object.entries(roleNames).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+    <fieldset className="permission-actions"><legend>动作白名单</legend>{permissionActions.map((action) => <label key={action.key} className="comm-check"><input type="checkbox" checked={actions.includes(action.key)} onChange={() => setActions(toggleAction(actions, action.key))} />{action.label}</label>)}</fieldset>
+    {notice && <div className="success-message" role="status">{notice}</div>}
+    <div className="user-row-actions">
+      <button className="secondary-button" disabled={busy} onClick={() => void run(async () => { await updateUserPolicy(token, account.id, role, actions); setNotice("已保存权限"); onSaved() })}>保存权限</button>
+      <button className="secondary-button danger-text" disabled={busy} onClick={() => setShowReset(!showReset)}>重置密码</button>
+    </div>
+    {showReset && <div className="user-reset"><label>新密码<input type="password" autoComplete="new-password" minLength={12} value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /><small>至少 12 位，仅写入本机账号，不记审计/导出。</small></label><button className="secondary-button" disabled={busy || newPassword.length < 12} onClick={() => void run(async () => { await resetUserPassword(token, account.id, newPassword); setNewPassword(""); setShowReset(false); setNotice("已重置密码") })}>确认重置</button></div>}
+  </div>
 }

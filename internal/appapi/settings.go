@@ -42,7 +42,7 @@ func (h *Handler) historySettings(w http.ResponseWriter, r *http.Request, identi
 	case http.MethodGet:
 		writeJSON(w, historySetting{Limit: ReadHistoryLimit(h.dataDir)})
 	case http.MethodPut:
-		if !identity.Policy.Admin {
+		if !canAction(identity, ActionSiteSettings) {
 			writeError(w, http.StatusForbidden, "admin_required")
 			return
 		}

@@ -76,7 +76,7 @@ var aggregateOps = map[string]bool{"sum": true, "avg": true, "min": true, "max":
 
 func (h *Handler) aggregate(w http.ResponseWriter, r *http.Request, identity Identity) {
 	if r.Method == http.MethodPut {
-		if !canConfigure(identity) {
+		if !canAction(identity, ActionConfigure) {
 			writeError(w, http.StatusForbidden, "admin_required")
 			return
 		}

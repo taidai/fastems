@@ -26,7 +26,7 @@ type profileVerification struct {
 }
 
 func (h *Handler) profileVerifications(w http.ResponseWriter, r *http.Request, identity Identity) {
-	if !canConfigure(identity) {
+	if !canAction(identity, ActionExport) {
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}

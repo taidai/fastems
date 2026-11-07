@@ -74,7 +74,7 @@ type ModbusIOInput struct {
 }
 
 func (h *Handler) createModbus(w http.ResponseWriter, r *http.Request, identity Identity) {
-	if !canConfigure(identity) {
+	if !canAction(identity, ActionConfigure) {
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}
@@ -112,7 +112,7 @@ func (h *Handler) createModbus(w http.ResponseWriter, r *http.Request, identity 
 }
 
 func (h *Handler) createModbusIO(w http.ResponseWriter, r *http.Request, identity Identity, busID string) {
-	if !canConfigure(identity) {
+	if !canAction(identity, ActionConfigure) {
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}
@@ -166,7 +166,7 @@ func newModbusIONode(busID string, input ModbusIOInput) (data.NodeEdge, error) {
 }
 
 func (h *Handler) importModbusCSV(w http.ResponseWriter, r *http.Request, identity Identity, busID string) {
-	if !canConfigure(identity) {
+	if !canAction(identity, ActionConfigure) {
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}
@@ -506,7 +506,7 @@ func (h *Handler) modbusCSVDiff(w http.ResponseWriter, r *http.Request, identity
 }
 
 func (h *Handler) testModbus(w http.ResponseWriter, r *http.Request, identity Identity) {
-	if !canConfigure(identity) {
+	if !canAction(identity, ActionConfigure) {
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}
@@ -537,7 +537,7 @@ func (h *Handler) testModbus(w http.ResponseWriter, r *http.Request, identity Id
 }
 
 func (h *Handler) updateModbus(w http.ResponseWriter, r *http.Request, identity Identity, id string) {
-	if !canConfigure(identity) {
+	if !canAction(identity, ActionConfigure) {
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}
@@ -586,7 +586,7 @@ func (h *Handler) updateModbus(w http.ResponseWriter, r *http.Request, identity 
 }
 
 func (h *Handler) updateModbusIO(w http.ResponseWriter, r *http.Request, identity Identity, id string) {
-	if !canConfigure(identity) {
+	if !canAction(identity, ActionConfigure) {
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}
@@ -634,7 +634,7 @@ func (h *Handler) updateModbusIOFields(id, parent string, input ModbusIOInput, o
 }
 
 func (h *Handler) exportModbusCSV(w http.ResponseWriter, identity Identity, busID string) {
-	if !canConfigure(identity) {
+	if !canAction(identity, ActionExport) {
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}

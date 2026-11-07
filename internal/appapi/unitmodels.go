@@ -99,7 +99,7 @@ func (h *Handler) unitModel(w http.ResponseWriter, r *http.Request, identity Ide
 	case http.MethodGet:
 		writeJSON(w, unitModelResponse(channel.ID, server, model, hasModel, points, h.ems.Profiles))
 	case http.MethodPut:
-		if !canConfigure(identity) {
+		if !canAction(identity, ActionConfigure) {
 			writeError(w, http.StatusForbidden, "admin_required")
 			return
 		}
@@ -372,7 +372,7 @@ func (h *Handler) commandProfile(deviceID string) (device.Profile, bool) {
 }
 
 func (h *Handler) unitCommands(w http.ResponseWriter, r *http.Request, identity Identity, channelID string, server int, requestID string) {
-	if !canOperateIdentity(identity) {
+	if !canAction(identity, ActionCommand) {
 		writeError(w, http.StatusForbidden, "operator_required")
 		return
 	}

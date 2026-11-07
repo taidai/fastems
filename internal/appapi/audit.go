@@ -183,7 +183,7 @@ func (h *Handler) auditFilter(r *http.Request) (audit.Filter, error) {
 }
 
 func (h *Handler) auditList(w http.ResponseWriter, r *http.Request, identity Identity) {
-	if !identity.Policy.Admin {
+	if !canAction(identity, ActionAuditView) {
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}
@@ -201,7 +201,7 @@ func (h *Handler) auditList(w http.ResponseWriter, r *http.Request, identity Ide
 }
 
 func (h *Handler) auditExport(w http.ResponseWriter, r *http.Request, identity Identity) {
-	if !identity.Policy.Admin {
+	if !canAction(identity, ActionAuditView) {
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}

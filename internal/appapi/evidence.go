@@ -16,7 +16,7 @@ import (
 // Everything is read from existing sources; no passwords or tokens appear in
 // any of them.
 func (h *Handler) deliveryEvidence(w http.ResponseWriter, r *http.Request, identity Identity) {
-	if !canConfigure(identity) {
+	if !canAction(identity, ActionExport) {
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}

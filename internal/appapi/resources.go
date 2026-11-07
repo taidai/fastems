@@ -12,7 +12,7 @@ import (
 )
 
 func (h *Handler) updateNode(w http.ResponseWriter, r *http.Request, identity Identity, id string) {
-	if !canConfigure(identity) {
+	if !canAction(identity, ActionConfigure) {
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}
@@ -52,7 +52,7 @@ func (h *Handler) updateNode(w http.ResponseWriter, r *http.Request, identity Id
 }
 
 func (h *Handler) moveNode(w http.ResponseWriter, r *http.Request, identity Identity, id string) {
-	if !canConfigure(identity) {
+	if !canAction(identity, ActionConfigure) {
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}
@@ -134,7 +134,7 @@ func (h *Handler) moveNode(w http.ResponseWriter, r *http.Request, identity Iden
 }
 
 func (h *Handler) deleteNode(w http.ResponseWriter, r *http.Request, identity Identity, id string) {
-	if !canConfigure(identity) {
+	if !canAction(identity, ActionDelete) {
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}

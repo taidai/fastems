@@ -62,7 +62,7 @@ func (h *Handler) listAlerts(w http.ResponseWriter, r *http.Request, identity Id
 }
 
 func (h *Handler) alertAction(w http.ResponseWriter, r *http.Request, identity Identity, nodeID, kind string) {
-	if !canOperateIdentity(identity) {
+	if !canAction(identity, ActionAlarmAck) {
 		writeError(w, http.StatusForbidden, "operation_not_allowed")
 		return
 	}

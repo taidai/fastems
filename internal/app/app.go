@@ -13,7 +13,9 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -69,6 +71,24 @@ func FreePort() (int, error) {
 	return listener.Addr().(*net.TCPAddr).Port, nil
 }
 
+func envMinutes(name string, def int) time.Duration {
+	if text := os.Getenv(name); text != "" {
+		if minutes, err := strconv.Atoi(text); err == nil && minutes > 0 {
+			return time.Duration(minutes) * time.Minute
+		}
+	}
+	return time.Duration(def) * time.Minute
+}
+
+func envCount(name string, def int) int {
+	if text := os.Getenv(name); text != "" {
+		if count, err := strconv.Atoi(text); err == nil && count > 0 {
+			return count
+		}
+	}
+	return def
+}
+
 // Start boots easyems and returns once the HTTP listener is ready.
 // Closing the returned App (or canceling ctx) shuts it down.
 func Start(ctx context.Context, cfg Config) (*App, error) {
@@ -116,6 +136,7 @@ func Start(ctx context.Context, cfg Config) (*App, error) {
 			handler := appapi.New(nc, users, ready)
 			handler.SetAudit(audit.New(filepath.Join(cfg.DataDir, "audit.jsonl")))
 			handler.SetDataDir(cfg.DataDir)
+			handler.SetSessionPolicy(envMinutes("EASYEMS_SESSION_TIMEOUT_MINUTES", 30), envCount("EASYEMS_MAX_SESSIONS", 5))
 			emsHandler.PersistMaintenance = handler.PersistAlarmMaintenance
 			handler.SetEMS(emsHandler)
 			fullHandler := api.NewAppHandler(api.ServerArgs{

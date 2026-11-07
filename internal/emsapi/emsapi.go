@@ -25,14 +25,21 @@ import (
 	"easyems/internal/ems/alloc"
 )
 
-// Access is the authenticated caller as seen by this API.
+// Access is the authenticated caller as seen by this API. The per-action
+// capability flags are resolved by the product API from its action-level
+// permission model; Admin bypasses them.
 type Access struct {
-	UserID    string
-	Actor     string
-	Admin     bool
-	Configure bool
-	Operate   bool
+	UserID        string
+	Actor         string
+	Admin         bool
+	Configure     bool
+	Command       bool
+	AlarmAck      bool
+	AlarmMaintain bool
+	Delete        bool
 }
+
+func (a Access) can(flag bool) bool { return a.Admin || flag }
 
 func (a Access) actor() string {
 	if a.Actor != "" {
@@ -302,7 +309,7 @@ func (h *Handler) channels(w http.ResponseWriter) {
 }
 
 func (h *Handler) restartChannel(w http.ResponseWriter, access Access, id string) {
-	if !access.Admin && !access.Configure {
+	if !access.can(access.Configure) {
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}
@@ -364,7 +371,7 @@ type ChannelInput struct {
 }
 
 func (h *Handler) createChannel(w http.ResponseWriter, r *http.Request, access Access) {
-	if !access.Admin && !access.Configure {
+	if !access.can(access.Configure) {
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}
@@ -415,7 +422,7 @@ func convertPoint(input PointInput) (channel.Point, error) {
 }
 
 func (h *Handler) deleteChannel(w http.ResponseWriter, access Access, id string) {
-	if !access.Admin && !access.Configure {
+	if !access.can(access.Delete) {
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}
@@ -453,7 +460,7 @@ type IdentifyInput struct {
 }
 
 func (h *Handler) scan(w http.ResponseWriter, r *http.Request, access Access) {
-	if !access.Admin && !access.Configure {
+	if !access.can(access.Configure) {
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}
@@ -532,7 +539,7 @@ func (h *Handler) scan(w http.ResponseWriter, r *http.Request, access Access) {
 }
 
 func (h *Handler) identify(w http.ResponseWriter, r *http.Request, access Access) {
-	if !access.Admin && !access.Configure {
+	if !access.can(access.Configure) {
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}
@@ -741,6 +748,10 @@ func (h *Handler) alarms(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ackAlarm(w http.ResponseWriter, r *http.Request, access Access, id string) {
+	if !access.can(access.AlarmAck) {
+		writeError(w, http.StatusForbidden, "operator_required")
+		return
+	}
 	var input struct {
 		Note string `json:"note"`
 	}
@@ -758,6 +769,10 @@ func (h *Handler) ackAlarm(w http.ResponseWriter, r *http.Request, access Access
 }
 
 func (h *Handler) closeAlarm(w http.ResponseWriter, access Access, id string) {
+	if !access.can(access.AlarmAck) {
+		writeError(w, http.StatusForbidden, "operator_required")
+		return
+	}
 	alarm, err := h.Service.Alarms.Close(time.Now(), id)
 	if err != nil {
 		writeError(w, http.StatusConflict, err.Error())
@@ -849,7 +864,7 @@ func writeError(w http.ResponseWriter, status int, message string) {
 }
 
 func (h *Handler) frames(w http.ResponseWriter, r *http.Request, access Access) {
-	if !access.Operate && !access.Configure && !access.Admin {
+	if !access.can(access.Command) {
 		writeError(w, http.StatusForbidden, "operator_required")
 		return
 	}
@@ -871,7 +886,7 @@ func (h *Handler) frames(w http.ResponseWriter, r *http.Request, access Access) 
 }
 
 func (h *Handler) clearFrames(w http.ResponseWriter, access Access) {
-	if !access.Operate && !access.Configure && !access.Admin {
+	if !access.can(access.Command) {
 		writeError(w, http.StatusForbidden, "operator_required")
 		return
 	}
@@ -938,7 +953,7 @@ func (h *Handler) QualityReport() ([]contract.QualityStats, []contract.QualitySt
 }
 
 func (h *Handler) maintainAlarm(w http.ResponseWriter, r *http.Request, access Access, id string) {
-	if !access.Operate && !access.Configure && !access.Admin {
+	if !access.can(access.AlarmMaintain) {
 		writeError(w, http.StatusForbidden, "operator_required")
 		return
 	}
@@ -964,7 +979,7 @@ func (h *Handler) maintainAlarm(w http.ResponseWriter, r *http.Request, access A
 }
 
 func (h *Handler) releaseAlarm(w http.ResponseWriter, access Access, id string) {
-	if !access.Operate && !access.Configure && !access.Admin {
+	if !access.can(access.AlarmMaintain) {
 		writeError(w, http.StatusForbidden, "operator_required")
 		return
 	}

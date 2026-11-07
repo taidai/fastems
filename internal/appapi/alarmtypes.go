@@ -38,7 +38,7 @@ func (h *Handler) alarmTypes(w http.ResponseWriter, r *http.Request, identity Id
 		}
 		writeJSON(w, map[string]any{"types": types})
 	case http.MethodPut:
-		if !canConfigure(identity) {
+		if !canAction(identity, ActionConfigure) {
 			writeError(w, http.StatusForbidden, "admin_required")
 			return
 		}
@@ -67,7 +67,7 @@ func (h *Handler) alarmTypes(w http.ResponseWriter, r *http.Request, identity Id
 		}
 		writeJSON(w, map[string]any{"saved": true})
 	case http.MethodDelete:
-		if !canConfigure(identity) {
+		if !canAction(identity, ActionConfigure) {
 			writeError(w, http.StatusForbidden, "admin_required")
 			return
 		}

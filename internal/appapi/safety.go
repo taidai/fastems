@@ -12,7 +12,7 @@ import (
 )
 
 func (h *Handler) putSafety(w http.ResponseWriter, r *http.Request, identity Identity) {
-	if !canConfigure(identity) {
+	if !canAction(identity, ActionConfigure) {
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}
