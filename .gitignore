@@ -11,3 +11,6 @@ encore.gen.cue
 /.encore
 /encore.gen
 /evidence/*.png
+/evidence/verify/
+/evidence/verify-encore/
+/easyems-verify.exe
