@@ -2,6 +2,7 @@ package appapi
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -170,4 +171,121 @@ func (h *Handler) restoreRule(w http.ResponseWriter, r *http.Request, identity I
 		return
 	}
 	h.publishDocument(w, identity, rule, version.Document)
+}
+
+// documentSource resolves "draft", "applied" or a history version id to its
+// document.
+func documentSource(rule data.NodeEdge, source string) (decision.Document, error) {
+	var document decision.Document
+	if source == "" {
+		source = "applied"
+	}
+	switch source {
+	case "draft":
+		text, _ := rule.Points.Text("draft", "")
+		if json.Unmarshal([]byte(text), &document) != nil {
+			return document, fmt.Errorf("invalid_draft")
+		}
+		return document, nil
+	case "applied":
+		text, _ := rule.Points.Text("applied", "")
+		if json.Unmarshal([]byte(text), &document) != nil {
+			return document, fmt.Errorf("invalid_applied_version")
+		}
+		return document, nil
+	default:
+		point, found := rule.Points.Find("history", source)
+		if !found || point.Tombstone%2 != 0 {
+			return document, fmt.Errorf("version_not_found")
+		}
+		var version RuleVersion
+		if json.Unmarshal([]byte(point.Txt()), &version) != nil {
+			return document, fmt.Errorf("invalid_history_version")
+		}
+		return version.Document, nil
+	}
+}
+
+// diffRule compares two document sources row by row.
+func (h *Handler) diffRule(w http.ResponseWriter, r *http.Request, identity Identity, id string) {
+	rule, ok := h.rule(w, identity, id)
+	if !ok {
+		return
+	}
+	var input struct {
+		From string `json:"from"`
+		To   string `json:"to"`
+	}
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	from, err := documentSource(rule, input.From)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	to, err := documentSource(rule, input.To)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, map[string]any{"diffs": decision.DiffDocuments(from, to)})
+}
+
+// replayRule simulates a published version at a moment. It is pure and never
+// sends points.
+func (h *Handler) replayRule(w http.ResponseWriter, r *http.Request, identity Identity, id string) {
+	rule, ok := h.rule(w, identity, id)
+	if !ok {
+		return
+	}
+	var input struct {
+		VersionID  string             `json:"version_id"`
+		Inputs     map[string]float64 `json:"inputs"`
+		TextInputs map[string]string  `json:"text_inputs"`
+		At         string             `json:"at"`
+	}
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	document, err := documentSource(rule, input.VersionID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "version_not_found")
+		return
+	}
+	if err := document.Validate(); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	for _, value := range input.Inputs {
+		if !finite(value) {
+			writeError(w, http.StatusBadRequest, "invalid_value")
+			return
+		}
+	}
+	at, err := decision.ParseSimulationTime(input.At, time.Now())
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	result, err := document.Simulate(input.Inputs, input.TextInputs, at)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, result)
+}
+
+// ruleDeps returns the input/output/row dependency graph of a document.
+func (h *Handler) ruleDeps(w http.ResponseWriter, r *http.Request, identity Identity, id string) {
+	if _, ok := h.rule(w, identity, id); !ok {
+		return
+	}
+	var input struct {
+		Document decision.Document `json:"document"`
+	}
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	writeJSON(w, decision.BuildDependencyGraph(input.Document))
 }

@@ -248,6 +248,14 @@ export async function saveScreen(token: string, nodeId: string, config: ScreenCo
   return request<{ saved: boolean }>(token, `/ems/screen/${nodeId}`, "PUT", config)
 }
 
+export type MemberConstraint = {
+  kind: string
+  target: Target
+  operator: string
+  limit: number
+  direction?: "charge" | "discharge" | "both"
+}
+
 export type AllocatorMember = {
   id: string
   target: Target
@@ -258,11 +266,15 @@ export type AllocatorMember = {
   available_discharge?: Target
   readback?: Target
   fault?: Target
+  priority?: number
+  weight?: number
+  constraints?: MemberConstraint[]
 }
 
 export type AllocatorConfig = {
   grace_ms?: number
   timeout_ms?: number
+  deadband_kw?: number
   members: AllocatorMember[]
 }
 
@@ -272,4 +284,60 @@ export async function fetchAllocator(token: string, nodeId: string) {
 
 export async function saveAllocator(token: string, nodeId: string, config: AllocatorConfig) {
   return request<{ saved: boolean }>(token, `/ems/allocators/${nodeId}`, "PUT", config)
+}
+
+export type AllocShare = {
+  member_id: string
+  capacity: number
+  setpoint: number
+  actual?: number
+  confirmed?: boolean
+  excluded: boolean
+  held: boolean
+  reason: string
+}
+
+export type AllocationSnapshot = {
+  at: string
+  requested: number
+  delivered: number
+  shortfall: number
+  status: string
+  reason?: string
+  shares: AllocShare[]
+}
+
+export async function simulateAllocator(token: string, nodeId: string, requestValue: number) {
+  return request<{ requested: number; delivered: number; shortfall: number; shares: AllocShare[]; notes?: string[] }>(
+    token, `/ems/allocators/${nodeId}/simulate`, "POST", { request: requestValue })
+}
+
+export async function fetchAllocatorHistory(token: string, nodeId: string) {
+  return request<{ history: AllocationSnapshot[] }>(token, `/ems/allocators/${nodeId}/history`)
+}
+
+export type RowDiff = {
+  row_id: string
+  kind: "added" | "removed" | "changed"
+  from?: string
+  to?: string
+  detail?: string[]
+}
+
+export type DependencyNode = { id: string; kind: "input" | "output" | "row"; label: string }
+export type DependencyEdge = { from: string; to: string; kind: "condition" | "action" }
+export type DependencyGraph = { nodes: DependencyNode[]; edges: DependencyEdge[] }
+
+export async function diffRule(token: string, ruleId: string, from: string, to: string) {
+  return request<{ diffs: RowDiff[] }>(token, `/rules/${ruleId}/diff`, "POST", { from, to })
+}
+
+export async function replayRule(token: string, ruleId: string, versionId: string, inputs: Record<string, number>, textInputs: Record<string, string>, at?: string) {
+  return request<Evaluation>(token, `/rules/${ruleId}/replay`, "POST", {
+    version_id: versionId, inputs, text_inputs: textInputs, at: at || undefined,
+  })
+}
+
+export async function fetchRuleDeps(token: string, ruleId: string, document: Document) {
+  return request<DependencyGraph>(token, `/rules/${ruleId}/deps`, "POST", { document })
 }

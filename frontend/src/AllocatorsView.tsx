@@ -1,13 +1,18 @@
 import { useEffect, useMemo, useState } from "react"
 import { writable } from "./writable"
 import {
+  AllocationSnapshot,
   AllocatorConfig,
   AllocatorMember,
+  AllocShare,
   fetchAllocator,
+  fetchAllocatorHistory,
+  MemberConstraint,
   nameOf,
   Node,
   point,
   saveAllocator,
+  simulateAllocator,
   Target,
 } from "./api"
 
@@ -82,6 +87,10 @@ export default function AllocatorsView({ token, nodes, groups, points, isAdmin, 
   const availablePoints = points.filter((item) => subtree.has(item.id))
   const writablePoints = availablePoints.filter(writable)
   const dirty = draft ? JSON.stringify(draft) !== JSON.stringify(saved) : false
+  const [simRequest, setSimRequest] = useState(100)
+  const [simResult, setSimResult] = useState<{ requested: number; delivered: number; shortfall: number; shares: AllocShare[]; notes?: string[] } | null>(null)
+  const [history, setHistory] = useState<AllocationSnapshot[]>([])
+  const [showHistory, setShowHistory] = useState(false)
 
   function update(index: number, patch: Partial<AllocatorMember>) {
     if (!draft) return
@@ -101,6 +110,57 @@ export default function AllocatorsView({ token, nodes, groups, points, isAdmin, 
       next[field] = targetFor(id, field === "target" ? "valueSet" : "value")
     }
     update(index, next)
+  }
+
+  function updateConstraint(memberIndex: number, constraintIndex: number, patch: Partial<MemberConstraint>) {
+    if (!draft) return
+    const member = draft.members[memberIndex]
+    const constraints = [...(member.constraints || [])]
+    constraints[constraintIndex] = { ...constraints[constraintIndex], ...patch }
+    update(memberIndex, { constraints })
+  }
+
+  function addConstraint(memberIndex: number) {
+    if (!draft) return
+    const member = draft.members[memberIndex]
+    const first = availablePoints[0]
+    update(memberIndex, {
+      constraints: [...(member.constraints || []), {
+        kind: "SOC",
+        target: first ? targetFor(first.id, "value") : { node_id: "" },
+        operator: "gt",
+        limit: 90,
+        direction: "charge",
+      }],
+    })
+  }
+
+  function removeConstraint(memberIndex: number, constraintIndex: number) {
+    if (!draft) return
+    const member = draft.members[memberIndex]
+    update(memberIndex, { constraints: (member.constraints || []).filter((_, i) => i !== constraintIndex) })
+  }
+
+  async function simulate() {
+    if (!nodeID) return
+    onError("")
+    try {
+      setSimResult(await simulateAllocator(token, nodeID, simRequest))
+    } catch (error) {
+      onError(error instanceof Error ? error.message : "模拟失败")
+    }
+  }
+
+  async function loadHistory() {
+    if (!nodeID) return
+    onError("")
+    try {
+      const result = await fetchAllocatorHistory(token, nodeID)
+      setHistory(result.history)
+      setShowHistory(true)
+    } catch (error) {
+      onError(error instanceof Error ? error.message : "历史读取失败")
+    }
   }
 
   function addMember() {
@@ -128,6 +188,7 @@ export default function AllocatorsView({ token, nodes, groups, points, isAdmin, 
     if (!draft) return "配置尚未读取"
     if (!draft.members.length) return "至少添加一个 PCS 成员"
     if ((draft.grace_ms || 0) < 0 || (draft.timeout_ms || 0) < 0) return "宽限期和回读超时不能为负数"
+    if ((draft.deadband_kw || 0) < 0) return "死区不能为负数"
     const ids = new Set<string>()
     const targets = new Set<string>()
     for (const member of draft.members) {
@@ -139,6 +200,13 @@ export default function AllocatorsView({ token, nodes, groups, points, isAdmin, 
       targets.add(member.target.node_id)
       if (member.max_discharge < 0 || member.max_charge < 0 || (member.min_power || 0) < 0) {
         return `${member.id} 的功率不能为负数`
+      }
+      if ((member.weight || 0) < 0) return `${member.id} 的权重不能为负数`
+      for (const constraint of member.constraints || []) {
+        if (!constraint.kind.trim()) return `${member.id} 有未命名约束`
+        if (!constraint.target?.node_id) return `${member.id} 的约束「${constraint.kind}」还没有选择输入点位`
+        if (!["gt", "ge", "lt", "le"].includes(constraint.operator)) return `${member.id} 的约束「${constraint.kind}」比较方式无效`
+        if (!Number.isFinite(constraint.limit)) return `${member.id} 的约束「${constraint.kind}」限值无效`
       }
     }
     return ""
@@ -189,6 +257,9 @@ export default function AllocatorsView({ token, nodes, groups, points, isAdmin, 
         <label>单台回读超时（毫秒）
           <input type="number" min="0" step="100" value={draft.timeout_ms || 0} disabled={!isAdmin} onChange={(event) => setDraft({ ...draft, timeout_ms: Number(event.target.value) })} />
         </label>
+        <label>死区（kW，小幅波动不重分配）
+          <input type="number" min="0" step="0.1" value={draft.deadband_kw || 0} disabled={!isAdmin} onChange={(event) => setDraft({ ...draft, deadband_kw: Number(event.target.value) })} />
+        </label>
       </div>
 
       <div className="allocator-members">
@@ -209,6 +280,29 @@ export default function AllocatorsView({ token, nodes, groups, points, isAdmin, 
             <PointSelect label="实际功率回读（可选）" value={member.readback?.node_id || ""} options={availablePoints} optional="读取功率目标当前值" disabled={!isAdmin} onChange={(value) => updateTarget(index, "readback", value)} />
             <PointSelect label="故障输入（可选）" value={member.fault?.node_id || ""} options={availablePoints} optional="无独立故障点" disabled={!isAdmin} onChange={(value) => updateTarget(index, "fault", value)} />
             <NumberField label="最小参与功率（kW，可选）" value={member.min_power || 0} disabled={!isAdmin} onChange={(value) => update(index, { min_power: value })} />
+            <NumberField label="优先级（越大越先分配）" value={member.priority || 0} disabled={!isAdmin} onChange={(value) => update(index, { priority: value })} />
+            <NumberField label="权重（默认 1）" value={member.weight || 1} disabled={!isAdmin} onChange={(value) => update(index, { weight: value })} />
+          </div>
+          <div className="allocator-constraints">
+            <div className="allocator-member-head">
+              <h3>成员约束</h3>
+              {isAdmin && <button className="manage-button" onClick={() => addConstraint(index)}>+ 添加约束</button>}
+            </div>
+            {(member.constraints || []).length === 0 && <small>无约束。越限时自动降载或剔除，并给出原因。</small>}
+            {(member.constraints || []).map((constraint, cIndex) => (
+              <div className="allocator-constraint-row" key={cIndex}>
+                <input aria-label="约束名称" placeholder="SOC / 温度 / 电网" value={constraint.kind} disabled={!isAdmin} onChange={(event) => updateConstraint(index, cIndex, { kind: event.target.value })} />
+                <PointSelect label="输入点位" value={constraint.target?.node_id || ""} options={availablePoints} disabled={!isAdmin} onChange={(value) => updateConstraint(index, cIndex, { target: targetFor(value, "value") })} />
+                <select aria-label="比较方式" value={constraint.operator} disabled={!isAdmin} onChange={(event) => updateConstraint(index, cIndex, { operator: event.target.value })}>
+                  <option value="gt">超过</option><option value="ge">不低于</option><option value="lt">低于</option><option value="le">不高于</option>
+                </select>
+                <input aria-label="限值" type="number" step="any" value={constraint.limit} disabled={!isAdmin} onChange={(event) => updateConstraint(index, cIndex, { limit: Number(event.target.value) })} />
+                <select aria-label="作用方向" value={constraint.direction || "both"} disabled={!isAdmin} onChange={(event) => updateConstraint(index, cIndex, { direction: event.target.value as "charge" | "discharge" | "both" })}>
+                  <option value="both">剔除成员</option><option value="charge">限制充电</option><option value="discharge">限制放电</option>
+                </select>
+                {isAdmin && <button className="icon-button" aria-label="删除约束" onClick={() => removeConstraint(index, cIndex)}>×</button>}
+              </div>
+            ))}
           </div>
         </article>)}
       </div>
@@ -224,6 +318,34 @@ export default function AllocatorsView({ token, nodes, groups, points, isAdmin, 
         {isAdmin && <button className="primary-button" disabled={busy || Boolean(validation)} onClick={() => void save()}>保存分配器</button>}
         {validation && <span className="allocator-validation">{validation}</span>}
         {!writablePoints.length && <span className="allocator-validation">当前节点下没有可写点位，请先接入设备。</span>}
+      </div>
+
+      <div className="panel allocator-simulate">
+        <div className="logic-title"><span>模拟分配 · 只计算，不下发</span></div>
+        <div className="allocator-simulate-row">
+          <label>总功率请求（kW，正=放电 负=充电）
+            <input aria-label="模拟功率" type="number" step="any" value={simRequest} onChange={(event) => setSimRequest(Number(event.target.value))} />
+          </label>
+          <button className="secondary-button" onClick={() => void simulate()}>模拟</button>
+        </div>
+        {simResult && <div className="allocator-sim-result" role="status">
+          <span>请求 {simResult.requested} kW → 交付 {simResult.delivered} kW，缺口 {simResult.shortfall} kW</span>
+          {simResult.shares.map((share) => <span key={share.member_id}>{share.member_id}：{share.excluded || share.held ? (share.reason || "不参与") : `${share.setpoint} kW`}</span>)}
+          {simResult.notes?.map((note, i) => <span key={i}>{note}</span>)}
+        </div>}
+      </div>
+
+      <div className="panel allocator-history">
+        <div className="logic-title"><span>分配历史</span><button className="text-button" onClick={() => void loadHistory()}>{showHistory ? "刷新" : "查看"}</button></div>
+        {!showHistory && <small>点击「查看」读取最近一次分配的完整快照。</small>}
+        {showHistory && history.length === 0 && <small>还没有分配记录。</small>}
+        {showHistory && history.map((snapshot) => (
+          <div className="allocator-history-line" key={snapshot.at}>
+            <strong>{new Date(snapshot.at).toLocaleString("zh-CN", { hour12: false })}</strong>
+            <span>请求 {snapshot.requested} kW · 交付 {snapshot.delivered} kW · {snapshot.status === "confirmed" ? "已回读" : snapshot.status === "failed" ? "失败" : snapshot.status === "unknown" ? "结果未知" : snapshot.status}</span>
+            <span>{snapshot.shares.map((share) => `${share.member_id} ${share.excluded ? "剔除" : share.held ? "保持" : `${share.setpoint} kW`}`).join("、")}</span>
+          </div>
+        ))}
       </div>
     </>}
   </section>

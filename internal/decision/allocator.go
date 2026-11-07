@@ -19,7 +19,10 @@ const allocatorPointType = "easyemsAllocator"
 type AllocatorConfig struct {
 	GraceMS   int               `json:"grace_ms,omitempty"`
 	TimeoutMS int               `json:"timeout_ms,omitempty"`
-	Members   []AllocatorMember `json:"members"`
+	// DeadbandKW suppresses re-dispatch when the next request is within this
+	// many kW of the last one, so small fluctuations do not rewrite every PCS.
+	DeadbandKW float64           `json:"deadband_kw,omitempty"`
+	Members    []AllocatorMember `json:"members"`
 }
 
 // AllocatorMember is one PCS power target and its current capability sources.
@@ -33,6 +36,13 @@ type AllocatorMember struct {
 	AvailableDischarge *Target `json:"available_discharge,omitempty"`
 	Readback           *Target `json:"readback,omitempty"`
 	Fault              *Target `json:"fault,omitempty"`
+	// Priority fills higher-priority members to capacity before lower ones.
+	Priority int `json:"priority,omitempty"`
+	// Weight biases the proportional share (1 = default). It never raises a
+	// member's hard capacity.
+	Weight float64 `json:"weight,omitempty"`
+	// Constraints derate or exclude this member when an input violates a limit.
+	Constraints []MemberConstraint `json:"constraints,omitempty"`
 }
 
 func (c AllocatorConfig) grace() time.Duration {
@@ -77,6 +87,9 @@ func (c AllocatorConfig) Validate() error {
 	if c.GraceMS < 0 || c.TimeoutMS < 0 {
 		return fmt.Errorf("allocator timing must not be negative")
 	}
+	if !finite(c.DeadbandKW) || c.DeadbandKW < 0 {
+		return fmt.Errorf("allocator deadband must be a non-negative number")
+	}
 	ids := map[string]bool{}
 	targets := map[string]bool{}
 	for _, member := range c.Members {
@@ -97,6 +110,9 @@ func (c AllocatorConfig) Validate() error {
 		if member.MinPower < 0 || member.MaxCharge < 0 || member.MaxDischarge < 0 {
 			return fmt.Errorf("member %s has negative power", member.ID)
 		}
+		if !finite(member.Weight) || member.Weight < 0 {
+			return fmt.Errorf("member %s has an invalid weight", member.ID)
+		}
 		for name, target := range map[string]*Target{
 			"available charge":    member.AvailableCharge,
 			"available discharge": member.AvailableDischarge,
@@ -105,6 +121,11 @@ func (c AllocatorConfig) Validate() error {
 		} {
 			if target != nil && target.NodeID == "" {
 				return fmt.Errorf("member %s has no %s node", member.ID, name)
+			}
+		}
+		for _, constraint := range member.Constraints {
+			if err := constraint.validate(); err != nil {
+				return fmt.Errorf("member %s: %w", member.ID, err)
 			}
 		}
 	}
@@ -126,6 +147,11 @@ func ValidateAllocatorScope(nc *nats.Conn, parent string, config AllocatorConfig
 				if err := ValidateTarget(nc, parent, *target, false, nil); err != nil {
 					return fmt.Errorf("member %s capability: %w", member.ID, err)
 				}
+			}
+		}
+		for _, constraint := range member.Constraints {
+			if err := ValidateTarget(nc, parent, constraint.Target, false, nil); err != nil {
+				return fmt.Errorf("member %s constraint %s: %w", member.ID, constraint.Kind, err)
 			}
 		}
 	}
@@ -159,17 +185,20 @@ func ValidateAllocationOwnership(nc *nats.Conn, ruleID, nodeID string) error {
 	return nil
 }
 
-// allocationMember resolves online state, manual takeover and current
-// capabilities. The values are read again on every dispatch cycle.
-func allocationMember(nc *nats.Conn, member AllocatorMember) (alloc.Member, error) {
+// allocationMember resolves online state, manual takeover, current
+// capabilities and constraint limits. The values are read again on every
+// dispatch cycle. The returned reasons explain why a member was taken over or
+// constrained; they are empty when the member is healthy.
+func allocationMember(nc *nats.Conn, member AllocatorMember) (alloc.Member, []string, error) {
 	result := alloc.Member{
 		ID: member.ID, Online: true,
 		MinPower: member.MinPower, MaxCharge: member.MaxCharge, MaxDischarge: member.MaxDischarge,
 		AvailableCharge: member.MaxCharge, AvailableDischarge: member.MaxDischarge,
 	}
+	var reasons []string
 	nodes, err := siotclient.GetNodes(nc, "all", member.Target.NodeID, "", false)
 	if err != nil || len(nodes) == 0 {
-		return result, fmt.Errorf("member %s target unavailable", member.ID)
+		return result, nil, fmt.Errorf("member %s target unavailable", member.ID)
 	}
 	node := nodes[0]
 	if disabled, _ := node.Points.Value(data.PointTypeDisabled, ""); disabled != 0 {
@@ -177,6 +206,7 @@ func allocationMember(nc *nats.Conn, member AllocatorMember) (alloc.Member, erro
 	}
 	if manual, _ := node.Points.Value("easyemsManual", ""); manual != 0 {
 		result.Disabled = true
+		reasons = append(reasons, "manual takeover")
 	}
 	if health, _ := node.Points.Text("health", ""); health != "" {
 		result.Online = health != "offline"
@@ -188,7 +218,7 @@ func allocationMember(nc *nats.Conn, member AllocatorMember) (alloc.Member, erro
 	if member.Fault != nil {
 		fault, found, err := readNumber(nc, *member.Fault)
 		if err != nil {
-			return result, err
+			return result, nil, err
 		}
 		if !found || fault != 0 {
 			result.Faulted = true
@@ -197,7 +227,7 @@ func allocationMember(nc *nats.Conn, member AllocatorMember) (alloc.Member, erro
 	if member.AvailableDischarge != nil {
 		value, found, err := readNumber(nc, *member.AvailableDischarge)
 		if err != nil {
-			return result, err
+			return result, nil, err
 		}
 		if !found {
 			if result.Online && !result.Faulted {
@@ -212,7 +242,7 @@ func allocationMember(nc *nats.Conn, member AllocatorMember) (alloc.Member, erro
 	if member.AvailableCharge != nil {
 		value, found, err := readNumber(nc, *member.AvailableCharge)
 		if err != nil {
-			return result, err
+			return result, nil, err
 		}
 		if !found {
 			if result.Online && !result.Faulted {
@@ -224,7 +254,24 @@ func allocationMember(nc *nats.Conn, member AllocatorMember) (alloc.Member, erro
 			result.AvailableCharge = value
 		}
 	}
-	return result, nil
+	for _, violation := range EvaluateConstraints(member.Constraints, func(target Target) (float64, bool) {
+		value, found, err := readNumber(nc, target)
+		if err != nil {
+			return 0, false
+		}
+		return value, found
+	}) {
+		reasons = append(reasons, violation.Reason)
+		switch violation.Direction {
+		case "charge":
+			result.AvailableCharge = 0
+		case "discharge":
+			result.AvailableDischarge = 0
+		case "both":
+			result.Disabled = true
+		}
+	}
+	return result, reasons, nil
 }
 
 func busHealthy(nc *nats.Conn, busID string) bool {

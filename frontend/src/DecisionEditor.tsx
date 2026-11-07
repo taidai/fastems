@@ -5,13 +5,18 @@ import {
   Action,
   businessId,
   Condition,
+  DependencyGraph,
+  diffRule,
   Document,
   Evaluation,
+  fetchRuleDeps,
   nameOf,
   Node,
   point,
+  replayRule,
   request,
   Row,
+  RowDiff,
   Scenario,
   ScenarioResult,
   TimeCheck,
@@ -30,6 +35,44 @@ type Props = {
 }
 
 type RuleVersion = { id: string; published_at: string; document: Document }
+
+type StrategyTemplate = {
+  name: string
+  description: string
+  rows: Omit<Row, "row_id">[]
+}
+
+// Strategy templates give a one-click starting point for common storage
+// policies. Their point/action ids are placeholders the operator rebinds to the
+// station's real points through the binding panel.
+const STRATEGY_TEMPLATES: StrategyTemplate[] = [
+  {
+    name: "峰谷套利",
+    description: "峰段放电、谷段充电，默认待机",
+    rows: [
+      { conditions: [{ point_id: "", operator: "", value: 0, kind: "time", start: "08:00", end: "22:00", weekday_mask: 0 }], actions: [{ action_id: "ess_power", value: 100 }] },
+      { conditions: [{ point_id: "", operator: "", value: 0, kind: "time", start: "22:00", end: "08:00", weekday_mask: 0 }], actions: [{ action_id: "ess_power", value: -100 }] },
+      { conditions: [], actions: [{ action_id: "ess_power", value: 0 }] },
+    ],
+  },
+  {
+    name: "SOC 保护",
+    description: "SOC 过低停放、过高停充",
+    rows: [
+      { conditions: [{ point_id: "soc", operator: "lt", value: 20 }], actions: [{ action_id: "ess_power", value: 0 }] },
+      { conditions: [{ point_id: "soc", operator: "gt", value: 90 }], actions: [{ action_id: "ess_power", value: 0 }] },
+      { conditions: [], actions: [{ action_id: "ess_power", value: 0 }] },
+    ],
+  },
+  {
+    name: "需量削峰",
+    description: "电网需量超限时放电削峰",
+    rows: [
+      { conditions: [{ point_id: "grid_import", operator: "gt", value: 100 }], actions: [{ action_id: "ess_power", value: 50 }] },
+      { conditions: [], actions: [{ action_id: "ess_power", value: 0 }] },
+    ],
+  },
+]
 
 const checkStateLabels: Record<string, string> = {
   fired: "已触发",
@@ -210,6 +253,14 @@ export default function DecisionEditor({ token, rule, nodes, onRefresh, onError,
   const [scenarioName, setScenarioName] = useState("")
   const [scenarioExpect, setScenarioExpect] = useState("")
   const [scenarioResults, setScenarioResults] = useState<Record<string, ScenarioResult>>({})
+  const [showStrategy, setShowStrategy] = useState(false)
+  const [templateName, setTemplateName] = useState("")
+  const [diffFrom, setDiffFrom] = useState("applied")
+  const [diffTo, setDiffTo] = useState("draft")
+  const [diffResult, setDiffResult] = useState<RowDiff[] | null>(null)
+  const [replayVersion, setReplayVersion] = useState("applied")
+  const [replayResult, setReplayResult] = useState<Evaluation | null>(null)
+  const [deps, setDeps] = useState<DependencyGraph | null>(null)
   const rowsEnd = useRef<HTMLDivElement>(null)
   const simulationRef = useRef<HTMLDivElement>(null)
   const resultRef = useRef<HTMLDivElement>(null)
@@ -413,6 +464,52 @@ export default function DecisionEditor({ token, rule, nodes, onRefresh, onError,
     return `失败 · ${result.detail || "无法模拟"}`
   }
 
+  function applyTemplate(template: StrategyTemplate) {
+    setRows(template.rows.map((row) => ({
+      ...row,
+      row_id: crypto.randomUUID(),
+      conditions: row.conditions.map((condition) => ({ ...condition })),
+      actions: row.actions.map((action) => ({ ...action })),
+    })))
+  }
+  function applySelectedTemplate() {
+    const template = STRATEGY_TEMPLATES.find((item) => item.name === templateName)
+    if (template) applyTemplate(template)
+  }
+  async function runDiff() {
+    setBusy("diff")
+    onError("")
+    try {
+      setDiffResult((await diffRule(token, rule.id, diffFrom, diffTo)).diffs)
+    } catch (error) {
+      onError(error instanceof Error ? error.message : "对比失败")
+    } finally {
+      setBusy("")
+    }
+  }
+  async function runReplay() {
+    setBusy("replay")
+    onError("")
+    try {
+      setReplayResult(await replayRule(token, rule.id, replayVersion, inputs, Object.fromEntries(Object.entries(textInputs).filter(([, text]) => text !== "")), simAt || undefined))
+    } catch (error) {
+      onError(error instanceof Error ? error.message : "回放失败")
+    } finally {
+      setBusy("")
+    }
+  }
+  async function runDeps() {
+    setBusy("deps")
+    onError("")
+    try {
+      setDeps(await fetchRuleDeps(token, rule.id, { ...document, bindings: bindingsFor(available, document.bindings) }))
+    } catch (error) {
+      onError(error instanceof Error ? error.message : "依赖图生成失败")
+    } finally {
+      setBusy("")
+    }
+  }
+
   return <section className="rule-editor">
     <div className="editor-heading">
       <div>
@@ -432,6 +529,7 @@ export default function DecisionEditor({ token, rule, nodes, onRefresh, onError,
       <button className="text-button" onClick={() => { setNewName(nameOf(rule)); setShowRename(!showRename) }}>{showRename ? "取消重命名" : "重命名"}</button>
       <button className="text-button" disabled={busy !== ""} onClick={() => void manage("copy")}>复制</button>
       <button className="text-button" onClick={() => setShowVersions(!showVersions)}>版本与历史</button>
+      <button className="text-button" onClick={() => setShowStrategy(!showStrategy)}>策略工具</button>
       <button className="text-button danger-text" disabled={busy !== ""} onClick={() => setConfirmAction("delete")}>删除</button>
     </div>}
     <div className="editor-view-switch" role="group" aria-label="编辑视图">
@@ -473,6 +571,77 @@ export default function DecisionEditor({ token, rule, nodes, onRefresh, onError,
     {showVersions && !readOnly && <div className="version-panel">
       {published && <div className="version-compare"><strong>草稿与运行版本</strong><span>当前草稿 {rows.length} 行；运行版本 {appliedRows} 行</span><span>{versionDifferent ? "存在规则内容差异" : "规则内容一致"}</span></div>}
       {versions.length === 0 ? <p>首次发布后，再次发布会在这里保存历史版本。</p> : versions.map((version) => <div className="version-line" key={version.id}><div><strong>{new Date(version.published_at).toLocaleString("zh-CN")}</strong><span>{version.document.table.rows.length} 行</span></div><button className="secondary-button" disabled={busy !== ""} onClick={() => void manage("restore", version)}>恢复此版本</button></div>)}
+    </div>}
+
+    {showStrategy && !readOnly && <div className="strategy-panel">
+      <div className="version-compare"><strong>策略模板</strong><span>套用预置储能策略，再按本机点位重新绑定输入与输出。</span></div>
+      <div className="strategy-row">
+        <select aria-label="策略模板" value={templateName} onChange={(event) => setTemplateName(event.target.value)}>
+          <option value="">选择模板…</option>
+          {STRATEGY_TEMPLATES.map((template) => <option key={template.name} value={template.name}>{template.name} · {template.description}</option>)}
+        </select>
+        <button className="secondary-button" disabled={!templateName || busy !== ""} onClick={applySelectedTemplate}>套用（替换当前规则行）</button>
+      </div>
+
+      <div className="version-compare"><strong>版本对比</strong><span>逐行比较两个版本。</span></div>
+      <div className="strategy-row">
+        <label>从
+          <select aria-label="对比源" value={diffFrom} onChange={(event) => setDiffFrom(event.target.value)}>
+            <option value="applied">运行版本</option>
+            <option value="draft">草稿</option>
+            {versions.map((version) => <option key={version.id} value={version.id}>{new Date(version.published_at).toLocaleString("zh-CN", { hour12: false })}</option>)}
+          </select>
+        </label>
+        <label>到
+          <select aria-label="对比目标" value={diffTo} onChange={(event) => setDiffTo(event.target.value)}>
+            <option value="draft">草稿</option>
+            <option value="applied">运行版本</option>
+            {versions.map((version) => <option key={version.id} value={version.id}>{new Date(version.published_at).toLocaleString("zh-CN", { hour12: false })}</option>)}
+          </select>
+        </label>
+        <button className="secondary-button" disabled={busy !== ""} onClick={() => void runDiff()}>{busy === "diff" ? "对比中…" : "对比"}</button>
+      </div>
+      {diffResult && <div className="strategy-result">
+        {diffResult.length === 0 ? <span>两个版本内容一致。</span> : diffResult.map((diff) => (
+          <div className="diff-line" key={diff.row_id}>
+            <strong>{diff.kind === "added" ? "新增" : diff.kind === "removed" ? "删除" : "修改"}</strong>
+            {diff.from && <span>原：{diff.from}</span>}
+            {diff.to && <span>新：{diff.to}</span>}
+            {diff.detail?.map((item, i) => <span key={i}>{item}</span>)}
+          </div>
+        ))}
+      </div>}
+
+      <div className="version-compare"><strong>历史回放</strong><span>对某版本在某时刻模拟，绝不写设备。</span></div>
+      <div className="strategy-row">
+        <label>版本
+          <select aria-label="回放版本" value={replayVersion} onChange={(event) => setReplayVersion(event.target.value)}>
+            <option value="applied">运行版本</option>
+            {versions.map((version) => <option key={version.id} value={version.id}>{new Date(version.published_at).toLocaleString("zh-CN", { hour12: false })}</option>)}
+          </select>
+        </label>
+        <label>时刻
+          <input aria-label="回放时刻" type="datetime-local" value={simAt} onChange={(event) => setSimAt(event.target.value)} />
+        </label>
+        <button className="secondary-button" disabled={busy !== ""} onClick={() => void runReplay()}>{busy === "replay" ? "回放中…" : "回放"}</button>
+      </div>
+      {replayResult && <div className="strategy-result" role="status">
+        <span>{replayResult.row_id ? `命中第 ${rows.findIndex((row) => row.row_id === replayResult.row_id) + 1} 行` : "没有命中规则"}</span>
+        <span>{replayResult.actions?.length ? replayResult.actions.map((action) => `${displayName(action.action_id)} 设为 ${action.value}`).join("；") : "不执行任何操作"}</span>
+      </div>}
+
+      <div className="version-compare"><strong>依赖图</strong><span>输入点位、规则行与输出点位的引用关系。</span></div>
+      <div className="strategy-row">
+        <button className="secondary-button" disabled={busy !== ""} onClick={() => void runDeps()}>{busy === "deps" ? "生成中…" : "生成依赖图"}</button>
+      </div>
+      {deps && <div className="strategy-result">
+        <div className="deps-nodes">
+          {deps.nodes.map((node) => <span key={node.id} className={`dep-node dep-${node.kind}`}>{node.label}</span>)}
+        </div>
+        <div className="deps-edges">
+          {deps.edges.map((edge, i) => <span key={i}>{edge.from.replace(/^(input|output|row):/, "")} → {edge.to.replace(/^(input|output|row):/, "")}</span>)}
+        </div>
+      </div>}
     </div>}
 
     <fieldset className={`editor-fields ${viewMode === "table" ? "table-mode" : ""}`} disabled={readOnly}>

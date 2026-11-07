@@ -602,15 +602,25 @@ func (c *Client) stepAllocations(active *activeTable, now time.Time) {
 		run.step(c.nc, now)
 		switch run.status {
 		case "confirmed":
+			c.recordFinished(run, now)
 			active.pending = active.pending[1:]
 			continue
 		case "failed", "unknown":
+			c.recordFinished(run, now)
 			active.pending = nil
 			return
 		default:
 			return
 		}
 	}
+}
+
+func (c *Client) recordFinished(run *allocationRun, now time.Time) {
+	if run.recorded {
+		return
+	}
+	c.recordAllocation(run.parent, run, now)
+	run.recorded = true
 }
 
 func allocationSignature(active *activeTable) string {

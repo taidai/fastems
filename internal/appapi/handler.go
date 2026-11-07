@@ -213,6 +213,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.testRule(w, r, identity, parts[1])
 	case len(parts) == 3 && parts[0] == "rules" && parts[2] == "scenarios" && r.Method == http.MethodPost:
 		h.runScenarios(w, r, identity, parts[1])
+	case len(parts) == 3 && parts[0] == "rules" && parts[2] == "diff" && r.Method == http.MethodPost:
+		h.diffRule(w, r, identity, parts[1])
+	case len(parts) == 3 && parts[0] == "rules" && parts[2] == "replay" && r.Method == http.MethodPost:
+		h.replayRule(w, r, identity, parts[1])
+	case len(parts) == 3 && parts[0] == "rules" && parts[2] == "deps" && r.Method == http.MethodPost:
+		h.ruleDeps(w, r, identity, parts[1])
 	case path == "tariff" && r.Method == http.MethodPut:
 		h.setTariff(w, r, identity)
 	case path == "aggregate" && (r.Method == http.MethodGet || r.Method == http.MethodPut):
@@ -235,6 +241,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.getAllocator(w, identity, parts[2])
 	case len(parts) == 3 && parts[0] == "ems" && parts[1] == "allocators" && r.Method == http.MethodPut:
 		h.putAllocator(w, r, identity, parts[2])
+	case len(parts) == 4 && parts[0] == "ems" && parts[1] == "allocators" && parts[3] == "simulate" && r.Method == http.MethodPost:
+		h.simulateAllocator(w, r, identity, parts[2])
+	case len(parts) == 4 && parts[0] == "ems" && parts[1] == "allocators" && parts[3] == "history" && r.Method == http.MethodGet:
+		h.allocatorHistory(w, identity, parts[2])
 	default:
 		writeError(w, http.StatusNotFound, "not_found")
 	}
