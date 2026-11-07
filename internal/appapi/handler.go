@@ -207,6 +207,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.enableRule(w, r, identity, parts[1])
 	case len(parts) == 3 && parts[0] == "rules" && parts[2] == "test" && r.Method == http.MethodPost:
 		h.testRule(w, r, identity, parts[1])
+	case len(parts) == 3 && parts[0] == "rules" && parts[2] == "scenarios" && r.Method == http.MethodPost:
+		h.runScenarios(w, r, identity, parts[1])
 	case path == "tariff" && r.Method == http.MethodPut:
 		h.setTariff(w, r, identity)
 	case path == "aggregate" && (r.Method == http.MethodGet || r.Method == http.MethodPut):
@@ -674,6 +676,7 @@ func (h *Handler) testRule(w http.ResponseWriter, r *http.Request, identity Iden
 		Document   decision.Document  `json:"document"`
 		Inputs     map[string]float64 `json:"inputs"`
 		TextInputs map[string]string  `json:"text_inputs"`
+		At         string             `json:"at"`
 	}
 	if !decodeJSON(w, r, &input) {
 		return
@@ -688,7 +691,12 @@ func (h *Handler) testRule(w http.ResponseWriter, r *http.Request, identity Iden
 			return
 		}
 	}
-	result, err := input.Document.Simulate(input.Inputs, input.TextInputs, time.Now())
+	at, err := decision.ParseSimulationTime(input.At, time.Now())
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	result, err := input.Document.Simulate(input.Inputs, input.TextInputs, at)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -782,6 +790,9 @@ func (h *Handler) allows(identity Identity, id string) bool {
 func (h *Handler) documentInScope(rule data.NodeEdge, document decision.Document) bool {
 	for _, row := range document.Table.Rows {
 		for _, condition := range row.Conditions {
+			if condition.Kind == "time" {
+				continue
+			}
 			if decision.ValidateTarget(h.nc, rule.Parent, document.Bindings.Points[condition.PointID], false, nil) != nil {
 				return false
 			}
