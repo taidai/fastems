@@ -2010,6 +2010,13 @@ body::after {
 .aggregate-config .panel-heading, .aggregate-result .panel-heading { padding: 0 0 10px; }
 .aggregate-config label { margin-bottom: 8px; font-size: 11.5px; }
 .aggregate-config label input, .aggregate-config label select { min-height: 36px; }
+.aggregate-badges { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.aggregate-alarm-cfg { border: 1px solid var(--line); border-radius: 8px; padding: 7px 8px; margin-bottom: 8px; }
+.aggregate-config .aggregate-alarm-switch { display: flex; align-items: center; gap: 7px; margin-bottom: 0; }
+.aggregate-alarm-switch input { width: 16px; height: 16px; min-height: 0; }
+.aggregate-alarm-fields { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 7px; }
+.aggregate-alarm-fields label { margin-bottom: 0; }
+.aggregate-window { flex-basis: 100%; color: var(--faint); }
 .aggregate-pick-head { display: flex; justify-content: space-between; align-items: center; margin: 4px 0 6px; color: var(--muted); font-size: 11.5px; }
 .aggregate-pick-head small { color: var(--faint); }
 .aggregate-picker { flex: 1; min-height: 90px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; padding: 3px; }
