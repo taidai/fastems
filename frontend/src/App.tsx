@@ -1,0 +1,808 @@
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
+import { IonApp, IonContent, IonSpinner } from "@ionic/react"
+import DecisionEditor from "./DecisionEditor"
+import { writable } from "./writable"
+import NodeManager from "./NodeManager"
+import DeliveryView from "./DeliveryView"
+import AlarmsView from "./AlarmsView"
+import HistoryView from "./HistoryView"
+import AuditView from "./AuditView"
+import type { QualityStats } from "./generated/contract"
+import ScreenView from "./ScreenView"
+import DeployView from "./DeployView"
+import AllocatorsView from "./AllocatorsView"
+import PointsView from "./PointsView"
+import AggregatesView from "./AggregatesView"
+import CommunicationView from "./CommunicationView"
+import ModbusTools from "./ModbusTools"
+import DeviceQueryView from "./DeviceQueryView"
+import DeviceLedgerView from "./DeviceLedgerView"
+import FrameDrawer from "./FrameDrawer"
+import EnergyFlow, { sumByKeywords, type DispatchInfo } from "./EnergyFlow"
+import AssistantPanel from "./AssistantPanel"
+import Icon, { type IconName } from "./Icons"
+import {
+  ApiError,
+  businessId,
+  Document,
+  EmsAlarm,
+  fetchAlarms,
+  login,
+  nameOf,
+  Node,
+  Point,
+  point,
+  request,
+  Snapshot,
+} from "./api"
+
+const emptyDocument: Document = { table: { rows: [] }, bindings: { points: {}, actions: {} } }
+const roleNames: Record<string, string> = { admin: "管理员", implementer: "实施", operator: "操作员", viewer: "查看者" }
+type Page = "devices" | "screen" | "ledger" | "points" | "channels" | "aggregate" | "deploy" | "allocators" | "alarms" | "history" | "query" | "rules" | "users" | "audit" | "delivery"
+type DisplaySettings = { background: number; glass: number }
+const defaultDisplay: DisplaySettings = { background: 78, glass: 62 }
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
+function loadDisplay(): DisplaySettings {
+  try {
+    const parsed = JSON.parse(localStorage.getItem("easyems-display") || "{}")
+    return {
+      background: clamp(Number(parsed.background) || defaultDisplay.background, 50, 110),
+      glass: clamp(Number(parsed.glass) || defaultDisplay.glass, 30, 90),
+    }
+  } catch {
+    return defaultDisplay
+  }
+}
+
+function activityDetail(item: Point) {
+  if (item.type === "applied") return "运行版本已更新"
+  if (item.type === "lastMatch") return "命中状态已记录"
+  if (item.type === "enabled") return item.value ? "已启用" : "已停用"
+  return item.text || String(item.value || 0)
+}
+
+function commandStatus(node: Node) {
+  try {
+    return JSON.parse(point(node, "lastCommand")?.text || "").status as string
+  } catch {
+    return ""
+  }
+}
+
+function errorMessage(error: unknown) {
+  if (!(error instanceof Error)) return "操作失败"
+  if (error.message.startsWith("used_by_rule")) return "此对象仍被规则引用，请先换绑或删除相关规则"
+  if (error.message.startsWith("move_would_break_rule")) return "移动会使规则失去目标，请先调整绑定"
+  const messages: Record<string, string> = {
+    unauthorized: "登录已过期，请重新登录",
+    no_access: "此账号尚未分配 easyems 权限",
+    forbidden: "没有执行此操作的权限",
+    admin_required: "仅管理员可以配置",
+    operation_not_allowed: "此账号只能查看，不能操作",
+    publish_required: "请先发布有效规则",
+    output_owned: "该输出点位已被另一张已启用决策表占用，请先停用或修改另一张规则",
+    command_not_accepted: "设备命令未被接受，请检查连接",
+    starting: "应用正在初始化，请稍后重试",
+    node_disabled: "对象已停用，请先恢复后再操作",
+    has_children: "请先处理此对象下的子节点",
+    invalid_move: "不能移动到此位置",
+    move_would_break_rule: "移动会使规则失去目标，请先调整绑定",
+  }
+  return messages[error.message] || error.message
+}
+
+function channelState(node: Node) {
+  const last = Number(point(node, "lastGoodPoll")?.value || 0)
+  const poll = Number(point(node, "pollPeriod")?.value || 1000)
+  const timeout = Number(point(node, "timeout")?.value || 1000)
+  const maxAge = Math.max(5, (poll * 5) / 1000, (timeout * 3) / 1000)
+  const age = Date.now() / 1000 - last
+  const errors = Number(point(node, "errorCount")?.value || 0)
+  if (!last || age > maxAge) {
+    return { key: "offline", label: "离线", detail: last ? `${Math.round(age)} 秒未成功轮询` : "尚未成功轮询" }
+  }
+  if (errors > 0) return { key: "degraded", label: "不稳定", detail: `${errors} 次通信错误` }
+  return { key: "online", label: "在线", detail: `${Math.max(1, Math.round(age))} 秒前成功轮询` }
+}
+
+function KpiStrip({ points, alarmCount, activeRules, rules, errors, tariff, onOpen }: {
+  points: Node[]; alarmCount: number; activeRules: number; rules: number; errors: number; tariff: number | null
+  onOpen: (keywords: string[], fallback: Page) => void
+}) {
+  const chargeEnergy = sumByKeywords(points, ["储能充电", "充电量"], "kWh")
+  const dischargeEnergy = sumByKeywords(points, ["储能放电", "放电量"], "kWh")
+  const todayLoad = sumByKeywords(points, ["今日用电", "用电量"], "kWh")
+  const feePoint = sumByKeywords(points, ["今日电费"], "元")
+  const computedFee = todayLoad !== null && tariff !== null ? todayLoad * tariff : null
+  const todayFee = feePoint ?? computedFee
+  const feeNote = feePoint !== null ? "按已接入电费点位" : computedFee !== null ? `${tariff?.toFixed(2)} 元/kWh × 今日用电` : tariff === null ? "未设置电价" : "无今日用电点位"
+  const number = (value: number | null, digits = 2) => value === null ? "—" : value.toFixed(digits)
+  const cards: { key: string; icon: IconName; label: string; value: number | null; digits: number; unit: string; note: string; keywords: string[]; fallback: Page; compact?: boolean }[] = [
+    { key: "revenue", icon: "coin", label: "总收益", value: sumByKeywords(points, ["总收益", "累计收益"], "元"), digits: 0, unit: "元", note: "按已接入收益点位", keywords: ["总收益", "累计收益"], fallback: "channels" },
+    { key: "ess-revenue", icon: "yuan", label: "储能收益", value: sumByKeywords(points, ["储能收益"], "元"), digits: 0, unit: "元", note: "放电收益 − 充电成本", keywords: ["储能收益"], fallback: "channels" },
+    { key: "efficiency", icon: "efficiency", label: "转换效率", value: sumByKeywords(points, ["转换效率", "综合效率"], "%"), digits: 1, unit: "%", note: "综合 / 当日", keywords: ["转换效率", "综合效率"], fallback: "channels" },
+    { key: "fee", icon: "bolt", label: "今日电费", value: todayFee, digits: 2, unit: "元", note: feeNote, keywords: ["今日电费", "今日用电", "用电量"], fallback: "channels" },
+    { key: "throughput", icon: "battery", label: "储能吞吐", value: null, digits: 0, unit: "", note: `充 ${number(chargeEnergy)} / 放 ${number(dischargeEnergy)} kWh`, keywords: ["储能充电", "储能放电"], fallback: "channels", compact: true },
+    { key: "energy", icon: "solar", label: "光伏发电量", value: sumByKeywords(points, ["光伏发电量", "发电量"], "kWh"), digits: 2, unit: "kWh", note: "", keywords: ["光伏发电量", "发电量"], fallback: "channels" },
+    { key: "today-load", icon: "home", label: "今日用电", value: sumByKeywords(points, ["今日用电", "用电量"], "kWh"), digits: 2, unit: "kWh", note: "", keywords: ["今日用电", "用电量"], fallback: "channels" },
+    { key: "demand", icon: "bars", label: "最大需量", value: sumByKeywords(points, ["最大需量", "需量"], "kW"), digits: 1, unit: "kW", note: "", keywords: ["最大需量", "需量"], fallback: "channels" },
+  ]
+  return <section className="kpi-strip" aria-label="站点关键指标">
+    {cards.map((card) => <button
+      type="button"
+      key={card.key}
+      className={`kpi-card ${card.key} ${card.compact ? "compact" : ""}`}
+      onClick={() => onOpen(card.keywords, card.fallback)}
+      title={card.keywords.length ? `查看${card.label}点位` : `打开${card.label}页面`}
+    >
+      <span className="kpi-icon" aria-hidden="true"><Icon name={card.icon} size={38} /></span>
+      <span className="kpi-copy"><span className="kpi-label">{card.label}</span>{!card.compact && <strong className="kpi-value">{card.value === null || card.value === undefined ? "—" : card.value.toFixed(card.digits)}<small> {card.unit}</small></strong>}</span>
+      <span className="kpi-note">{card.note}</span>
+    </button>)}
+  </section>
+}
+
+function latestDispatch(rules: Node[], nodes: Node[]): DispatchInfo | null {
+  let best: { at: number; info: DispatchInfo } | null = null
+  const nameFor = (id: string) => {
+    const node = nodes.find((item) => businessId(item) === id)
+    return node ? nameOf(node) : id
+  }
+  for (const rule of rules) {
+    const text = point(rule, "lastCheck")?.text
+    if (!text) continue
+    try {
+      const check = JSON.parse(text)
+      const at = Date.parse(check.at || "")
+      if (!Number.isFinite(at) || (best && at <= best.at)) continue
+      let rows: { row_id?: string }[] = []
+      try {
+        const document = JSON.parse(point(rule, "draft")?.text || point(rule, "applied")?.text || "{}")
+        rows = document.table?.rows || []
+      } catch { /* malformed draft means no row index, not no dispatch */ }
+      const rowIndex = rows.findIndex((row) => row.row_id === check.row)
+      best = {
+        at,
+        info: {
+          rule: nameOf(rule),
+          at: check.at || "",
+          state: check.state || "",
+          rowIndex: rowIndex >= 0 ? rowIndex : null,
+          actions: (check.actions || []).map((action: { output?: string; requested?: number; applied?: number; blocked?: boolean; reason?: string; status?: string }) => ({
+            output: nameFor(action.output || ""),
+            requested: Number(action.requested) || 0,
+            applied: Number(action.applied) || 0,
+            blocked: Boolean(action.blocked),
+            reason: action.reason || "",
+            status: action.status || "",
+          })),
+        },
+      }
+    } catch {
+      // ignore malformed lastCheck; the rule page still shows the raw record
+    }
+  }
+  return best?.info ?? null
+}
+
+function subtreeSnapshot(snapshot: Snapshot, rootID: string): Snapshot {  if (!rootID || !snapshot.roots.includes(rootID)) return snapshot
+  const children = new Map<string, Node[]>()
+  for (const node of snapshot.nodes) {
+    const list = children.get(node.parent) || []
+    list.push(node)
+    children.set(node.parent, list)
+  }
+  const nodes: Node[] = []
+  const rootNode = snapshot.nodes.find((node) => node.id === rootID)
+  if (rootNode) nodes.push(rootNode)
+  const visit = (id: string) => {
+    for (const child of children.get(id) || []) {
+      nodes.push(child)
+      visit(child.id)
+    }
+  }
+  visit(rootID)
+  return { ...snapshot, roots: [rootID], nodes }
+}
+
+export default function App() {
+  const [token, setToken] = useState(() => sessionStorage.getItem("easyems-token") || "")
+  const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
+  const [page, setPage] = useState<Page>("devices")
+  const [error, setError] = useState("")
+  const [email, setEmail] = useState("admin")
+  const [password, setPassword] = useState("")
+  const [busy, setBusy] = useState(false)
+  const [selectedRule, setSelectedRule] = useState("")
+  const [historyPoint, setHistoryPoint] = useState("")
+  const [stationID, setStationID] = useState("")
+  const [directoryOpen, setDirectoryOpen] = useState(false)
+  const directoryRef = useRef<HTMLDivElement>(null)
+  const [display, setDisplay] = useState<DisplaySettings>(loadDisplay)
+  const [displayOpen, setDisplayOpen] = useState(false)
+  const displayRef = useRef<HTMLDivElement>(null)
+  const [clock, setClock] = useState(() => new Date())
+  const [alarmCount, setAlarmCount] = useState(0)
+  const [alarms, setAlarms] = useState<EmsAlarm[]>([])
+  const [assistantOpen, setAssistantOpen] = useState(false)
+  const [tariffDraft, setTariffDraft] = useState("")
+  const [stageScale, setStageScale] = useState(() => window.innerWidth >= 1000 ? Math.min((window.innerWidth - 8) / 1632, (window.innerHeight - 8) / 1000) : 1)
+
+  const refresh = useCallback(async () => {
+    if (!token) return
+    try {
+      setSnapshot(await request<Snapshot>(token, "/snapshot"))
+      setError("")
+    } catch (cause) {
+      if (cause instanceof ApiError && cause.status === 401) {
+        sessionStorage.removeItem("easyems-token")
+        setToken("")
+        setSnapshot(null)
+      }
+      setError(errorMessage(cause))
+    }
+  }, [token])
+
+  useEffect(() => {
+    if (!token) return
+    void refresh()
+    const timer = window.setInterval(() => void refresh(), 2000)
+    return () => window.clearInterval(timer)
+  }, [token, refresh])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setClock(new Date()), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    const resize = () => setStageScale(window.innerWidth >= 1000 ? Math.min((window.innerWidth - 8) / 1632, (window.innerHeight - 8) / 1000) : 1)
+    window.addEventListener("resize", resize)
+    resize()
+    return () => window.removeEventListener("resize", resize)
+  }, [])
+
+  useEffect(() => {
+    if (!token) return
+    const load = async () => {
+      try {
+        const result = await fetchAlarms(token)
+        const list = result.alarms || []
+        setAlarms(list)
+        setAlarmCount(list.filter((alarm) => alarm.active && !(alarm.maintenance_until && new Date(alarm.maintenance_until).getTime() > Date.now())).length)
+      } catch {
+        // 顶栏报警计数失败不阻塞工作台
+      }
+    }
+    void load()
+    const timer = window.setInterval(() => void load(), 5000)
+    return () => window.clearInterval(timer)
+  }, [token])
+
+  useEffect(() => {
+    if (!directoryOpen) return
+    const close = (event: PointerEvent) => {
+      if (!directoryRef.current?.contains(event.target as globalThis.Node)) setDirectoryOpen(false)
+    }
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setDirectoryOpen(false)
+    }
+    document.addEventListener("pointerdown", close)
+    document.addEventListener("keydown", escape)
+    return () => {
+      document.removeEventListener("pointerdown", close)
+      document.removeEventListener("keydown", escape)
+    }
+  }, [directoryOpen])
+
+  useEffect(() => {
+    const root = document.documentElement
+    const glass = display.glass / 100
+    root.style.setProperty("--bg-brightness", (display.background / 100).toFixed(2))
+    root.style.setProperty("--glass-a", glass.toFixed(2))
+    root.style.setProperty("--glass-a-strong", Math.min(0.94, glass + 0.24).toFixed(2))
+    root.style.setProperty("--glass-a-soft", Math.max(0.24, glass - 0.12).toFixed(2))
+    localStorage.setItem("easyems-display", JSON.stringify(display))
+  }, [display])
+
+  useEffect(() => {
+    if (!displayOpen) return
+    const close = (event: PointerEvent) => {
+      if (!displayRef.current?.contains(event.target as globalThis.Node)) setDisplayOpen(false)
+    }
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setDisplayOpen(false)
+    }
+    document.addEventListener("pointerdown", close)
+    document.addEventListener("keydown", escape)
+    return () => {
+      document.removeEventListener("pointerdown", close)
+      document.removeEventListener("keydown", escape)
+    }
+  }, [displayOpen])
+
+  const activeSnapshot = useMemo(() => snapshot ? subtreeSnapshot(snapshot, stationID || snapshot.roots[0] || "") : null, [snapshot, stationID])
+
+  async function signIn(event: FormEvent) {
+    event.preventDefault()
+    setBusy(true)
+    setError("")
+    try {
+      const result = await login(email, password)
+      sessionStorage.setItem("easyems-token", result.token)
+      setToken(result.token)
+      setPassword("")
+    } catch (cause) {
+      setError(errorMessage(cause))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function run(action: () => Promise<unknown>) {
+    setBusy(true)
+    setError("")
+    try {
+      await action()
+      await refresh()
+      return true
+    } catch (cause) {
+      setError(errorMessage(cause))
+      return false
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (!token) return <IonApp><IonContent fullscreen><main className="login-page">
+    <section className="login-intro">
+      <div className="brand"><span className="brand-mark">e</span> easyEMS</div>
+      <h1>让能源设备，<br />按清晰的规则运行。</h1>
+      <p>设备接入、实时状态与有序决策表，收进同一个工作台。</p>
+      <div className="login-proof"><span>一个应用</span><span>本地数据</span><span>无需编写代码</span></div>
+    </section>
+    <form className="login-form" onSubmit={signIn}>
+      <span className="section-kicker">欢迎回来</span>
+      <h2>登录工作台</h2>
+      <label>账号<input autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
+      <label>密码<input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required /></label>
+      {error && <div className="inline-error" role="alert">{error}</div>}
+      <button className="primary-button login-button" disabled={busy}>{busy ? "登录中…" : "登录"}</button>
+      <small>使用本账号登录，不共享管理员令牌。</small>
+    </form>
+  </main></IonContent></IonApp>
+
+  if (!snapshot) return <IonApp><IonContent fullscreen><main className="loading-page"><IonSpinner /><p>{error || "正在读取工作台…"}</p></main></IonContent></IonApp>
+
+  const view = activeSnapshot || snapshot
+  const isAdmin = view.user.policy.admin
+  const canConfigure = isAdmin || view.user.policy.role === "implementer"
+  const canOperate = canConfigure || view.user.policy.role === "operator"
+  const points = view.nodes.filter((node) => node.type === "variable" || node.type === "modbusIo")
+  const groups = view.nodes.filter((node) => node.type === "group" || view.roots.includes(node.id))
+  const rules = view.nodes.filter((node) => node.type === "decisionTable")
+  const channels = view.nodes.filter((node) => node.type === "modbus")
+  const ioCounts = new Map<string, number>()
+  for (const node of view.nodes) {
+    if (node.type === "modbusIo") ioCounts.set(node.parent, (ioCounts.get(node.parent) || 0) + 1)
+  }
+  const activeRules = rules.filter((rule) => (point(rule, "enabled")?.value || 0) !== 0)
+  const dispatch = latestDispatch(activeRules, view.nodes)
+  const latestAlarm = alarms.filter((alarm) => alarm.active).sort((a, b) => b.created_at.localeCompare(a.created_at))[0] || null
+  const rootNode = view.nodes.find((node) => node.id === view.roots[0])
+  const tariff = rootNode ? (point(rootNode, "easyemsTariff")?.value ?? null) : null
+  const offlineChannels = channels.filter((channel) => {
+    const last = point(channel, "lastGoodPoll")?.value || 0
+    const poll = point(channel, "pollPeriod")?.value || 1000
+    const timeout = point(channel, "timeout")?.value || 1000
+    return !last || clock.getTime() / 1000 - last > Math.max(5, poll * 5 / 1000, timeout * 3 / 1000)
+  }).length
+  const stalePoints = points.filter((node) => {
+    const value = point(node, "value")
+    const time = value?.time ? new Date(value.time).getTime() : NaN
+    return value?.value === undefined || !Number.isFinite(time) || clock.getTime() - time > 15000
+  }).length
+  const errors = view.nodes.filter((node) => point(node, "error")?.text || (point(node, "errorCount")?.value || 0) > 0 || ["unknown", "failed"].includes(commandStatus(node)))
+  const currentRule = selectedRule ? rules.find((rule) => rule.id === selectedRule) : rules[0]
+
+  function openPoint(keywords: string[], fallback: Page = "channels") {
+    const match = keywords.length ? points.find((node) => {
+      const name = nameOf(node).toLowerCase()
+      return keywords.some((keyword) => name.includes(keyword.toLowerCase())) && point(node, "value") !== undefined
+    }) : undefined
+    if (match) {
+      setHistoryPoint(match.id)
+      setPage("history")
+    } else {
+      setPage(fallback)
+    }
+  }
+
+  const pageInfo: Record<string, { title: string; subtitle: string }> = {
+    devices: { title: "站点总览", subtitle: "设备状态、通信健康与自动运行，一屏看清" },
+    screen: { title: "运行画面", subtitle: "按业务节点组织的运行画面" },
+    ledger: { title: "设备台账", subtitle: "一台设备一行：业务节点、通道/站号、Profile、健康与验证" },
+    points: { title: "设备与点位", subtitle: "批量管理、实时值、质量与回读" },
+    channels: { title: "通道", subtitle: "运行健康、端口参数、单元与点位" },
+    aggregate: { title: "虚拟聚合", subtitle: "只读虚拟设备：求和、平均、最值、计数与质量传播" },
+    deploy: { title: "部署与验收", subtitle: "扫描、点表、运行状态与验收报告" },
+    allocators: { title: "功率分配器", subtitle: "一个总目标，按每台 PCS 当前能力分配" },
+    alarms: { title: "报警与事件", subtitle: "该处理的排在前面" },
+    history: { title: "数据与追溯", subtitle: "趋势、历史与统一时间轴" },
+    query: { title: "设备数据查询", subtitle: "按站点查概览、实时值、告警、趋势与报表" },
+    rules: { title: "决策表", subtitle: "有序规则、模拟、发布与运行记录" },
+    users: { title: "账号与权限", subtitle: "按人员分配可见与可操作范围" },
+    audit: { title: "审计日志", subtitle: "登录、配置、控制与报警操作留痕" },
+    delivery: { title: "交付检查", subtitle: "异常、备份与验收边界" },
+  }
+  const currentInfo = pageInfo[page] || pageInfo.devices
+  const labelForRoot = (root: string) => {
+    const node = snapshot.nodes.find((item) => item.id === root)
+    return node ? nameOf(node) : "本站"
+  }
+  const stationName = labelForRoot(view.roots[0])
+  const tabs = [
+    { key: "devices", label: "总览", icon: "home" as IconName, pages: ["devices", "screen"] },
+    { key: "channels", label: "设备", icon: "devices" as IconName, pages: ["ledger", "points", "channels", "aggregate"] },
+    { key: "rules", label: "调度", icon: "sliders" as IconName, pages: ["rules", "allocators"] },
+    { key: "history", label: "数据", icon: "report" as IconName, pages: ["alarms", "history"] },
+    { key: "deploy", label: "配置", icon: "gear" as IconName, pages: ["deploy", "users", "audit"] },
+  ]
+  const activeTab = tabs.find((tab) => tab.pages.includes(page))?.key
+  const directory: { key: Page; label: string; adminOnly?: boolean; configOnly?: boolean }[] = [
+    { key: "devices", label: "工作台" }, { key: "screen", label: "运行画面" }, { key: "ledger", label: "设备台账" },
+    { key: "points", label: "点位表" }, { key: "channels", label: "通道" }, { key: "aggregate", label: "虚拟聚合" },
+    { key: "rules", label: "决策表" }, { key: "allocators", label: "功率分配器", configOnly: true },
+    { key: "alarms", label: "报警与事件" }, { key: "history", label: "数据与追溯" },
+    { key: "deploy", label: "部署与验收", configOnly: true },
+    { key: "users", label: "账号与权限", adminOnly: true }, { key: "audit", label: "审计日志", adminOnly: true },
+  ]
+
+  return <IonApp><IonContent fullscreen><div className="console-viewport"><div className="console-shell" style={{ "--console-scale": String(stageScale) } as CSSProperties}>
+    <header className="console-topbar">
+      <div className="console-brand"><img className="brand-mark" src="/zizu-brand.png" alt="" /><strong>自足能源AI <small>3.0</small></strong></div>
+      <select className="console-station" aria-label="当前项目" value={view.roots[0]} onChange={(event) => setStationID(event.target.value)}>
+        {snapshot.roots.map((root) => <option key={root} value={root}>{labelForRoot(root)}</option>)}
+      </select>
+      <div className="console-menu" ref={directoryRef}>
+        <button className="console-chip" aria-label="页面目录" aria-expanded={directoryOpen} onClick={() => setDirectoryOpen(!directoryOpen)}><Icon name="layers" size={20} /><span className="chip-label">页面目录</span></button>
+        {directoryOpen && <div className="console-directory" role="navigation" aria-label="页面目录">
+          {directory.filter((item) => (!item.adminOnly || isAdmin) && (!item.configOnly || canConfigure)).map((item) =>
+            <button key={item.key} className={page === item.key ? "active" : ""} onClick={() => { setPage(item.key); setDirectoryOpen(false) }}>{item.label}</button>)}
+        </div>}
+      </div>
+      <div className="console-top-actions">
+        <button className="console-icon" title="运行画面" aria-label="运行画面" onClick={() => setPage("screen")}><Icon name="map" size={25} /></button>
+        <div className="console-display" ref={displayRef}>
+          <button className="console-icon" title="显示设置" aria-label="显示设置" aria-expanded={displayOpen} onClick={() => { setDisplayOpen(!displayOpen); setTariffDraft(tariff === null ? "" : tariff.toFixed(2)) }}><Icon name="sun" size={17} /></button>
+          {displayOpen && <div className="display-panel" role="dialog" aria-label="显示设置">
+            <div className="display-head"><strong>显示设置</strong><button onClick={() => { setDisplay(defaultDisplay); setDisplayOpen(false) }}>恢复默认</button></div>
+            <label>背景明暗<span>{display.background}%</span>
+              <input type="range" min="50" max="110" step="1" value={display.background} onChange={(event) => setDisplay({ ...display, background: Number(event.target.value) })} />
+            </label>
+            <label>玻璃透明度<span>{display.glass}%</span>
+              <input type="range" min="30" max="90" step="1" value={display.glass} onChange={(event) => setDisplay({ ...display, glass: Number(event.target.value) })} />
+            </label>
+            {canConfigure && <label>站点电价（元/kWh）<span>{tariff === null ? "未设置" : tariff.toFixed(2)}</span>
+              <div className="tariff-row">
+                <input type="number" min="0" max="100" step="0.01" value={tariffDraft} placeholder="例如 0.65" aria-label="站点电价" onChange={(event) => setTariffDraft(event.target.value)} />
+                <button className="secondary-button" disabled={busy} onClick={() => {
+                  const price = Number(tariffDraft)
+                  if (tariffDraft.trim() === "" || !Number.isFinite(price) || price < 0 || price > 100) {
+                    setError("电价必须是 0–100 之间的数字")
+                    return
+                  }
+                  void run(async () => {
+                    await request(token, "/tariff", "PUT", { root: view.roots[0], price })
+                    setTariffDraft(price.toFixed(2))
+                  })
+                }}>保存</button>
+              </div>
+            </label>}
+            <small>显示设置保存在本机浏览器；电价保存在本站业务节点，用于“今日用电 × 电价”的电费估算。</small>
+          </div>}
+        </div>
+        <button className="console-icon" title="活动报警" aria-label="活动报警" onClick={() => setPage("alarms")}><Icon name="bell" size={25} />{alarmCount > 0 && <em>{alarmCount}</em>}</button>
+        <span className="console-user">楼顶 · {roleNames[view.user.policy.role] || "用户"}</span>
+        <time>{clock.toLocaleTimeString("zh-CN", { hour12: false })}</time>
+        <button className="console-profile" aria-label="账号与权限" onClick={() => setPage("users")}><Icon name="user" size={23} /><span>{view.user.user_id}</span></button>
+        <button className="console-exit" title="退出登录" aria-label="退出登录" onClick={() => { sessionStorage.removeItem("easyems-token"); setToken(""); setSnapshot(null) }}>退出</button>
+      </div>
+    </header>
+
+    <main className="console-main">
+      <div className={`console-page-head ${page === "devices" ? "overview-heading" : ""}`}>
+        <h1>{currentInfo.title}</h1>
+        {page === "devices" && <div className="health-summary">
+          <span>告警 <b>{alarmCount}</b></span><i>·</i><span>核心设备离线 <b>{offlineChannels}</b></span><i>·</i><span>核心测点陈旧 <b>{stalePoints}</b></span>
+          <button className="head-link" onClick={() => setPage("channels")}>查看健康 <span>›</span></button>
+        </div>}
+        {page !== "devices" && <p>{currentInfo.subtitle}</p>}
+        <div className="console-head-actions">
+          <span className="site-pill">站点 {Math.max(1, snapshot.roots.indexOf(view.roots[0]) + 1)} / {snapshot.roots.length}</span>
+          {page !== "devices" && <div className="live-status"><span className="pulse" />数据每 2 秒更新</div>}
+        </div>
+      </div>
+      {error && <div className="inline-error global-error" role="alert">{error}<button onClick={() => setError("")}>关闭</button></div>}
+
+      <div className="console-stage">
+      {page === "devices" && <DevicesView
+        snapshot={view} points={points} groups={groups} rules={rules.length} activeRules={activeRules.length} errors={errors.length}
+        alarmCount={alarmCount} busy={busy} isAdmin={canConfigure} canOperate={canOperate} run={run} openPoint={openPoint}
+        goRules={() => setPage("rules")} goHistory={() => setPage("history")} goChannels={() => setPage("channels")} dispatch={dispatch} latestAlarm={latestAlarm} tariff={tariff}
+      />}
+
+      {page === "screen" && <ScreenView
+        token={token} snapshot={view} points={points} groups={groups}
+        isAdmin={canConfigure} canOperate={canOperate} busy={busy} run={run} onError={setError}
+        openHistory={(id) => { setHistoryPoint(id); setPage("history") }}
+        openAlarms={() => setPage("alarms")}
+      />}
+
+      {page === "ledger" && <DeviceLedgerView token={token} onError={setError} canConfigure={canConfigure} canOperate={canOperate} goChannels={() => setPage("channels")} goPoints={() => setPage("points")} goHistory={() => setPage("history")} goAlarms={() => setPage("alarms")} />}
+
+      {page === "points" && <PointsView
+        token={token} nodes={view.nodes} isAdmin={canConfigure} canOperate={canOperate} busy={busy} run={run}
+        onError={setError} openHistory={(id) => { setHistoryPoint(id); setPage("history") }}
+        goChannels={() => setPage("channels")}
+      />}
+
+      {page === "channels" && <ChannelWorkspace
+        token={token} channels={channels} ioCounts={ioCounts} isAdmin={canConfigure} canOperate={canOperate} nodes={view.nodes} roots={view.roots} groups={groups}
+        templates={view.nodes.filter((node) => node.type === "deviceTemplate")} busy={busy} run={run} onError={setError} goPoints={() => setPage("points")}
+      />}
+
+      {page === "aggregate" && <AggregatesView token={token} nodes={view.nodes} groups={groups} canConfigure={canConfigure} />}
+
+      {page === "deploy" && canConfigure && <DeployView token={token} isAdmin={canConfigure} goDelivery={() => setPage("delivery")} />}
+
+      {page === "allocators" && canConfigure && <AllocatorsView
+        token={token} nodes={view.nodes} groups={groups} points={points}
+        isAdmin={canConfigure} busy={busy} run={run} onError={setError}
+      />}
+
+      {page === "alarms" && <AlarmsView token={token} rootID={view.roots[0]} nodes={view.nodes} canOperate={canOperate} canConfigure={canConfigure} onError={setError} openHistory={(id) => { setHistoryPoint(id); setPage("history") }} />}
+
+      {page === "history" && <HistoryView key={historyPoint || "history"} token={token} points={points} initialPoint={historyPoint || undefined} onError={setError} isAdmin={canConfigure} />}
+
+      {page === "query" && <DeviceQueryView token={token} nodes={view.nodes} roots={view.roots} groups={groups} onError={setError} />}
+
+      {page === "rules" && <section className="rules-page">
+        <div className="page-toolbar">
+          <div className="rule-tabs">{rules.map((rule) => <button key={rule.id} className={currentRule?.id === rule.id ? "active" : ""} onClick={() => setSelectedRule(rule.id)}>{nameOf(rule)}</button>)}</div>
+          {canConfigure && <button className="primary-button" disabled={busy} onClick={() => void (async () => {
+            const previous = selectedRule
+            setSelectedRule("__creating__")
+            const ok = await run(async () => {
+              const result = await request<{ id: string }>(token, "/rules", "POST", {
+                parent: view.roots[0], description: `新决策表 ${rules.length + 1}`, document: emptyDocument,
+              })
+              setSelectedRule(result.id)
+            })
+            if (!ok) setSelectedRule(previous)
+          })()}>+ 新建决策表</button>}
+        </div>
+        {currentRule ? <DecisionEditor key={currentRule.id} token={token} rule={currentRule} nodes={view.nodes} onRefresh={refresh} onError={setError} onSelect={setSelectedRule} readOnly={!canConfigure} /> :
+          selectedRule ? <div className="empty-state large"><strong>正在打开决策表…</strong><span>读取最新草稿与点位绑定。</span></div> :
+          <div className="empty-state large"><strong>从第一张决策表开始</strong><span>选择多个输入条件，按顺序执行多个输出；第一行命中后停止。</span>{canConfigure && <span>点击右上方“新建决策表”。</span>}</div>}
+      </section>}
+
+      {page === "users" && isAdmin && <UsersView snapshot={view} groups={groups} busy={busy} run={run} />}
+      {page === "audit" && isAdmin && <AuditView token={token} onError={setError} />}
+      {page === "delivery" && isAdmin && <DeliveryView token={token} />}
+
+      <footer className="console-foot">
+        <span>数据来自已配置点位；未接入或过期的值显示“—”，不生成模拟数据。</span>
+        <span>单机本地运行 · 不依赖云端</span>
+      </footer>
+      </div>
+    </main>
+
+    <nav className="console-bottomnav" aria-label="主导航">
+      {tabs.map((tab) => <button key={tab.key} className={activeTab === tab.key ? "active" : ""} aria-current={activeTab === tab.key ? "page" : undefined} onClick={() => setPage(tab.pages[0] as Page)}>
+        <span aria-hidden="true"><Icon name={tab.icon} size={20} /></span><small>{tab.label}</small>
+      </button>)}
+    </nav>
+
+    {page === "devices" && <>
+      {!assistantOpen && <button className="assistant-fab" aria-label="打开能源管家" onClick={() => setAssistantOpen(true)}>
+        <span>AI</span><Icon name="sparkle" size={12} />
+      </button>}
+      <AssistantPanel
+        points={points} alarmCount={alarmCount} errors={errors.length} rules={rules.length} activeRules={activeRules.length}
+        stationName={stationName} open={assistantOpen} onClose={() => setAssistantOpen(false)}
+      />
+    </>}
+  </div></div></IonContent></IonApp>
+}
+
+type Run = (action: () => Promise<unknown>) => Promise<boolean>
+
+function DevicesView({ snapshot, points, groups, rules, activeRules, errors, alarmCount, busy, isAdmin, canOperate, run, openPoint, goRules, goHistory, goChannels, dispatch, latestAlarm, tariff }: {
+  snapshot: Snapshot; points: Node[]; groups: Node[]; rules: number; activeRules: number; errors: number; alarmCount: number
+  busy: boolean; isAdmin: boolean; canOperate: boolean; run: Run; goRules: () => void; goHistory: () => void; goChannels: () => void; dispatch: DispatchInfo | null
+  latestAlarm: EmsAlarm | null
+  tariff: number | null
+  openPoint: (keywords: string[], fallback?: Page) => void
+}) {
+  const [showAdd, setShowAdd] = useState(false)
+  const [kind, setKind] = useState("variable")
+  const [description, setDescription] = useState("")
+  const [initialValue, setInitialValue] = useState(0)
+  const [parent, setParent] = useState(snapshot.roots[0])
+  const [values, setValues] = useState<Record<string, number>>({})
+  const [managedNode, setManagedNode] = useState<Node | null>(null)
+  const [showDataNote, setShowDataNote] = useState(false)
+  const token = sessionStorage.getItem("easyems-token") || ""
+
+  const activities = useMemo(() => snapshot.nodes.flatMap((node) => node.points
+    .filter((item) => ["value", "valueSet", "applied", "enabled", "lastMatch"].includes(item.type))
+    .map((item) => ({ node, item })))
+    .sort((a, b) => b.item.time.localeCompare(a.item.time)).slice(0, 6), [snapshot])
+
+  return <>
+    <KpiStrip points={points} alarmCount={alarmCount} activeRules={activeRules} rules={rules} errors={errors} tariff={tariff} onOpen={openPoint} />
+
+    <EnergyFlow points={points} onOpenPoint={openPoint} onOpenTrends={goHistory} dispatch={dispatch} event={{
+      activeRules, rules, alarmCount, errors, pointCount: points.length, onOpenRules: goRules,
+      latestAlarm: latestAlarm ? { title: latestAlarm.title, severity: latestAlarm.severity, at: latestAlarm.created_at } : undefined,
+    }} />
+
+    <div className="console-data-note">
+      <span><b>现场</b>{showDataNote ? "所有指标均取自已配置点位；未接入、无值或过期显示“—”。能流画面只用于展示，不替代控制、保护或结算。" : "仅展示已绑定点位；未接入指标显示“—”，不生成模拟数据。"}</span>
+      <button onClick={() => setShowDataNote(!showDataNote)}>说明 {showDataNote ? "收起" : "展开"}</button>
+    </div>
+
+    <section className="content-grid">
+      <div className="panel device-panel">
+        <div className="panel-heading"><div><span className="section-kicker">设备树与点位</span><h2>当前状态</h2></div><div className="panel-heading-actions">{isAdmin && <button className="secondary-button" onClick={goChannels}>通道配置</button>}{isAdmin && <button className="secondary-button" onClick={() => setShowAdd(!showAdd)}>{showAdd ? "收起" : "+ 添加"}</button>}</div></div>
+        {showAdd && isAdmin && <form className="add-node-form" onSubmit={(event) => {
+          event.preventDefault()
+          void run(async () => {
+            await request(token, "/nodes", "POST", { parent, type: kind, description, value: kind === "variable" ? initialValue : undefined })
+            setDescription("")
+            setShowAdd(false)
+          })
+        }}>
+          <div className="form-row"><label>类型<select value={kind} onChange={(event) => setKind(event.target.value)}><option value="variable">测试变量</option><option value="group">分组</option></select></label><label>所属位置<select value={parent} onChange={(event) => setParent(event.target.value)}>{groups.map((group) => <option key={group.id} value={group.id}>{snapshot.roots.includes(group.id) ? "根节点" : nameOf(group)}</option>)}</select></label></div>
+          <div className="form-row"><label>名称<input value={description} onChange={(event) => setDescription(event.target.value)} placeholder={kind === "variable" ? "例如：室温" : "例如：1 号电站"} required /></label>{kind === "variable" && <label>初始值<input type="number" value={initialValue} onChange={(event) => setInitialValue(Number(event.target.value))} /></label>}</div>
+          {kind === "variable" && <p className="form-note">测试变量用于验证数据与规则，不代表真实物理设备。</p>}
+          <button className="primary-button" disabled={busy}>添加到设备树</button>
+        </form>}
+        {isAdmin && <details className="modbus-setup"><summary>接入 Modbus TCP / RTU</summary><p className="form-note">端口、单元与点位已统一在“通道”页配置。</p><button className="secondary-button" onClick={goChannels}>打开通道配置</button></details>}
+        <div className="device-list">
+          {snapshot.nodes.filter((node) => node.type === "group" || node.type === "modbus" || node.type === "variable" || node.type === "modbusIo").map((node) => {
+            const value = point(node, "value")?.value
+            const target = point(node, "valueSet")?.value
+            const units = point(node, "units")?.text || ""
+            const errorCount = point(node, "errorCount")?.value || 0
+            const manual = (point(node, "easyemsManual")?.value || 0) !== 0
+            const disabled = (point(node, "disabled")?.value || 0) !== 0
+            const command = commandStatus(node)
+            const currentValue = values[node.id] ?? value ?? 0
+            const typeName = { group: "设备分组", modbus: "Modbus 连接", modbusIo: "Modbus 点位", variable: "测试变量" }[node.type]
+            return <div className="device-line" key={`${node.parent}/${node.id}`}>
+              <div className={`device-icon ${node.type}`} aria-hidden="true">{node.type === "group" ? "组" : node.type === "modbus" ? "总" : node.type === "modbusIo" ? "M" : "测"}</div>
+              <div className="device-name"><strong>{nameOf(node)}</strong><span>{typeName}{node.type !== "group" && node.type !== "modbus" && ` · 当前 ${value ?? "—"}${units}`}{target !== undefined && ` · 目标 ${target}`}{errorCount > 0 && ` · 通信错误 ${errorCount}`}</span></div>
+              {manual && <span className="manual-label">人工接管</span>}
+              {disabled && <span className="read-only-label">已停用</span>}
+              {command && <span className={`command-status ${command}`}>{({ accepted: "已接受", confirmed: "已回读", unknown: "结果未知", failed: "失败" } as Record<string, string>)[command] || command}</span>}
+              {isAdmin && <button className="manage-button" onClick={() => setManagedNode(node)}>管理</button>}
+              {node.type === "modbusIo" && !writable(node) && <span className="read-only-label">只读</span>}
+              {(node.type === "variable" || writable(node)) && canOperate && !disabled && <div className="device-control"><input aria-label={`${nameOf(node)}操作值`} type="number" value={currentValue} onChange={(event) => setValues({ ...values, [node.id]: Number(event.target.value) })} />
+                {node.type === "variable" && <button disabled={busy} onClick={() => void run(() => request(token, `/nodes/${node.id}/value`, "POST", { value: currentValue, point_type: "value" }))}>更新当前值</button>}
+                <button disabled={busy} onClick={() => void run(() => request(token, `/nodes/${node.id}/value`, "POST", { value: currentValue, point_type: "valueSet" }))}>下发目标值</button>
+                <button disabled={busy} onClick={() => void run(() => request(token, `/nodes/${node.id}/manual`, "POST", { manual: !manual }))}>{manual ? "恢复自动" : "接管自动"}</button>
+              </div>}
+            </div>
+          })}
+          {!snapshot.nodes.some((node) => node.type === "group" || node.type === "modbus" || node.type === "variable" || node.type === "modbusIo") && <div className="empty-state"><strong>设备树还是空的</strong><span>管理员可添加分组、测试变量；Modbus 端口与点位在“通道”页配置。</span></div>}
+        </div>
+      </div>
+
+      <div className="panel activity-panel"><div className="panel-heading"><div><span className="section-kicker">真实操作记录</span><h2>最近变化</h2></div></div>
+        <div className="activity-list">{activities.map(({ node, item }, index) => <div className="activity" key={`${node.id}/${item.type}/${item.time}/${index}`}><span className="activity-dot" /><div><strong>{nameOf(node)}</strong><span>{{ value: "当前值更新", valueSet: "目标值下发", applied: "规则发布", enabled: "自动运行切换", lastMatch: "规则命中" }[item.type]} · {activityDetail(item)}</span></div><time>{new Date(item.time).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}</time></div>)}
+          {activities.length === 0 && <div className="empty-state"><span>尚无设备或规则变化。</span></div>}</div>
+      </div>
+    </section>
+    {managedNode && <NodeManager key={managedNode.id} token={token} node={snapshot.nodes.find((node) => node.id === managedNode.id) || managedNode} snapshot={snapshot} run={run} onClose={() => setManagedNode(null)} />}
+  </>
+}
+
+function ChannelWorkspace({ token, channels, ioCounts, isAdmin, canOperate, nodes, roots, groups, templates, busy, run, onError, goPoints }: {
+  token: string; channels: Node[]; ioCounts: Map<string, number>; isAdmin: boolean; canOperate: boolean; nodes: Node[]; roots: string[]; groups: Node[]; templates: Node[]
+  busy: boolean; run: Run; onError: (message: string) => void; goPoints: () => void
+}) {
+  const [tab, setTab] = useState<"status" | "config" | "tools">("status")
+  const [frameChannel, setFrameChannel] = useState<Node | null>(null)
+  const [quality, setQuality] = useState<Record<string, QualityStats>>({})
+  useEffect(() => {
+    if (tab !== "status") return
+    let cancelled = false
+    const load = async () => {
+      try {
+        const result = await request<{ channels: QualityStats[] }>(token, "/ems/quality")
+        if (!cancelled) setQuality(Object.fromEntries((result.channels || []).map((item) => [item.channel_id, item])))
+      } catch {
+        // Quality is supplementary; channel health still renders from the node.
+      }
+    }
+    void load()
+    const timer = window.setInterval(() => void load(), 2000)
+    return () => { cancelled = true; window.clearInterval(timer) }
+  }, [tab, token])
+  return <section className="channel-workspace">
+    <div className="channel-workspace-tabs">
+      <div className="channel-workspace-switch" role="group" aria-label="通道">
+        <button className={tab === "status" ? "active" : ""} onClick={() => setTab("status")}>运行状态</button>
+        <button className={tab === "config" ? "active" : ""} onClick={() => setTab("config")}>端口配置</button>
+        <button className={tab === "tools" ? "active" : ""} onClick={() => setTab("tools")}>点表与模板</button>
+      </div>
+      <button className="secondary-button" onClick={goPoints}>点位表</button>
+    </div>
+    {tab === "status" ? <ChannelsView channels={channels} ioCounts={ioCounts} isAdmin={isAdmin} canOperate={canOperate} quality={quality} goConfigure={() => setTab("config")} onFrames={setFrameChannel} onRestart={(id) => void run(() => request(token, `/ems/channels/${id}/restart`, "POST", {}))} /> :
+      tab === "config" ? <CommunicationView token={token} nodes={nodes} roots={roots} groups={groups} canConfigure={isAdmin} canOperate={canOperate} run={run} onError={onError} goPoints={goPoints} /> :
+        <ModbusTools token={token} buses={channels} templates={templates} busy={busy} run={run} />}
+    <FrameDrawer token={token} channel={frameChannel} open={Boolean(frameChannel)} onClose={() => setFrameChannel(null)} onError={onError} />
+  </section>
+}
+
+function ChannelsView({ channels, ioCounts, isAdmin, canOperate, quality, goConfigure, onFrames, onRestart }: {
+  channels: Node[]; ioCounts: Map<string, number>; isAdmin: boolean; canOperate: boolean; quality: Record<string, QualityStats>; goConfigure: () => void; onFrames: (node: Node) => void; onRestart: (id: string) => void
+}) {
+  const rows = channels.map((node) => ({ node, state: channelState(node) }))
+  const online = rows.filter((row) => row.state.key === "online").length
+  const degraded = rows.filter((row) => row.state.key === "degraded").length
+  const offline = rows.filter((row) => row.state.key === "offline").length
+  return <section className="channel-page">
+    <div className="channel-summary">
+      <div><strong>{online}</strong><span>在线</span></div>
+      <div className={degraded ? "has-warning" : ""}><strong>{degraded}</strong><span>不稳定</span></div>
+      <div className={offline ? "has-error" : ""}><strong>{offline}</strong><span>离线</span></div>
+      <button onClick={goConfigure}><span>通信配置</span><strong>{isAdmin ? "端口、单元与点位" : "查看端口配置"}</strong><span aria-hidden="true">→</span></button>
+    </div>
+    <div className="channel-grid">
+      {rows.map(({ node, state }) => {
+        const protocol = point(node, "protocol")?.text || "Modbus"
+        const path = protocol === "TCP" ? point(node, "uri")?.text : point(node, "port")?.text
+        const poll = point(node, "pollPeriod")?.value
+        const baud = point(node, "baud")?.text || (point(node, "baud")?.value ? String(point(node, "baud")?.value) : "")
+        return <article className={`panel channel-card ${state.key}`} key={node.id}>
+          <div className="channel-card-head">
+            <div><span className="channel-protocol">{protocol}</span><h2>{nameOf(node)}</h2></div>
+            <span className={`channel-state ${state.key}`}><i />{state.label}</span>
+          </div>
+          <p className="channel-path">{path || "未设置通信地址"}</p>
+          <div className="channel-stats">
+            <div><strong>{ioCounts.get(node.id) || 0}</strong><span>点位</span></div>
+            <div><strong>{poll ? `${poll} ms` : "—"}</strong><span>轮询周期</span></div>
+            <div><strong>{protocol === "RTU" ? (baud || "—") : "TCP"}</strong><span>{protocol === "RTU" ? "波特率" : "协议"}</span></div>
+          </div>
+          {(() => { const q = quality[node.id]; return <div className="channel-quality"><span>{q ? `${q.success_rate.toFixed(1)}% 成功率` : "— 成功率"}</span><span>{q && q.polls > 0 ? `${Math.round(q.avg_latency_ms)} ms 平均` : "— 延迟"}</span><span className={q && q.failures > 0 ? "warn" : ""}>{q ? `${q.failures} 错误` : "— 错误"}</span></div> })()}
+          <div className="channel-card-foot"><span>{state.detail}</span><div className="channel-card-actions">{isAdmin && <button className="manage-button" onClick={() => onRestart(node.id)}>重启</button>}{canOperate && <button className="manage-button" onClick={() => onFrames(node)}>报文</button>}<button className="manage-button" onClick={goConfigure}>{isAdmin ? "配置端口" : "查看端口"}</button></div></div>
+        </article>
+      })}
+    </div>
+    {channels.length === 0 && <div className="panel empty-state large"><strong>还没有通信通道</strong><span>管理员可在“端口配置”中新增 Modbus TCP 或 RTU；单条通道故障不会影响其他通道。</span></div>}
+    <div className="panel channel-note"><strong>状态口径</strong><p>在线表示最近一次完整轮询仍在时效内；不稳定表示有通信错误但仍有成功轮询；离线表示超过时效或从未成功。端口参数、单元与点位在同一工作区的“端口配置”中维护。</p></div>
+  </section>
+}
+
+function UsersView({ snapshot, groups, busy, run }: { snapshot: Snapshot; groups: Node[]; busy: boolean; run: Run }) {
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [role, setRole] = useState("viewer")
+  const [parent, setParent] = useState(snapshot.roots[0])
+  const token = sessionStorage.getItem("easyems-token") || ""
+  return <section className="panel users-panel"><div className="panel-heading"><div><span className="section-kicker">默认无权限</span><h2>添加人员账号</h2><p>账号只能访问所属分组。查看者只读，操作员可控制，管理员可配置。</p></div></div>
+    <form className="user-form" onSubmit={(event) => {
+      event.preventDefault()
+      void run(async () => {
+        await request(token, "/users", "POST", { parent, email, password, role })
+        setEmail("")
+        setPassword("")
+      })
+    }}><label>登录账号<input value={email} onChange={(event) => setEmail(event.target.value)} required /></label><label>初始密码<input type="password" autoComplete="new-password" minLength={12} value={password} onChange={(event) => setPassword(event.target.value)} required /><small>至少 12 位，不写入导出或日志。</small></label><label>角色<select value={role} onChange={(event) => setRole(event.target.value)}><option value="viewer">查看者</option><option value="operator">操作员</option><option value="implementer">实施</option><option value="admin">管理员</option></select></label><label>可见与操作范围<select value={parent} onChange={(event) => setParent(event.target.value)}>{groups.map((group) => <option key={group.id} value={group.id}>{snapshot.roots.includes(group.id) ? "整个设备树" : nameOf(group)}</option>)}</select></label><button className="primary-button" disabled={busy}>创建账号</button></form>
+    <div className="permission-note"><strong>服务端权限边界</strong><p>通用 Simple IoT 节点接口与工程界面未开放；每个请求都检查当前账号、角色和树范围。</p></div>
+  </section>
+}

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#eaf5fd" />
+    <title>easyEMS · 能源设备工作台</title>
+    <!-- The CSS bundler targets older Safari and keeps only the prefixed form.
+         Declare the standard property here so modern browsers report it. -->
+    <style>
+      .panel, .rule-editor, .kpi-card, .flow-panel, .event-strip, .console-topbar,
+      .console-bottomnav, .console-directory, .display-panel, .login-intro, .login-form,
+      .channel-summary, .node-drawer, .users-panel, .delivery-panel, .deploy-card,
+      .allocator-member {
+        backdrop-filter: blur(24px) saturate(140%);
+      }
+      .flow-node, .secondary-button, .add-row-actions button, .device-control button, .manage-button {
+        backdrop-filter: blur(8px);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
