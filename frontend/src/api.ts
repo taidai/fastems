@@ -137,6 +137,10 @@ export type EmsAlarm = {
   detail: string
   device_id?: string
   point_id?: string
+  root_cause?: string
+  group_id?: string
+  count?: number
+  last_raised_at?: string
   active: boolean
   state: "active" | "acknowledged" | "resolved" | "closed"
   created_at: string

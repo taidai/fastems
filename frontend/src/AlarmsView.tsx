@@ -38,6 +38,7 @@ export default function AlarmsView({ token, rootID, nodes, canOperate, canConfig
   const [ackTarget, setAckTarget] = useState<EmsAlarm | null>(null)
   const [maintenanceReason, setMaintenanceReason] = useState("")
   const [maintenanceMinutes, setMaintenanceMinutes] = useState(120)
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
   const names = new Map(nodes.map((node) => [node.id, nameOf(node)]))
   const nameOfDevice = (id?: string) => (id ? names.get(id) || id : "—")
@@ -142,16 +143,35 @@ export default function AlarmsView({ token, rootID, nodes, canOperate, canConfig
     return Boolean(alarm.maintenance_until && new Date(alarm.maintenance_until).getTime() > Date.now())
   }
 
-  const active = alarms.filter((alarm) => alarm.active && !isMaintained(alarm))
+  const needsAttention = (alarm: EmsAlarm) => alarm.active && !isMaintained(alarm)
+  const active = alarms.filter(needsAttention)
   const unacked = active.filter((alarm) => alarm.state === "active")
   const maintained = alarms.filter((alarm) => alarm.active && isMaintained(alarm))
   const resolved = alarms.filter((alarm) => !alarm.active && alarm.state !== "closed")
-  const shown = filter === "active" ? active : alarms
+
+  const childrenByGroup = new Map<string, EmsAlarm[]>()
+  for (const alarm of alarms) {
+    if (!alarm.group_id) continue
+    const list = childrenByGroup.get(alarm.group_id) || []
+    list.push(alarm)
+    childrenByGroup.set(alarm.group_id, list)
+  }
+  const visibleChildren = (id: string) => (childrenByGroup.get(id) || []).filter((child) => filter === "all" || needsAttention(child))
+  const shown = alarms.filter((alarm) => !alarm.group_id && (filter === "all" || needsAttention(alarm) || visibleChildren(alarm.id).length > 0))
+
+  function toggleGroup(id: string) {
+    setExpanded((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   function exportAlarms() {
-    const rows = [["时间", "级别", "标题", "详情", "对象", "状态", "确认人", "处理说明"]]
-    for (const alarm of shown) {
-      rows.push([timeOf(alarm.created_at), alarm.severity, alarm.title, alarm.detail || "", nameOfDevice(alarm.device_id), alarm.state, alarm.acked_by || "", alarm.ack_note || ""])
+    const rows = [["时间", "级别", "标题", "详情", "对象", "根因", "次数", "状态", "确认人", "处理说明"]]
+    for (const alarm of alarms) {
+      rows.push([timeOf(alarm.created_at), alarm.severity, alarm.title, alarm.detail || "", nameOfDevice(alarm.device_id), nameOfDevice(alarm.root_cause), String(alarm.count || 1), alarm.state, alarm.acked_by || "", alarm.ack_note || ""])
     }
     const csv = rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",")).join(String.fromCharCode(10))
     const url = URL.createObjectURL(new Blob([String.fromCharCode(0xFEFF) + csv], { type: "text/csv;charset=utf-8" }))
@@ -160,6 +180,40 @@ export default function AlarmsView({ token, rootID, nodes, canOperate, canConfig
     link.download = "easyems-alarms.csv"
     link.click()
     URL.revokeObjectURL(url)
+  }
+
+  function renderCard(alarm: EmsAlarm, isChild: boolean) {
+    const children = isChild ? [] : visibleChildren(alarm.id)
+    const isOpen = expanded.has(alarm.id)
+    return <div key={alarm.id}>
+      <article className={`panel alarm-card ${alarm.severity} ${alarm.state}`}>
+        <div className="alarm-head">
+          <span className={`alarm-severity ${alarm.severity}`}>{severityNames[alarm.severity] || alarm.severity}</span>
+          <strong>{alarm.title}</strong>
+          {(alarm.count || 0) > 1 && <span className="alarm-count" style={{ fontSize: 12, opacity: 0.75 }}>×{alarm.count}</span>}
+          <span className="alarm-state">{stateNames[alarm.state] || alarm.state}</span>
+        </div>
+        <p>{alarm.detail || "没有更多说明"}</p>
+        <div className="alarm-meta">
+          <span>对象 {nameOfDevice(alarm.device_id)}</span>
+          {alarm.root_cause && <span>根因 {nameOfDevice(alarm.root_cause)}</span>}
+          <span>发生 {timeOf(alarm.created_at)}</span>
+          {alarm.acked_by && <span>确认人 {alarm.acked_by}{alarm.ack_note ? ` · ${alarm.ack_note}` : ""}</span>}
+        </div>
+        {isMaintained(alarm) && <div className="alarm-maintenance">维护中 · 至 {timeOf(alarm.maintenance_until || "")} · {alarm.maintenance_reason || "未填写原因"} · {alarm.maintained_by || "—"}</div>}
+        {(alarm.point_id || alarm.device_id) && nodes.some((node) => node.id === (alarm.point_id || alarm.device_id)) && <div className="alarm-drilldown"><button className="text-button" onClick={() => openHistory((alarm.point_id || alarm.device_id)!)}>查看点位趋势</button></div>}
+        {canOperate && <div className="alarm-actions">
+          {alarm.active && alarm.state === "active" && <button className="primary-button" disabled={busyId === alarm.id} onClick={() => void act(alarm, "ack")}>确认接手</button>}
+          {!isMaintained(alarm) && alarm.state !== "closed" && <button className="secondary-button" disabled={busyId === alarm.id} onClick={() => { setMaintaining(alarm); setMaintenanceReason(""); setMaintenanceMinutes(120) }}>维护</button>}
+          {isMaintained(alarm) && <button className="secondary-button" disabled={busyId === alarm.id} onClick={() => void act(alarm, "release")}>结束维护</button>}
+          {!alarm.active && alarm.state !== "closed" && <button className="secondary-button" disabled={busyId === alarm.id} onClick={() => void act(alarm, "close")}>关闭记录</button>}
+        </div>}
+      </article>
+      {!isChild && children.length > 0 && <>
+        <button className="text-button alarm-group-toggle" onClick={() => toggleGroup(alarm.id)}>{isOpen ? "收起同根因报警" : `同根因 ${children.length} 条`}</button>
+        {isOpen && <div className="alarm-children" style={{ paddingLeft: 24 }}>{children.map((child) => renderCard(child, true))}</div>}
+      </>}
+    </div>
   }
 
   return <section className="alarm-page">
@@ -182,27 +236,7 @@ export default function AlarmsView({ token, rootID, nodes, canOperate, canConfig
     </div>
 
     <div className="alarm-list">
-      {shown.map((alarm) => <article className={`panel alarm-card ${alarm.severity} ${alarm.state}`} key={alarm.id}>
-        <div className="alarm-head">
-          <span className={`alarm-severity ${alarm.severity}`}>{severityNames[alarm.severity] || alarm.severity}</span>
-          <strong>{alarm.title}</strong>
-          <span className="alarm-state">{stateNames[alarm.state] || alarm.state}</span>
-        </div>
-        <p>{alarm.detail || "没有更多说明"}</p>
-        <div className="alarm-meta">
-          <span>对象 {nameOfDevice(alarm.device_id)}</span>
-          <span>发生 {timeOf(alarm.created_at)}</span>
-          {alarm.acked_by && <span>确认人 {alarm.acked_by}{alarm.ack_note ? ` · ${alarm.ack_note}` : ""}</span>}
-        </div>
-        {isMaintained(alarm) && <div className="alarm-maintenance">维护中 · 至 {timeOf(alarm.maintenance_until || "")} · {alarm.maintenance_reason || "未填写原因"} · {alarm.maintained_by || "—"}</div>}
-        {(alarm.point_id || alarm.device_id) && nodes.some((node) => node.id === (alarm.point_id || alarm.device_id)) && <div className="alarm-drilldown"><button className="text-button" onClick={() => openHistory((alarm.point_id || alarm.device_id)!)}>查看点位趋势</button></div>}
-        {canOperate && <div className="alarm-actions">
-          {alarm.active && alarm.state === "active" && <button className="primary-button" disabled={busyId === alarm.id} onClick={() => void act(alarm, "ack")}>确认接手</button>}
-          {!isMaintained(alarm) && alarm.state !== "closed" && <button className="secondary-button" disabled={busyId === alarm.id} onClick={() => { setMaintaining(alarm); setMaintenanceReason(""); setMaintenanceMinutes(120) }}>维护</button>}
-          {isMaintained(alarm) && <button className="secondary-button" disabled={busyId === alarm.id} onClick={() => void act(alarm, "release")}>结束维护</button>}
-          {!alarm.active && alarm.state !== "closed" && <button className="secondary-button" disabled={busyId === alarm.id} onClick={() => void act(alarm, "close")}>关闭记录</button>}
-        </div>}
-      </article>)}
+      {shown.map((alarm) => renderCard(alarm, false))}
       {shown.length === 0 && <div className="panel empty-state large">
         <strong>{filter === "active" ? "没有需要处理的报警" : "还没有报警记录"}</strong>
         <span>设备离线、通道心跳过期、控制结果未知或规则异常时，会自动出现在这里。</span>

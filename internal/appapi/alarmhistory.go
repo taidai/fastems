@@ -23,6 +23,7 @@ type alarmEvent struct {
 	Title      string    `json:"title"`
 	Detail     string    `json:"detail,omitempty"`
 	DeviceID   string    `json:"device_id,omitempty"`
+	RootCause  string    `json:"root_cause,omitempty"`
 	State      string    `json:"state"`
 }
 
@@ -54,7 +55,7 @@ func (h *Handler) recordAlarmChange(value alarm.Alarm, transition string) {
 	event := alarmEvent{
 		Time: value.UpdatedAt, Key: value.Key, Transition: transition,
 		Severity: string(value.Severity), Title: value.Title, Detail: value.Detail,
-		DeviceID: value.DeviceID, State: string(value.State),
+		DeviceID: value.DeviceID, RootCause: value.RootCause, State: string(value.State),
 	}
 	if event.Time.IsZero() {
 		event.Time = time.Now()

@@ -11,6 +11,10 @@ import (
 	"time"
 )
 
+// defaultFloodWindow is how long a rapid re-activation of the same key is
+// treated as flapping rather than a new occurrence.
+const defaultFloodWindow = 60 * time.Second
+
 // Severity is the operational weight of an alarm.
 type Severity string
 
@@ -39,10 +43,14 @@ type Alarm struct {
 	Detail            string    `json:"detail"`
 	DeviceID          string    `json:"device_id,omitempty"`
 	PointID           string    `json:"point_id,omitempty"`
+	RootCause         string    `json:"root_cause,omitempty"`
+	GroupID           string    `json:"group_id,omitempty"`
 	Active            bool      `json:"active"`
 	State             State     `json:"state"`
 	CreatedAt         time.Time `json:"created_at"`
 	UpdatedAt         time.Time `json:"updated_at"`
+	Count             int       `json:"count,omitempty"`
+	LastRaisedAt      time.Time `json:"last_raised_at,omitempty"`
 	AckedBy           string    `json:"acked_by,omitempty"`
 	AckNote           string    `json:"ack_note,omitempty"`
 	MaintenanceUntil  time.Time `json:"maintenance_until,omitempty"`
@@ -59,25 +67,44 @@ type Maintenance struct {
 
 type Engine struct {
 	OnChange    func(Alarm, string)
+	FloodWindow time.Duration
 	mu          sync.Mutex
 	alarms      map[string]*Alarm
 	maintenance map[string]Maintenance
+	roots       map[string]string
 	order       []string
 }
 
 // New returns an empty alarm engine.
 func New() *Engine {
-	return &Engine{alarms: make(map[string]*Alarm), maintenance: make(map[string]Maintenance)}
+	return &Engine{
+		alarms:      make(map[string]*Alarm),
+		maintenance: make(map[string]Maintenance),
+		roots:       make(map[string]string),
+		FloodWindow: defaultFloodWindow,
+	}
 }
 
 // Raise creates or refreshes an alarm. Repeating the same condition does not
-// create duplicates; a resolved alarm that recurs becomes active again.
+// create duplicates; a resolved alarm that recurs becomes active again. Alarms
+// sharing a root cause (point or device) are grouped under the first one raised
+// for that cause. A rapid re-activation of the same key within the flood window
+// is suppressed: the occurrence count and last-raised time are updated instead
+// of starting a new record.
 func (e *Engine) Raise(now time.Time, key string, severity Severity, title, detail, deviceID, pointID string) (Alarm, error) {
 	if key == "" {
 		return Alarm{}, errors.New("alarm key is empty")
 	}
 	if severity != Info && severity != Warning && severity != Critical {
 		return Alarm{}, fmt.Errorf("invalid severity %q", severity)
+	}
+	rootCause := pointID
+	if rootCause == "" {
+		rootCause = deviceID
+	}
+	window := e.FloodWindow
+	if window <= 0 {
+		window = defaultFloodWindow
 	}
 	var notify Alarm
 	var transition string
@@ -99,20 +126,38 @@ func (e *Engine) Raise(now time.Time, key string, severity Severity, title, deta
 	if !found {
 		created := &Alarm{
 			ID: key, Key: key, Severity: severity, Title: title, Detail: detail,
-			DeviceID: deviceID, PointID: pointID, Active: true, State: Active,
+			DeviceID: deviceID, PointID: pointID, RootCause: rootCause,
+			Active: true, State: Active, Count: 1, LastRaisedAt: now,
 			CreatedAt: now, UpdatedAt: now,
 		}
 		e.alarms[key] = created
 		e.order = append(e.order, key)
+		if rootCause != "" {
+			if primary, grouped := e.roots[rootCause]; grouped && primary != key {
+				created.GroupID = primary
+			} else {
+				e.roots[rootCause] = key
+			}
+		}
 		notify, transition, notifyChange = *created, "raised", true
 		return *created, nil
 	}
 	changed := existing.Severity != severity || existing.Title != title || existing.Detail != detail
 	if !existing.Active {
+		if !existing.LastRaisedAt.IsZero() && now.Sub(existing.LastRaisedAt) <= window {
+			existing.Active = true
+			existing.State = Active
+			existing.UpdatedAt = now
+			existing.LastRaisedAt = now
+			existing.Count++
+			return *existing, nil
+		}
 		existing.Active = true
 		existing.State = Active
 		existing.CreatedAt = now
 		existing.AckedBy = ""
+		existing.Count = 1
+		existing.LastRaisedAt = now
 		changed = true
 		notify, transition, notifyChange = *existing, "raised", true
 	}
