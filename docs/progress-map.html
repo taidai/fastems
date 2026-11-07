@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>easyems 相对计划架构完成度</title>
+<style>
+  :root {
+    --ok: #2B8A57; --warn: #a46b1d; --bad: #b23a32; --muted: #5a6b7a; --ink: #1c2b38;
+    --line: #dbe4ec; --glass: #f6fafc;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "HarmonyOS Sans","PingFang SC","Microsoft YaHei",sans-serif; color: var(--ink); background: linear-gradient(160deg,#eef4f9,#e3edf5); padding: 28px; }
+  .wrap { max-width: 920px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: .5px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
+  .bar { height: 12px; border-radius: 999px; background: #e2e9f0; overflow: hidden; display: flex; }
+  .bar > div { height: 100%; }
+  .bar-ok { background: var(--ok); }
+  .bar-warn { background: var(--warn); }
+  .bar-bad { background: var(--bad); }
+  .bar-legend { display: flex; gap: 16px; margin: 8px 0 22px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+
+  .layer { border: 1px solid var(--line); border-radius: 14px; background: var(--glass); padding: 14px 16px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(20,40,60,.05); }
+  .layer-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .layer-head h2 { font-size: 16px; margin: 0; }
+  .layer-head .tag { font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 999px; }
+  .tag.ok { background: rgba(43,138,87,.14); color: var(--ok); }
+  .tag.warn { background: rgba(164,107,29,.14); color: var(--warn); }
+  .tag.bad { background: rgba(178,58,50,.12); color: var(--bad); }
+  .tag.gray { background: rgba(90,107,122,.14); color: var(--muted); }
+  .pct { margin-left: auto; font-size: 13px; font-weight: 700; color: var(--muted); }
+
+  .mods { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px,1fr)); gap: 7px; }
+  .mod { border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; font-size: 12px; background: #fff; }
+  .mod b { display: block; font-size: 12.5px; margin-bottom: 2px; }
+  .mod span { color: var(--muted); font-size: 11px; }
+  .mod.ok { border-left: 3px solid var(--ok); }
+  .mod.warn { border-left: 3px solid var(--warn); }
+  .mod.bad { border-left: 3px solid var(--bad); }
+  .mod.gray { border-left: 3px solid #9aa8b4; opacity: .8; }
+
+  .flow { display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap; margin: 4px 0; }
+  .flow .box { border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: 12px; background: #fff; }
+  .flow .box.ok { border-left: 3px solid var(--ok); }
+  .flow .box.warn { border-left: 3px solid var(--warn); }
+  .flow .box.bad { border-left: 3px solid var(--bad); }
+  .flow .arrow { color: #9aa8b4; font-size: 14px; }
+
+  .gap { border: 1px solid rgba(178,58,50,.3); background: rgba(178,58,50,.06); border-radius: 14px; padding: 14px 16px; }
+  .gap h2 { font-size: 15px; margin: 0 0 6px; color: var(--bad); }
+  .gap p { font-size: 13px; margin: 0; line-height: 1.7; }
+  .note { font-size: 12px; color: var(--muted); margin: 16px 0 0; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>easyems 相对计划架构 · 完成进度</h1>
+  <p class="sub">基准：《规模化储能 EMS 建设可行性方案》V1 单机柜范围 · 2026-11-07</p>
+
+  <div class="bar">
+    <div class="bar-ok" style="width:72%"></div>
+    <div class="bar-warn" style="width:20%"></div>
+    <div class="bar-bad" style="width:8%"></div>
+  </div>
+  <div class="bar-legend">
+    <span><i class="dot" style="background:var(--ok)"></i>完成（软件已验证）</span>
+    <span><i class="dot" style="background:var(--warn)"></i>部分 / 未真机验证</span>
+    <span><i class="dot" style="background:var(--bad)"></i>未做（V2 或定位外）</span>
+  </div>
+
+  <!-- 三层部署 -->
+  <div class="layer">
+    <div class="layer-head"><h2>三层部署体系</h2><span class="pct">只做了柜级</span></div>
+    <div class="flow">
+      <div class="box bad"><b>Cloud EMS</b>多站/OTA/报表</div>
+      <span class="arrow">—</span>
+      <div class="box warn"><b>Station EMS</b>多柜协调（单节点分配器代）</div>
+      <span class="arrow">—</span>
+      <div class="box ok"><b>Cabinet EMS ✅</b>当前实现</div>
+    </div>
+  </div>
+
+  <!-- 双核心 -->
+  <div class="layer">
+    <div class="layer-head"><h2>Control Core 控制核心</h2><span class="tag ok">基本完整</span><span class="pct">≈90%</span></div>
+    <div class="flow">
+      <div class="box ok">State 状态</div><span class="arrow">→</span>
+      <div class="box ok">Strategy 策略</div><span class="arrow">→</span>
+      <div class="box warn">Arbitration 仲裁</div><span class="arrow">→</span>
+      <div class="box ok">Safety 安全</div><span class="arrow">→</span>
+      <div class="box ok">Dispatch 分配</div><span class="arrow">→</span>
+      <div class="box ok">Feedback 回读</div>
+    </div>
+    <div class="mods" style="margin-top:10px">
+      <div class="mod ok"><b>策略</b><span>有序首条命中决策表</span></div>
+      <div class="mod ok"><b>安全门</b><span>范围/功率上限/条件/爬坡</span></div>
+      <div class="mod ok"><b>分配器</b><span>约束/优先级/死区/接管/模拟</span></div>
+      <div class="mod ok"><b>回读</b><span>命令确认/超时"结果未知"</span></div>
+      <div class="mod warn"><b>仲裁</b><span>首条命中+所有权，非独立仲裁层</span></div>
+    </div>
+  </div>
+
+  <div class="layer">
+    <div class="layer-head"><h2>Deployment Core 部署核心</h2><span class="tag warn">大部分</span><span class="pct">≈75%</span></div>
+    <div class="mods">
+      <div class="mod ok"><b>Modbus 扫描</b><span>/ems/scan 只读探测</span></div>
+      <div class="mod ok"><b>Device Profile</b><span>6 厂商 + 自定义档案</span></div>
+      <div class="mod ok"><b>通信测试</b><span>线路测试/质量统计</span></div>
+      <div class="mod ok"><b>接入向导</b><span>扫描→绑 Profile→映射→核对→验收</span></div>
+      <div class="mod ok"><b>点表 diff</b><span>导入前差异预览</span></div>
+      <div class="mod ok"><b>验收报告/证据包</b><span>通信报告 + 交付 zip</span></div>
+      <div class="mod bad"><b>Wiring Profile</b><span>标准柜接线模板</span></div>
+      <div class="mod bad"><b>CAN 接口</b><span>只做了 Modbus</span></div>
+    </div>
+  </div>
+
+  <div class="layer">
+    <div class="layer-head"><h2>Device Framework + Local UI</h2><span class="pct"></span></div>
+    <div class="mods">
+      <div class="mod warn"><b>Driver</b><span>Modbus TCP/RTU ✅ · CAN/HVAC ❌</span></div>
+      <div class="mod ok"><b>Local UI</b><span>13 页全功能（超出 V1 最小要求）</span></div>
+      <div class="mod ok"><b>本地自治</b><span>纯本地/离线可用/控制本地闭环</span></div>
+      <div class="mod gray"><b>Cloud</b><span>定位外：单机不依赖云端</span></div>
+    </div>
+  </div>
+
+  <!-- 关键缺口 -->
+  <div class="gap">
+    <h2>唯一硬缺口：M5 真机现场签收</h2>
+    <p>6 个厂商 Profile（恩玖 PCS / ESBCM BMS / TOKY·雅达电表 / 华为逆变器 / 吉瓦 MPPT）全部为「协议文档解析、未实机读写」。模拟器全绿 ≠ 真机全绿——寄存器字序、缩放倍数、写授权、极性只能现场逐台核对。这一步不过，Control Core 就不能「正式接管」。</p>
+  </div>
+
+  <p class="note">对照说明：计划架构是「Cloud → Station → Cabinet 三层规模化平台」，easyems 定位「单机柜 V1」——控制/部署双核心已落地成可运行代码、本地自治原则完全符合；差的是（1）真机签收（2）Wiring/CAN 规模化部署能力（3）云端统一管理层，后两者为方案明确的 V1.x/V2 范围。</p>
+</div>
+</body>
+</html>
