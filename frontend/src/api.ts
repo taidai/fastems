@@ -316,6 +316,12 @@ export async function fetchEnergyRule(token: string, energyUnitId: string) {
   return request<CapabilityRule>(token, `/energy-units/${energyUnitId}/rule`)
 }
 
+export type EnergyUnitSummary = { id: string; asset_code: string; description: string }
+
+export async function fetchEnergyUnits(token: string) {
+  return request<{ units: EnergyUnitSummary[] }>(token, `/energy-units`)
+}
+
 export async function saveEnergyRule(token: string, energyUnitId: string, rule: CapabilityRule) {
   return request<{ saved: boolean }>(token, `/energy-units/${energyUnitId}/rule`, "PUT", rule)
 }

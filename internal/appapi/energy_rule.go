@@ -44,6 +44,32 @@ func loadEnergyAllocator(node data.NodeEdge) ([]decision.EnergyMember, bool) {
 	return members, true
 }
 
+// listEnergyUnits 列出所有 EnergyUnit 节点（供前端选择进入能力级规则编辑器）。
+func (h *Handler) listEnergyUnits(w http.ResponseWriter, identity Identity) {
+	nodes, err := siotclient.GetNodes(h.nc, "all", "all", NodeTypeEnergyUnit, false)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "list_failed")
+		return
+	}
+	units := make([]map[string]string, 0, len(nodes))
+	for _, node := range nodes {
+		assetCode := ""
+		if point, ok := node.Points.Find(PointTypeAssetCode, ""); ok {
+			assetCode = point.Txt()
+		}
+		description := ""
+		if point, ok := node.Points.Find(data.PointTypeDescription, ""); ok {
+			description = point.Txt()
+		}
+		units = append(units, map[string]string{
+			"id":          node.ID,
+			"asset_code":  assetCode,
+			"description": description,
+		})
+	}
+	writeJSON(w, map[string]any{"units": units})
+}
+
 // energyRule 读写一个 EnergyUnit 上的能力级规则。
 func (h *Handler) energyRule(w http.ResponseWriter, r *http.Request, identity Identity, energyUnitID string) {
 	node, ok := h.node(w, identity, energyUnitID)

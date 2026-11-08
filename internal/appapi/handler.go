@@ -374,6 +374,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.setTariff(w, r, identity)
 	case path == "aggregate" && (r.Method == http.MethodGet || r.Method == http.MethodPut):
 		h.aggregate(w, r, identity)
+	case path == "energy-units" && r.Method == http.MethodGet:
+		h.listEnergyUnits(w, identity)
 	case len(parts) == 3 && parts[0] == "energy-units" && parts[2] == "rule" && (r.Method == http.MethodGet || r.Method == http.MethodPut):
 		h.energyRule(w, r, identity, parts[1])
 	case len(parts) == 3 && parts[0] == "energy-units" && parts[2] == "allocator" && (r.Method == http.MethodGet || r.Method == http.MethodPut):
