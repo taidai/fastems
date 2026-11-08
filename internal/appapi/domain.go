@@ -31,6 +31,9 @@ const (
 	PointTypeSiteConstraint         = "totalConstraint"
 	PointTypePlantTarget            = "plantTarget"
 	PointTypePlantConstraint        = "plantConstraint"
+	// PowerSetpoint 存该 Device 的功率设定 modbusIo 点位 ID，能力级调度
+	// 写 valueSet 到它，bridge 才能消费并写设备。
+	PointTypePowerSetpoint = "powerSetpoint"
 )
 
 // 能源类型（Q7=A：第一版只做储能，光伏/充电留类型定义）。

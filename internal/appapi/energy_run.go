@@ -53,14 +53,21 @@ func (h *Handler) RunCapabilityDispatch(energyUnitID string) ([]decision.DeviceD
 
 	dispatches := decision.DispatchCapability(rule, values, map[string][]decision.DeviceCapability{energyUnitID: cabinet})
 
-	// 写 Device 设定值到 valueSet 点，触发 bridge 写设备。
+	// 写 Device 设定值到 valueSet 点，触发 bridge 写设备。写目标优先取 Device
+	// 的 powerSetpoint 点位（功率设定 modbusIo 节点），缺省写 Device 节点。
 	for _, dispatch := range dispatches {
 		if dispatch.Excluded {
 			continue
 		}
+		targetID := dispatch.DeviceID
+		if nodes, err := siotclient.GetNodes(h.nc, "all", dispatch.DeviceID, "", false); err == nil && len(nodes) > 0 {
+			if point, found := nodes[0].Points.Find(PointTypePowerSetpoint, ""); found && point.Txt() != "" {
+				targetID = point.Txt()
+			}
+		}
 		point := data.NewPointFloat(data.PointTypeValueSet, "", dispatch.SetpointKW)
 		point.Origin = "capability-dispatch"
-		if err := siotclient.SendNodePoint(h.nc, dispatch.DeviceID, point, true); err != nil {
+		if err := siotclient.SendNodePoint(h.nc, targetID, point, true); err != nil {
 			return nil, fmt.Errorf("write device %s: %w", dispatch.DeviceID, err)
 		}
 	}
