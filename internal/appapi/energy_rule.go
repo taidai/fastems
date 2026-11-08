@@ -44,6 +44,62 @@ func loadEnergyAllocator(node data.NodeEdge) ([]decision.EnergyMember, bool) {
 	return members, true
 }
 
+// energyRule 读写一个 EnergyUnit 上的能力级规则。
+func (h *Handler) energyRule(w http.ResponseWriter, r *http.Request, identity Identity, energyUnitID string) {
+	node, ok := h.node(w, identity, energyUnitID)
+	if !ok {
+		return
+	}
+	if node.Type != NodeTypeEnergyUnit {
+		writeError(w, http.StatusBadRequest, "requires_energy_unit")
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		rule, _ := loadCapabilityRule(node)
+		writeJSON(w, rule)
+	case http.MethodPut:
+		if !canAction(identity, ActionConfigure) {
+			writeError(w, http.StatusForbidden, "admin_required")
+			return
+		}
+		var rule decision.CapabilityRule
+		if !decodeJSON(w, r, &rule) {
+			return
+		}
+		h.saveCapabilityRule(w, identity, energyUnitID, rule)
+	}
+}
+
+// energyAllocator 读写一个 EnergyUnit 上的能力级分配器成员。
+func (h *Handler) energyAllocator(w http.ResponseWriter, r *http.Request, identity Identity, energyUnitID string) {
+	node, ok := h.node(w, identity, energyUnitID)
+	if !ok {
+		return
+	}
+	if node.Type != NodeTypeEnergyUnit {
+		writeError(w, http.StatusBadRequest, "requires_energy_unit")
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		members, _ := loadEnergyAllocator(node)
+		writeJSON(w, map[string]any{"members": members})
+	case http.MethodPut:
+		if !canAction(identity, ActionConfigure) {
+			writeError(w, http.StatusForbidden, "admin_required")
+			return
+		}
+		var input struct {
+			Members []decision.EnergyMember `json:"members"`
+		}
+		if !decodeJSON(w, r, &input) {
+			return
+		}
+		h.saveEnergyAllocator(w, identity, energyUnitID, input.Members)
+	}
+}
+
 // saveCapabilityRule 把能力级规则写到 EnergyUnit 节点。
 func (h *Handler) saveCapabilityRule(w http.ResponseWriter, identity Identity, energyUnitID string, rule decision.CapabilityRule) {
 	node, ok := h.node(w, identity, energyUnitID)
