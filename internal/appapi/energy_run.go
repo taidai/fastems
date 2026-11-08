@@ -3,6 +3,7 @@ package appapi
 import (
 	"fmt"
 
+	"github.com/nats-io/nats.go"
 	siotclient "github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 
@@ -65,11 +66,31 @@ func (h *Handler) RunCapabilityDispatch(energyUnitID string) ([]decision.DeviceD
 				targetID = point.Txt()
 			}
 		}
-		point := data.NewPointFloat(data.PointTypeValueSet, "", dispatch.SetpointKW)
+		// Q11 爬坡限幅：读目标节点当前设定值，按爬坡/死区推进一档再写，
+		// 避免目标值突变造成设备冲击。无当前值（首次）时直接写目标。
+		setpoint := dispatch.SetpointKW
+		if current, ok := readCurrentSetpoint(h.nc, targetID); ok {
+			setpoint = decision.RampLimit(current, dispatch.SetpointKW, decision.DefaultRampParams())
+		}
+		point := data.NewPointFloat(data.PointTypeValueSet, "", setpoint)
 		point.Origin = "capability-dispatch"
 		if err := siotclient.SendNodePoint(h.nc, targetID, point, true); err != nil {
 			return nil, fmt.Errorf("write device %s: %w", dispatch.DeviceID, err)
 		}
 	}
 	return dispatches, nil
+}
+
+// readCurrentSetpoint 读一个节点的当前设定值（valueSet 点）。无该点或非
+// 数值时返回 ok=false，调用方按"无当前值"处理（直接写目标）。
+func readCurrentSetpoint(nc *nats.Conn, nodeID string) (float64, bool) {
+	nodes, err := siotclient.GetNodes(nc, "all", nodeID, "", false)
+	if err != nil || len(nodes) == 0 {
+		return 0, false
+	}
+	point, found := nodes[0].Points.Find(data.PointTypeValueSet, "")
+	if !found {
+		return 0, false
+	}
+	return pointFloat(point), true
 }
