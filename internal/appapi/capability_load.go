@@ -1,11 +1,23 @@
 package appapi
 
 import (
+	"strconv"
+
 	"github.com/nats-io/nats.go"
 	siotclient "github.com/simpleiot/simpleiot/client"
+	"github.com/simpleiot/simpleiot/data"
 
 	"easyems/internal/decision"
 )
+
+// pointFloat 读一个 point 的数值，兼容 string 与 float point。
+func pointFloat(point data.Point) float64 {
+	value, err := strconv.ParseFloat(point.Txt(), 64)
+	if err != nil {
+		return 0
+	}
+	return value
+}
 
 // LoadCapabilityValues 从节点树读取 EnergyUnit 的能力/测点值，汇总成
 // decision.CapabilityValues 供能力级调度使用。第一版只读 EnergyUnit 节点
@@ -20,8 +32,8 @@ func LoadCapabilityValues(nc *nats.Conn, energyUnitIDs []string) (decision.Capab
 		}
 		node := nodes[0]
 		fields := make(map[decision.CapabilityField]float64)
-		if value, ok := node.Points.Value(PointTypeRatedPowerKW, ""); ok {
-			fields[decision.FieldRatedPower] = value
+		if point, ok := node.Points.Find(PointTypeRatedPowerKW, ""); ok {
+			fields[decision.FieldRatedPower] = pointFloat(point)
 		}
 		if point, ok := node.Points.Find(PointTypeCapability, ""); ok {
 			capability, err := DecodeCapability(point.Txt())

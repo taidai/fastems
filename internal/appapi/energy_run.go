@@ -34,7 +34,10 @@ func (h *Handler) RunCapabilityDispatch(energyUnitID string) ([]decision.DeviceD
 	}
 	cabinet := make([]decision.DeviceCapability, 0, len(devices))
 	for _, device := range devices {
-		rated, _ := device.Points.Value(PointTypeRatedPowerKW, "")
+		rated := 0.0
+		if point, found := device.Points.Find(PointTypeRatedPowerKW, ""); found {
+			rated = pointFloat(point)
+		}
 		available := rated
 		if point, found := device.Points.Find(PointTypeCapability, ""); found {
 			if capability, err := DecodeCapability(point.Txt()); err == nil && capability.PowerMaxKW > 0 {
