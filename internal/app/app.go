@@ -120,6 +120,7 @@ func Start(ctx context.Context, cfg Config) (*App, error) {
 		log.Println("easyems profiles:", message)
 	}
 	handlerRef := new(atomic.Value)
+	var energyDispatch func(string) error
 	options := server.Options{
 		ID:           "easyems",
 		DataDir:      cfg.DataDir,
@@ -139,6 +140,10 @@ func Start(ctx context.Context, cfg Config) (*App, error) {
 			handler.SetSessionPolicy(envMinutes("EASYEMS_SESSION_TIMEOUT_MINUTES", 30), envCount("EASYEMS_MAX_SESSIONS", 5))
 			emsHandler.PersistMaintenance = handler.PersistAlarmMaintenance
 			handler.SetEMS(emsHandler)
+			energyDispatch = func(id string) error {
+				_, err := handler.RunCapabilityDispatch(id)
+				return err
+			}
 			fullHandler := api.NewAppHandler(api.ServerArgs{
 				AppOnly:      true,
 				AppHandler:   handler,
@@ -174,6 +179,14 @@ func Start(ctx context.Context, cfg Config) (*App, error) {
 		emsCancel()
 		emsService.Close()
 	})
+
+	energyScheduler := appapi.NewEnergyScheduler(nc, func(energyUnitID string) error {
+		if energyDispatch == nil {
+			return nil
+		}
+		return energyDispatch(energyUnitID)
+	})
+	group.Add(energyScheduler.Run, energyScheduler.Stop)
 
 	watcher := alarmwatch.NewWatcher(nc, emsService.Alarms)
 	group.Add(func() error {
