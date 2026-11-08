@@ -6,6 +6,8 @@ import (
 
 	"github.com/nats-io/nats.go"
 	siotclient "github.com/simpleiot/simpleiot/client"
+
+	"easyems/internal/decision"
 )
 
 // EnergyScheduler 是全局能力级调度器：每个周期扫描所有 EnergyUnit 节点，
@@ -51,7 +53,8 @@ func (s *EnergyScheduler) tick() {
 		return
 	}
 	for _, node := range nodes {
-		if _, ok := loadCapabilityRule(node); !ok {
+		rule, ok := loadCapabilityRule(node)
+		if !ok || rule.State != decision.RulePublished {
 			continue
 		}
 		if err := s.dispatch(node.ID); err != nil {

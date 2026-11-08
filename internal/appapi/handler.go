@@ -378,6 +378,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.listEnergyUnits(w, identity)
 	case len(parts) == 3 && parts[0] == "energy-units" && parts[2] == "rule" && (r.Method == http.MethodGet || r.Method == http.MethodPut):
 		h.energyRule(w, r, identity, parts[1])
+	case len(parts) == 4 && parts[0] == "energy-units" && parts[2] == "rule" && parts[3] == "publish" && r.Method == http.MethodPost:
+		h.publishCapabilityRule(w, r, identity, parts[1])
+	case len(parts) == 4 && parts[0] == "energy-units" && parts[2] == "rule" && parts[3] == "simulate" && r.Method == http.MethodPost:
+		h.simulateCapabilityRule(w, r, identity, parts[1])
 	case len(parts) == 3 && parts[0] == "energy-units" && parts[2] == "allocator" && (r.Method == http.MethodGet || r.Method == http.MethodPut):
 		h.energyAllocator(w, r, identity, parts[1])
 	case path == "safety" && r.Method == http.MethodPut:

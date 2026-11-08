@@ -22,6 +22,9 @@ func (h *Handler) RunCapabilityDispatch(energyUnitID string) ([]decision.DeviceD
 	if !ok {
 		return nil, fmt.Errorf("no capability rule on %s", energyUnitID)
 	}
+	if rule.State != decision.RulePublished {
+		return nil, fmt.Errorf("capability rule on %s is not published", energyUnitID)
+	}
 
 	values, err := LoadCapabilityValues(h.nc, []string{energyUnitID})
 	if err != nil {

@@ -301,6 +301,8 @@ export type CapabilityAction = {
 
 export type CapabilityRule = {
   id: string
+  state?: string
+  published_at?: string
   conditions: CapabilityCondition[]
   actions: CapabilityAction[]
 }
@@ -324,6 +326,14 @@ export async function fetchEnergyUnits(token: string) {
 
 export async function saveEnergyRule(token: string, energyUnitId: string, rule: CapabilityRule) {
   return request<{ saved: boolean }>(token, `/energy-units/${energyUnitId}/rule`, "PUT", rule)
+}
+
+export async function publishEnergyRule(token: string, energyUnitId: string) {
+  return request<{ saved: boolean }>(token, `/energy-units/${energyUnitId}/rule/publish`, "POST", {})
+}
+
+export async function simulateEnergyRule(token: string, energyUnitId: string, rule: CapabilityRule, values: Record<string, Record<string, number>>) {
+  return request<{ actions: CapabilityAction[] }>(token, `/energy-units/${energyUnitId}/rule/simulate`, "POST", { rule, values })
 }
 
 export async function fetchEnergyAllocator(token: string, energyUnitId: string) {

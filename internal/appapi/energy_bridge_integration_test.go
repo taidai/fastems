@@ -85,7 +85,8 @@ func TestCapabilityDispatchWritesPowerPoint(t *testing.T) {
 		t.Fatal(err)
 	}
 	rule := decision.CapabilityRule{
-		ID: "discharge-150",
+		ID:    "discharge-150",
+		State: decision.RulePublished,
 		Conditions: []decision.CapabilityCondition{
 			{Ref: decision.CapabilityRef{EnergyUnitID: energyUnitID, Field: decision.FieldRatedPower}, Operator: "gt", Value: 100},
 		},
