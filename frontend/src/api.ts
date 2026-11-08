@@ -287,6 +287,47 @@ export async function saveAllocator(token: string, nodeId: string, config: Alloc
   return request<{ saved: boolean }>(token, `/ems/allocators/${nodeId}`, "PUT", config)
 }
 
+// 能力级调度（领域模型重构）：规则条件引用 EnergyUnit 能力，动作是功率请求。
+export type CapabilityCondition = {
+  ref: { energy_unit_id: string; field: string }
+  operator: string
+  value: number
+}
+
+export type CapabilityAction = {
+  energy_unit_id: string
+  request_kw: number
+}
+
+export type CapabilityRule = {
+  id: string
+  conditions: CapabilityCondition[]
+  actions: CapabilityAction[]
+}
+
+export type EnergyMember = {
+  energy_unit_id: string
+  min_power?: number
+  priority?: number
+  weight?: number
+}
+
+export async function fetchEnergyRule(token: string, energyUnitId: string) {
+  return request<CapabilityRule>(token, `/energy-units/${energyUnitId}/rule`)
+}
+
+export async function saveEnergyRule(token: string, energyUnitId: string, rule: CapabilityRule) {
+  return request<{ saved: boolean }>(token, `/energy-units/${energyUnitId}/rule`, "PUT", rule)
+}
+
+export async function fetchEnergyAllocator(token: string, energyUnitId: string) {
+  return request<{ members: EnergyMember[] }>(token, `/energy-units/${energyUnitId}/allocator`)
+}
+
+export async function saveEnergyAllocator(token: string, energyUnitId: string, members: EnergyMember[]) {
+  return request<{ saved: boolean }>(token, `/energy-units/${energyUnitId}/allocator`, "PUT", { members })
+}
+
 export type AllocShare = {
   member_id: string
   capacity: number
