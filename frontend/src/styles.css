@@ -2832,3 +2832,12 @@ body::after {
 .screen-tile-badges { display: inline-flex; align-items: center; gap: 6px; }
 .screen-tile-alarm { display: inline-flex; align-items: center; min-height: 22px; padding: 0 8px; border-radius: 999px; background: rgba(177, 75, 83, 0.12); color: #8a3b41; font-size: 11px; white-space: nowrap; }
 
+/* 能力级规则编辑器 */
+.energy-rule-editor { display: flex; flex-direction: column; gap: 12px; }
+.energy-rule-section { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255, 255, 255, 0.34); }
+.energy-rule-section > strong { font-size: 13px; }
+.energy-rule-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.energy-rule-row select { min-height: 34px; font-size: 12px; }
+.energy-rule-row input { width: 110px; min-height: 34px; font-size: 12px; }
+.energy-rule-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
