@@ -304,10 +304,12 @@ export default function HistoryView({ token, points, initialPoint, onError, isAd
   }
 
   if (points.length === 0) {
-    return <div className="panel empty-state large">
-      <strong>还没有可查询的点位</strong>
-      <span>先在工作台接入 Modbus 设备或添加测试变量，历史与趋势会从这里读取。</span>
-    </div>
+    return <section className="history-page">
+      <div className="panel empty-state large">
+        <strong>还没有可查询的点位</strong>
+        <span>先在工作台接入 Modbus 设备或添加测试变量，历史与趋势会从这里读取。</span>
+      </div>
+    </section>
   }
 
   return <section className="history-page">
