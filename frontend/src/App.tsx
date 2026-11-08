@@ -16,6 +16,7 @@ import AggregatesView from "./AggregatesView"
 import CommunicationView from "./CommunicationView"
 import ModbusTools from "./ModbusTools"
 import DeviceLedgerView from "./DeviceLedgerView"
+import EnergyUnitsView from "./EnergyUnitsView"
 import FrameDrawer from "./FrameDrawer"
 import EnergyFlow, { type DispatchInfo } from "./EnergyFlow"
 import AssistantPanel from "./AssistantPanel"
@@ -47,7 +48,7 @@ import {
 
 const emptyDocument: Document = { table: { rows: [] }, bindings: { points: {}, actions: {} } }
 const roleNames: Record<string, string> = { admin: "管理员", implementer: "实施", operator: "操作员", viewer: "查看者" }
-type Page = "devices" | "screen" | "ledger" | "points" | "channels" | "aggregate" | "deploy" | "allocators" | "alarms" | "history" | "rules" | "users" | "audit" | "delivery"
+type Page = "devices" | "screen" | "ledger" | "points" | "channels" | "aggregate" | "deploy" | "allocators" | "energyUnits" | "alarms" | "history" | "rules" | "users" | "audit" | "delivery"
 type DisplaySettings = { background: number; glass: number }
 const defaultDisplay: DisplaySettings = { background: 78, glass: 62 }
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
@@ -452,7 +453,7 @@ export default function App() {
   const tabs = [
     { key: "devices", label: "总览", icon: "home" as IconName, pages: ["devices", "screen"] },
     { key: "channels", label: "设备", icon: "devices" as IconName, pages: ["ledger", "points", "channels", "aggregate"] },
-    { key: "rules", label: "调度", icon: "sliders" as IconName, pages: ["rules", "allocators"] },
+    { key: "rules", label: "调度", icon: "sliders" as IconName, pages: ["rules", "allocators", "energyUnits"] },
     { key: "history", label: "数据", icon: "report" as IconName, pages: ["alarms", "history"] },
     { key: "deploy", label: "配置", icon: "gear" as IconName, pages: ["deploy", "users", "audit"] },
   ]
@@ -460,7 +461,7 @@ export default function App() {
   const directory: { key: Page; label: string; adminOnly?: boolean; configOnly?: boolean }[] = [
     { key: "devices", label: "工作台" }, { key: "screen", label: "运行画面" }, { key: "ledger", label: "设备台账" },
     { key: "points", label: "点位表" }, { key: "channels", label: "通道" }, { key: "aggregate", label: "虚拟聚合" },
-    { key: "rules", label: "决策表" }, { key: "allocators", label: "功率分配器", configOnly: true },
+    { key: "rules", label: "决策表" }, { key: "allocators", label: "功率分配器", configOnly: true }, { key: "energyUnits", label: "能源节点", configOnly: true },
     { key: "alarms", label: "报警与事件" }, { key: "history", label: "数据与追溯" },
     { key: "deploy", label: "部署与验收", configOnly: true },
     { key: "users", label: "账号与权限", adminOnly: true }, { key: "audit", label: "审计日志", adminOnly: true },
@@ -577,6 +578,8 @@ export default function App() {
         token={token} nodes={view.nodes} groups={groups} points={points}
         isAdmin={canConfigure} busy={busy} run={run} onError={setError}
       />}
+
+      {page === "energyUnits" && canConfigure && <EnergyUnitsView token={token} onError={setError} />}
 
       {page === "alarms" && <AlarmsView token={token} rootID={view.roots[0]} nodes={view.nodes} canOperate={canOperate} canConfigure={canConfigure} onError={setError} openHistory={(id) => { setHistoryPoint(id); setPage("history") }} />}
 
