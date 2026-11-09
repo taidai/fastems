@@ -20,6 +20,8 @@
 | T16 越权/模拟写入 | 各角色×动作 | 默认拒绝，白名单覆盖 | 权限矩阵通过 ✅ | `internal/appapi/permission_test.go` |
 | T18 值班员复盘 | 一次调度 | dispatchID 串起能力/分配/设定可复盘 | 追溯完整 ✅ | `TestDispatchRecordTraceable` |
 | T27 资源分组共享约束 | 两柜各60目标100，共享上限70 | 合计≤70、缺口30、不重复下发 | 合计70缺口30 ✅ | `TestAcceptanceT27SharedConstraint` `TestGroupDispatchRespectsSharedLimit` |
+| T19 多站逐 PCC 独立闭环 | A 反送-30、B 正常+30 | A 独立削减、B 独立达标不动作 | A 削减-30、B 不动作 ✅ | `TestMultiPlantIndependentPCC` |
+| OBJ-02 多目标仲裁 | 单柜放电+60 vs 防逆流充电-50 | 仲裁选防逆流，写充电负值 | 写充电-50 ✅ | `TestPlantAntiReverseWritesDevice`（RunUnitArbitratedDispatch） |
 
 ## 与清单算例的策略差异（已定案）
 
