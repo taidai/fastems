@@ -273,6 +273,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	parts := strings.Split(path, "/")
 	switch {
+	case path == "ws":
+		h.serveWS(w, r, identity)
 	case path == "snapshot" && r.Method == http.MethodGet:
 		h.snapshot(w, identity)
 	case path == "audit" && r.Method == http.MethodGet:
