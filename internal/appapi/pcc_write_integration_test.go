@@ -2,6 +2,7 @@ package appapi
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"path/filepath"
 	"testing"
@@ -18,8 +19,8 @@ import (
 	"easyems/internal/ems/bridge"
 )
 
-// TestPlantAntiReverseWritesDevice 隔离验证防逆流真正写设备：主表反送时，
-// 储能柜的功率点位被写入充电（负值）。无单柜规则干扰。
+// TestPlantAntiReverseWritesDevice 验证多目标仲裁：单柜规则放电 +60 与站级
+// 防逆流充电 -50 同时存在时，仲裁选防逆流（高优先级），功率点位写充电负值。
 func TestPlantAntiReverseWritesDevice(t *testing.T) {
 	dataDir := filepath.Join(t.TempDir(), "data")
 	options := server.Options{
@@ -75,18 +76,21 @@ func TestPlantAntiReverseWritesDevice(t *testing.T) {
 	_, _ = CreateDomainNode(nc, unitID, data.NodeTypeDevice, map[string]string{
 		PointTypeAssetCode: "PCS1", PointTypeRatedPowerKW: "100", PointTypePowerSetpoint: powerPointID,
 	})
+	// 单柜规则：放电 +60（与站级防逆流充电 -50 冲突）。
+	rule := decision.CapabilityRule{
+		ID: "r", State: decision.RulePublished,
+		Conditions: []decision.CapabilityCondition{
+			{Ref: decision.CapabilityRef{EnergyUnitID: unitID, Field: decision.FieldRatedPower}, Operator: "gt", Value: 50},
+		},
+		Actions: []decision.CapabilityAction{{EnergyUnitID: unitID, RequestKW: 60}},
+	}
+	ruleText, _ := json.Marshal(rule)
+	_ = siotclient.SendNodePoint(nc, unitID, data.NewPointString(capabilityRulePoint, "", string(ruleText)), true)
 
 	handler := &Handler{nc: nc}
-	allocations, err := handler.RunPlantAntiReverse(plantID)
-	if err != nil {
+	// 统一仲裁：防逆流（高优先级）应赢过单柜放电规则。
+	if err := handler.RunUnitArbitratedDispatch(unitID); err != nil {
 		t.Fatal(err)
-	}
-	total := 0.0
-	for _, a := range allocations {
-		total += a.SetpointKW
-	}
-	if total >= 0 {
-		t.Fatalf("防逆流应分配充电（负值），实测合计 %.1f", total)
 	}
 	// 验证功率点位被写入负值（充电削减）。
 	source := bridge.NewNodeSource(nc)

@@ -142,8 +142,7 @@ func Start(ctx context.Context, cfg Config) (*App, error) {
 			emsHandler.PersistMaintenance = handler.PersistAlarmMaintenance
 			handler.SetEMS(emsHandler)
 			energyDispatch = func(id string) error {
-				_, err := handler.RunCapabilityDispatch(id)
-				return err
+				return handler.RunUnitArbitratedDispatch(id)
 			}
 			plantDispatch = func(id string) error {
 				_, err := handler.RunPlantAntiReverse(id)
