@@ -158,6 +158,10 @@ function latestDispatch(rules: Node[], nodes: Node[]): DispatchInfo | null {
   return best?.info ?? null
 }
 
+function isDomainNode(type: string) {
+  return type === "site" || type === "plant" || type === "energyUnit" || type === "device"
+}
+
 function subtreeSnapshot(snapshot: Snapshot, rootID: string): Snapshot {  if (!rootID || !snapshot.roots.includes(rootID)) return snapshot
   const children = new Map<string, Node[]>()
   for (const node of snapshot.nodes) {
@@ -694,7 +698,16 @@ function DevicesView({ snapshot, points, groups, rules, activeRules, errors, ala
         </form>}
         {isAdmin && <details className="modbus-setup"><summary>接入 Modbus TCP / RTU</summary><p className="form-note">端口、单元与点位已统一在“通道”页配置。</p><button className="secondary-button" onClick={goChannels}>打开通道配置</button></details>}
         <div className="device-list">
-          {snapshot.nodes.filter((node) => node.type === "group" || node.type === "modbus" || node.type === "variable" || node.type === "modbusIo").map((node) => {
+          {snapshot.nodes.filter((node) => isDomainNode(node.type) || node.type === "group" || node.type === "modbus" || node.type === "variable" || node.type === "modbusIo").map((node) => {
+            if (isDomainNode(node.type)) {
+              const domainTypeName = { site: "站点", plant: "电站", energyUnit: "储能柜", device: "设备" }[node.type] || node.type
+              const domainIcon = { site: "站", plant: "电", energyUnit: "柜", device: "设" }[node.type] || "域"
+              const rated = point(node, "ratedPowerKW")?.text
+              return <div className="device-line domain" key={`${node.parent}/${node.id}`}>
+                <div className={`device-icon ${node.type}`} aria-hidden="true">{domainIcon}</div>
+                <div className="device-name"><strong>{nameOf(node)}</strong><span>{domainTypeName}{rated ? ` · 额定 ${rated} kW` : ""}</span></div>
+              </div>
+            }
             const value = point(node, "value")?.value
             const target = point(node, "valueSet")?.value
             const units = point(node, "units")?.text || ""
@@ -719,7 +732,7 @@ function DevicesView({ snapshot, points, groups, rules, activeRules, errors, ala
               </div>}
             </div>
           })}
-          {!snapshot.nodes.some((node) => node.type === "group" || node.type === "modbus" || node.type === "variable" || node.type === "modbusIo") && <div className="empty-state"><strong>设备树还是空的</strong><span>管理员可添加分组、测试变量；Modbus 端口与点位在“通道”页配置。</span></div>}
+          {!snapshot.nodes.some((node) => isDomainNode(node.type) || node.type === "group" || node.type === "modbus" || node.type === "variable" || node.type === "modbusIo") && <div className="empty-state"><strong>设备树还是空的</strong><span>管理员可添加分组、测试变量；Modbus 端口与点位在“通道”页配置。</span></div>}
         </div>
       </div>
 
