@@ -610,9 +610,8 @@ export default function PointsView({ token, nodes, isAdmin, canOperate, busy, ru
         <span>已选 {selected.size} / 筛选 {visible.length} / 全部 {rows.length}</span>
         <button className="secondary-button" disabled={!visible.length} onClick={() => downloadCSV(selectedRows.length ? selectedRows : visible)}>导出 CSV</button>
         {isAdmin && <button className="secondary-button" disabled={!selected.size || busy} onClick={openBatchEdit}>批量改缩放/偏移</button>}
-        {isAdmin && <button className="secondary-button" disabled={!selected.size || busy} onClick={() => batchDisabled(true)}>批量停用</button>}
-        {isAdmin && <button className="secondary-button" disabled={!selected.size || busy} onClick={() => batchDisabled(false)}>批量启用</button>}
-        {canOperate && <button className="primary-button" disabled={!writableSelected.length || busy} title={!writableSelected.length ? "选择至少一个可写点位" : undefined} onClick={openBatchWrite}>批量下发</button>}
+        {isAdmin && <span className="point-batch-group"><button className="secondary-button" disabled={!selected.size || busy} onClick={() => batchDisabled(true)}>批量停用</button><button className="secondary-button" disabled={!selected.size || busy} onClick={() => batchDisabled(false)}>批量启用</button><button className="secondary-button" disabled={!selected.size || busy} onClick={openBatchEdit}>批量改缩放/偏移</button></span>}
+        {canOperate && <button className="primary-button" disabled={!writableSelected.length || busy} title={!writableSelected.length ? "先勾选表格左侧选择框，至少选一个可写点位" : undefined} onClick={openBatchWrite}>批量下发</button>}
         {isAdmin && <button className="danger-button" disabled={!selected.size || busy} onClick={batchDelete}>批量删除</button>}
         {batchNotice && <span className="point-batch-ok">{batchNotice}</span>}
       </div>

@@ -2472,8 +2472,12 @@ body::after {
 .channel-tool-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
 .channel-tool-row label { display: grid; gap: 5px; color: var(--muted); font-size: 11.5px; }
 .channel-tool-row input { width: 96px; min-height: 36px; }
+.channel-tool-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .channel-tool-result { display: grid; gap: 8px; margin-top: 8px; }
 .channel-tool-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.port-diff { border: 1px solid var(--amber); border-radius: 8px; padding: 10px 12px; background: rgba(176, 122, 42, 0.06); }
+.port-diff-warning { color: var(--amber); font-weight: 600; }
+.point-batch-group { display: inline-flex; gap: 8px; }
 @media (max-width: 1150px) {
   .modbus-tool-fields label { font-size: 14px; }
   .modbus-tool-fields input, .modbus-tool-fields select { min-height: 42px; font-size: 16px; }

@@ -621,8 +621,10 @@ export default function CommunicationView({ token, nodes, roots, groups, canConf
           <div className="channel-tool-row">
             <label>起始站号<input type="number" min={1} max={247} value={scanFrom} onChange={(event) => setScanFrom(Number(event.target.value))} /></label>
             <label>结束站号<input type="number" min={1} max={247} value={scanTo} onChange={(event) => setScanTo(Number(event.target.value))} /></label>
-            <button className="secondary-button" disabled={lineTestBusy || scanBusy} onClick={() => void runLineTest()}>{lineTestBusy ? "测试中…" : "线路测试"}</button>
-            <button className="secondary-button" disabled={scanBusy || lineTestBusy} onClick={() => void runScanInline()}>{scanBusy ? "扫描中…" : "扫描站号"}</button>
+            <div className="channel-tool-actions">
+              <button className="secondary-button" disabled={lineTestBusy || scanBusy} title="用当前端口持久化参数，验证是否连通、站号是否可读" onClick={() => void runLineTest()}>{lineTestBusy ? "测试中…" : "线路测试"}</button>
+              <button className="secondary-button" disabled={scanBusy || lineTestBusy} title="临时打开总线，搜索当前范围内有哪些站号响应" onClick={() => void runScanInline()}>{scanBusy ? "扫描中…" : "扫描站号"}</button>
+            </div>
           </div>
           {lineTestError && <div className="inline-error" role="alert">{lineTestError}</div>}
           {lineTest && <div className="channel-tool-result">
@@ -764,8 +766,8 @@ export default function CommunicationView({ token, nodes, roots, groups, canConf
           </div>
           {portOriginal && (() => {
             const diffs = portDiff(portOriginal, portForm)
-            return diffs.length > 0 && <div className="comm-test">
-              <div className="form-section-title"><strong>参数变更</strong><span>保存前核对前值 → 新值</span></div>
+            return diffs.length > 0 && <div className="comm-test port-diff">
+              <div className="form-section-title"><strong>参数变更</strong><span className="port-diff-warning">保存前核对前值 → 新值</span></div>
               <dl className="communication-fields">
                 {diffs.map((diff) => <div key={diff.label}><dt>{diff.label}</dt><dd>{diff.before} → {diff.after}</dd></div>)}
               </dl>
