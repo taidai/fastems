@@ -15,6 +15,17 @@ const (
 	FieldRatedPower     CapabilityField = "rated_power"     // 额定功率 kW
 	FieldStatus         CapabilityField = "status"          // 状态
 	FieldEnergyType     CapabilityField = "energy_type"     // 能源类型（方向约束）
+
+	// 通用能力：当前实测功率（发电/负载，按类型语义）。
+	FieldActualPower CapabilityField = "actual_power"
+	// 光伏专属：估算可用出力、限发设定、预测出力。
+	FieldPVAvailableKW CapabilityField = "pv_available_kw"
+	FieldPVLimitKW     CapabilityField = "pv_limit_kw"
+	FieldPVForecastKW  CapabilityField = "pv_forecast_kw"
+	// 充电桩专属：最大负载、可削减功率、在线率。
+	FieldEVMaxLoadKW      CapabilityField = "ev_max_load_kw"
+	FieldEVCurtailableKW  CapabilityField = "ev_curtailable_kw"
+	FieldEVOnlineRatio    CapabilityField = "ev_online_ratio"
 )
 
 // 能源类型编码（FieldEnergyType 的取值）：决定节点的可调方向。

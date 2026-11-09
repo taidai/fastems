@@ -45,6 +45,14 @@ const (
 	// ResourceGroup 的共享功率上限（kW）与成员（EnergyUnit ID 的 JSON 数组）。
 	PointTypeSharedLimitKW = "sharedLimitKW"
 	PointTypeGroupMembers  = "groupMembers"
+	// 通用能力与光伏/充电专属能力点位（通用型能力模型的丰富字段）。
+	PointTypeActualPower     = "actualPower"
+	PointTypePVAvailableKW   = "pvAvailableKW"
+	PointTypePVLimitKW       = "pvLimitKW"
+	PointTypePVForecastKW    = "pvForecastKW"
+	PointTypeEVMaxLoadKW     = "evMaxLoadKW"
+	PointTypeEVCurtailableKW = "evCurtailableKW"
+	PointTypeEVOnlineRatio   = "evOnlineRatio"
 	// PowerSetpoint 存该 Device 的功率设定 modbusIo 点位 ID，能力级调度
 	// 写 valueSet 到它，bridge 才能消费并写设备。
 	PointTypePowerSetpoint = "powerSetpoint"

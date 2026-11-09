@@ -61,6 +61,21 @@ func LoadCapabilityValues(nc *nats.Conn, energyUnitIDs []string) (decision.Capab
 				}
 			}
 		}
+		// 通用与光伏/充电专属能力字段（通用型能力模型的丰富度）。
+		capFields := map[string]decision.CapabilityField{
+			PointTypeActualPower:     decision.FieldActualPower,
+			PointTypePVAvailableKW:   decision.FieldPVAvailableKW,
+			PointTypePVLimitKW:       decision.FieldPVLimitKW,
+			PointTypePVForecastKW:    decision.FieldPVForecastKW,
+			PointTypeEVMaxLoadKW:     decision.FieldEVMaxLoadKW,
+			PointTypeEVCurtailableKW: decision.FieldEVCurtailableKW,
+			PointTypeEVOnlineRatio:   decision.FieldEVOnlineRatio,
+		}
+		for pointType, field := range capFields {
+			if point, ok := node.Points.Find(pointType, ""); ok {
+				fields[field] = pointFloat(point)
+			}
+		}
 		values[id] = fields
 	}
 	return values, nil
