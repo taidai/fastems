@@ -34,6 +34,9 @@ const (
 	// PCCFeedback 存 Plant 的并网点反馈绑定（JSON：meterPointID/sign/maxAgeMS/
 	// 上下限），防逆流/需量从它读主表实测，而非空参数。
 	PointTypePCCFeedback = "pccFeedback"
+	// CabinetState 存 EnergyUnit 的运行状态（standby/starting/running/
+	// stopped/fault/maintenance），非运行态禁止自动调度（CTL-01 互锁闸门）。
+	PointTypeCabinetState = "cabinetState"
 	// PowerSetpoint 存该 Device 的功率设定 modbusIo 点位 ID，能力级调度
 	// 写 valueSet 到它，bridge 才能消费并写设备。
 	PointTypePowerSetpoint = "powerSetpoint"

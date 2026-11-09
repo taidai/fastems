@@ -57,6 +57,10 @@ func (s *EnergyScheduler) tick() {
 		if !ok || rule.State != decision.RulePublished {
 			continue
 		}
+		// CTL-01 互锁闸门：故障/检修/停机等非运行态禁止自动调度。
+		if !decision.AllowsAutoDispatch(LoadCabinetState(node)) {
+			continue
+		}
 		if err := s.dispatch(node.ID); err != nil {
 			log.Printf("energy dispatch %s: %v", node.ID, err)
 		}

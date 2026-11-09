@@ -25,6 +25,10 @@ func (h *Handler) RunCapabilityDispatch(energyUnitID string) ([]decision.DeviceD
 	if rule.State != decision.RulePublished {
 		return nil, fmt.Errorf("capability rule on %s is not published", energyUnitID)
 	}
+	// CTL-01 互锁闸门：非运行态（故障/检修/停机）拒绝执行。
+	if state := LoadCabinetState(nodes[0]); !decision.AllowsAutoDispatch(state) {
+		return nil, fmt.Errorf("energy unit %s is %s, auto dispatch interlocked", energyUnitID, state)
+	}
 
 	values, err := LoadCapabilityValues(h.nc, []string{energyUnitID})
 	if err != nil {
