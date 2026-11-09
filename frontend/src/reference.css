@@ -259,16 +259,17 @@
 .wizard-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
 
 /* ============ 常规界面交互设计：分区卡片 + 对齐表单 + 合理留白 ============ */
-/* 策略/设备配置区：统一的卡片分区，有视觉层次，不再平铺 */
-.energy-rule-editor { display: flex; flex-direction: column; gap: 16px; }
+/* 策略/设备配置区：标题在左、内容在右的两栏布局，压缩纵向占用 */
+.energy-rule-editor { display: flex; flex-direction: column; gap: 14px; }
 .energy-rule-section {
-  display: grid; gap: 12px; padding: 16px 18px;
+  display: flex; align-items: flex-start; gap: 18px;
+  padding: 14px 18px;
   border: 1px solid var(--line); border-radius: 12px;
   background: rgba(255, 255, 255, 0.6);
 }
-.energy-rule-section > strong { font-size: 13px; font-weight: 600; color: #203044; letter-spacing: 0.01em; }
-.energy-rule-section .panel-heading { margin: 0; }
-.energy-rule-section .form-note { font-size: 12px; }
+.energy-rule-section > strong { flex: 0 0 132px; margin: 0; padding-top: 7px; font-size: 13px; font-weight: 600; color: #203044; }
+.energy-section-body { flex: 1; display: grid; gap: 10px; min-width: 0; }
+.energy-rule-section .form-note { font-size: 12px; margin: 0; }
 
 /* 表单行：label 固定宽度对齐，控件统一高度，不再挤一行 */
 .energy-rule-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }

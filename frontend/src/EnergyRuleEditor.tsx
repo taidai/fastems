@@ -141,7 +141,8 @@ export default function EnergyRuleEditor({ token, energyUnitId, onError }: {
     {published && rule!.published_at && <p className="form-note">发布于 {rule!.published_at}。修改后需重新发布才会生效。</p>}
 
     <div className="energy-rule-section energy-template-section">
-      <strong>从模板创建（推荐，无需懂规则语法）</strong>
+      <strong>从模板创建</strong>
+      <div className="energy-section-body">
       <div className="energy-rule-row">
         <select aria-label="策略模板" value={templateKey} onChange={(event) => setTemplateKey(event.target.value)}>
           {templates.map((t) => <option key={t.key} value={t.key}>{t.name}</option>)}
@@ -157,12 +158,14 @@ export default function EnergyRuleEditor({ token, energyUnitId, onError }: {
         <button className="secondary-button" onClick={applyTemplate}>应用模板</button>
       </div>
       <p className="form-note">{templates.find((t) => t.key === templateKey)?.desc}。应用后可微调，再发布生效。</p>
+      </div>
     </div>
 
     <details className="energy-advanced">
       <summary>高级：手动编辑条件与动作</summary>
     <div className="energy-rule-section">
-      <strong>当以下条件同时满足</strong>
+      <strong>条件（同时满足）</strong>
+      <div className="energy-section-body">
       {rule!.conditions.map((condition, index) => (
         <div className="energy-rule-row" key={index}>
           <select aria-label="能力字段" value={condition.ref.field} onChange={(event) => setCondition(index, { ref: { ...condition.ref, field: event.target.value } })}>
@@ -176,10 +179,12 @@ export default function EnergyRuleEditor({ token, energyUnitId, onError }: {
         </div>
       ))}
       <button className="secondary-button" onClick={() => setRule({ ...rule!, conditions: [...rule!.conditions, { ref: { energy_unit_id: energyUnitId, field: "soc" }, operator: "gt", value: 0 }] })}>+ 条件</button>
+      </div>
     </div>
 
     <div className="energy-rule-section">
       <strong>执行动作</strong>
+      <div className="energy-section-body">
       {rule!.actions.map((action, index) => (
         <div className="energy-rule-row" key={index}>
           <span className="set-label">请求功率</span>
@@ -189,11 +194,13 @@ export default function EnergyRuleEditor({ token, energyUnitId, onError }: {
         </div>
       ))}
       <button className="secondary-button" onClick={() => setRule({ ...rule!, actions: [...rule!.actions, { energy_unit_id: energyUnitId, request_kw: 0 }] })}>+ 动作</button>
+      </div>
     </div>
     </details>
 
     <div className="energy-rule-section">
-      <strong>模拟（只求值，不下发）</strong>
+      <strong>模拟（不下发）</strong>
+      <div className="energy-section-body">
       <div className="energy-rule-row">
         <span className="set-label">SOC %</span>
         <input aria-label="模拟 SOC" type="number" inputMode="decimal" value={simSoc} onChange={(event) => setSimSoc(Number(event.target.value))} />
@@ -202,6 +209,7 @@ export default function EnergyRuleEditor({ token, energyUnitId, onError }: {
         <button className="secondary-button" disabled={busy} onClick={() => void simulate()}>模拟</button>
       </div>
       {simResult && <p className="form-note">结果：{simResult}</p>}
+      </div>
     </div>
 
     <div className="energy-rule-actions">
