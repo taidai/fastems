@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { fetchEnergyRule, saveEnergyRule, publishEnergyRule, simulateEnergyRule } from "./api"
 import type { CapabilityRule, CapabilityCondition, CapabilityAction } from "./api"
 import { templates, buildFromTemplate } from "./strategyTemplates"
+import ConfirmDialog from "./ConfirmDialog"
 
 const capabilityFields = [
   { value: "soc", label: "SOC %" },
@@ -40,6 +41,7 @@ export default function EnergyRuleEditor({ token, energyUnitId, onError }: {
   const [templateKey, setTemplateKey] = useState("discharge")
   const [templateKW, setTemplateKW] = useState(50)
   const [templateSOC, setTemplateSOC] = useState(20)
+  const [publishConfirm, setPublishConfirm] = useState(false)
 
   function applyTemplate() {
     const template = templates.find((t) => t.key === templateKey)
@@ -206,7 +208,16 @@ export default function EnergyRuleEditor({ token, energyUnitId, onError }: {
       <button className="secondary-button" disabled={busy} onClick={() => void saveDraft()}>{busy ? "保存中…" : "保存草稿"}</button>
       {published
         ? <button className="secondary-button" disabled={busy} onClick={() => void unpublish()}>{busy ? "停用中…" : "停用"}</button>
-        : <button className="primary-button" disabled={busy || rule!.conditions.length === 0 || rule!.actions.length === 0} onClick={() => void publish()}>{busy ? "发布中…" : "发布"}</button>}
+        : <button className="primary-button" disabled={busy || rule!.conditions.length === 0 || rule!.actions.length === 0} onClick={() => setPublishConfirm(true)}>{busy ? "发布中…" : "发布"}</button>}
     </div>
+
+    {publishConfirm && <ConfirmDialog
+      title="发布调度规则"
+      message={`发布后，该能源节点将按此规则每秒自动调节功率${rule!.actions[0] ? `（${rule!.actions[0].request_kw >= 0 ? "放电" : "充电"} ${Math.abs(rule!.actions[0].request_kw)} kW）` : ""}。确认发布？`}
+      confirmLabel="确认发布"
+      busy={busy}
+      onCancel={() => setPublishConfirm(false)}
+      onConfirm={() => { setPublishConfirm(false); void publish() }}
+    />}
   </section>
 }

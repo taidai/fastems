@@ -18,6 +18,7 @@ import ModbusTools from "./ModbusTools"
 import DeviceLedgerView from "./DeviceLedgerView"
 import EnergyUnitsView from "./EnergyUnitsView"
 import EnergyUnitsStatus from "./EnergyUnitsStatus"
+import ConfirmDialog from "./ConfirmDialog"
 import FrameDrawer from "./FrameDrawer"
 import EnergyFlow, { type DispatchInfo } from "./EnergyFlow"
 import AssistantPanel from "./AssistantPanel"
@@ -663,6 +664,7 @@ function DevicesView({ snapshot, points, groups, rules, activeRules, errors, ala
   const [values, setValues] = useState<Record<string, number>>({})
   const [managedNode, setManagedNode] = useState<Node | null>(null)
   const [showDataNote, setShowDataNote] = useState(false)
+  const [confirm, setConfirm] = useState<{ kind: "setpoint" | "manual"; node: Node; value?: number } | null>(null)
   const token = sessionStorage.getItem("easyems-token") || ""
 
   const activities = useMemo(() => snapshot.nodes.flatMap((node) => node.points
@@ -732,8 +734,10 @@ function DevicesView({ snapshot, points, groups, rules, activeRules, errors, ala
               {node.type === "modbusIo" && !writable(node) && <span className="read-only-label">只读</span>}
               {(node.type === "variable" || writable(node)) && canOperate && !disabled && <div className="device-control"><input aria-label={`${nameOf(node)}操作值`} type="number" value={currentValue} onChange={(event) => setValues({ ...values, [node.id]: Number(event.target.value) })} />
                 {node.type === "variable" && <button disabled={busy} onClick={() => void run(() => request(token, `/nodes/${node.id}/value`, "POST", { value: currentValue, point_type: "value" }))}>更新当前值</button>}
-                <button disabled={busy} onClick={() => void run(() => request(token, `/nodes/${node.id}/value`, "POST", { value: currentValue, point_type: "valueSet" }))}>下发目标值</button>
-                <button disabled={busy} onClick={() => void run(() => request(token, `/nodes/${node.id}/manual`, "POST", { manual: !manual }))}>{manual ? "恢复自动" : "接管自动"}</button>
+                <button disabled={busy} onClick={() => setConfirm({ kind: "setpoint", node, value: currentValue })}>下发目标值</button>
+                {manual
+                  ? <button disabled={busy} onClick={() => void run(() => request(token, `/nodes/${node.id}/manual`, "POST", { manual: false }))}>恢复自动</button>
+                  : <button disabled={busy} onClick={() => setConfirm({ kind: "manual", node })}>接管自动</button>}
               </div>}
             </div>
           })}
@@ -747,6 +751,24 @@ function DevicesView({ snapshot, points, groups, rules, activeRules, errors, ala
       </div>
     </section>
     {managedNode && <NodeManager key={managedNode.id} token={token} node={snapshot.nodes.find((node) => node.id === managedNode.id) || managedNode} snapshot={snapshot} run={run} onClose={() => setManagedNode(null)} />}
+    {confirm && <ConfirmDialog
+      title={confirm.kind === "manual" ? "人工接管" : "下发目标值"}
+      message={confirm.kind === "manual"
+        ? `接管后「${nameOf(confirm.node)}」将停止自动调度，自动策略不再控制它，直到你显式恢复自动。确定要接管吗？`
+        : `将把「${nameOf(confirm.node)}」的功率目标设为 ${confirm.value} kW，设备会立即按此调节。确认下发？`}
+      danger={confirm.kind === "manual"}
+      confirmLabel={confirm.kind === "manual" ? "确认接管" : "确认下发"}
+      busy={busy}
+      onCancel={() => setConfirm(null)}
+      onConfirm={() => {
+        const target = confirm
+        setConfirm(null)
+        void run(async () => {
+          if (target.kind === "manual") await request(token, `/nodes/${target.node.id}/manual`, "POST", { manual: true })
+          else await request(token, `/nodes/${target.node.id}/value`, "POST", { value: target.value, point_type: "valueSet" })
+        })
+      }}
+    />}
   </>
 }
 

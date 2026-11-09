@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { fetchPlants, fetchPlantPCC, savePlantPCC } from "./api"
 import type { Node } from "./api"
+import ConfirmDialog from "./ConfirmDialog"
 
 // PlantStrategyPanel 配置电站级策略（防逆流/需量）：选 PCC 主表点位 +
 // 反送/需量上限，绑定后 EnergyScheduler 每周期自动闭环。与单柜规则分离。
@@ -15,6 +16,7 @@ export default function PlantStrategyPanel({ token, nodes, onError }: {
   const [demandLimit, setDemandLimit] = useState(0)
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [confirm, setConfirm] = useState(false)
   const meters = nodes.filter((node) => node.type === "variable" || node.type === "modbusIo")
 
   useEffect(() => {
@@ -64,7 +66,20 @@ export default function PlantStrategyPanel({ token, nodes, onError }: {
       <input aria-label="反送上限" type="number" inputMode="decimal" value={reverseLimit} onChange={(event) => setReverseLimit(Number(event.target.value))} />
       <span className="set-label">需量上限 kW（0=不限）</span>
       <input aria-label="需量上限" type="number" inputMode="decimal" value={demandLimit} onChange={(event) => setDemandLimit(Number(event.target.value))} />
-      <button className="primary-button" disabled={busy} onClick={() => void save()}>{busy ? "保存中…" : saved ? "更新策略" : "启用策略"}</button>
+      <button className="primary-button" disabled={busy} onClick={() => {
+        if (!plantId) { onError("未选择电站"); return }
+        if (!meterId) { onError("请选择 PCC 主表点位"); return }
+        setConfirm(true)
+      }}>{busy ? "保存中…" : saved ? "更新策略" : "启用策略"}</button>
     </div>
+
+    {confirm && <ConfirmDialog
+      title={saved ? "更新电站策略" : "启用电站策略"}
+      message={`启用后，该电站将按反送上限 ${reverseLimit} kW、需量上限 ${demandLimit || "不限"} kW 每秒自动调节储能充放。确认${saved ? "更新" : "启用"}？`}
+      confirmLabel="确认启用"
+      busy={busy}
+      onCancel={() => setConfirm(false)}
+      onConfirm={() => { setConfirm(false); void save() }}
+    />}
   </div>
 }
