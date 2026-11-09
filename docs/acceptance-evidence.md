@@ -19,6 +19,7 @@
 | T13 决策表试算/回退 | 草稿规则 | 草稿不调度，发布才生效 | 草稿拒绝 ✅ | `TestRunCapabilityDispatchRejectsDraft` |
 | T16 越权/模拟写入 | 各角色×动作 | 默认拒绝，白名单覆盖 | 权限矩阵通过 ✅ | `internal/appapi/permission_test.go` |
 | T18 值班员复盘 | 一次调度 | dispatchID 串起能力/分配/设定可复盘 | 追溯完整 ✅ | `TestDispatchRecordTraceable` |
+| T27 资源分组共享约束 | 两柜各60目标100，共享上限70 | 合计≤70、缺口30、不重复下发 | 合计70缺口30 ✅ | `TestAcceptanceT27SharedConstraint` `TestGroupDispatchRespectsSharedLimit` |
 
 ## 与清单算例的策略差异（已定案）
 
