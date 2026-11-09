@@ -14,6 +14,15 @@ const (
 	FieldAvailablePower CapabilityField = "available_power" // 可用功率 kW（动态能力）
 	FieldRatedPower     CapabilityField = "rated_power"     // 额定功率 kW
 	FieldStatus         CapabilityField = "status"          // 状态
+	FieldEnergyType     CapabilityField = "energy_type"     // 能源类型（方向约束）
+)
+
+// 能源类型编码（FieldEnergyType 的取值）：决定节点的可调方向。
+// 同一套 EnergyUnit+Capability+分配，靠方向约束表达不同资源，而非写死三套逻辑。
+const (
+	EnergyStorageBidir = 0 // 储能：可充可放
+	EnergyPVDischarge  = 1 // 光伏：只能放电（发电）
+	EnergyEVCharge     = 2 // 充电桩：只能充电（耗电）
 )
 
 // CapabilityRef 引用一个 EnergyUnit 的测点/能力字段。

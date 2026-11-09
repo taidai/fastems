@@ -29,14 +29,22 @@ func AllocateEnergy(requestKW float64, members []EnergyMember, caps CapabilityVa
 		fields := caps[m.EnergyUnitID]
 		rated := fields[FieldRatedPower]
 		available := fields[FieldAvailablePower]
+		// 方向约束：光伏只放电、充电桩只充电、储能双向。
+		availableCharge, availableDischarge := available, available
+		switch int(fields[FieldEnergyType]) {
+		case EnergyPVDischarge:
+			availableCharge = 0
+		case EnergyEVCharge:
+			availableDischarge = 0
+		}
 		allocMembers = append(allocMembers, alloc.Member{
 			ID:                 m.EnergyUnitID,
 			Online:             true,
 			MinPower:           m.MinPower,
 			MaxCharge:          rated,
 			MaxDischarge:       rated,
-			AvailableCharge:    available,
-			AvailableDischarge: available,
+			AvailableCharge:    availableCharge,
+			AvailableDischarge: availableDischarge,
 		})
 	}
 	result, err := alloc.Allocate(requestKW, allocMembers)

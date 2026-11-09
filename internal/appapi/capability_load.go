@@ -39,6 +39,16 @@ func LoadCapabilityValues(nc *nats.Conn, energyUnitIDs []string) (decision.Capab
 		}
 		node := nodes[0]
 		fields := make(map[decision.CapabilityField]float64)
+		// 能源类型 → 方向约束：光伏只放电、充电只充电、储能双向。
+		fields[decision.FieldEnergyType] = decision.EnergyStorageBidir
+		if point, ok := node.Points.Find(PointTypeEnergyType, ""); ok {
+			switch point.Txt() {
+			case EnergyTypePV:
+				fields[decision.FieldEnergyType] = decision.EnergyPVDischarge
+			case EnergyTypeEV:
+				fields[decision.FieldEnergyType] = decision.EnergyEVCharge
+			}
+		}
 		if point, ok := node.Points.Find(PointTypeRatedPowerKW, ""); ok {
 			fields[decision.FieldRatedPower] = pointFloat(point)
 		}
