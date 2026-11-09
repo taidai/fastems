@@ -591,7 +591,7 @@ export default function App() {
         isAdmin={canConfigure} busy={busy} run={run} onError={setError}
       />}
 
-      {page === "energyUnits" && canConfigure && <EnergyUnitsView token={token} onError={setError} />}
+      {page === "energyUnits" && canConfigure && <EnergyUnitsView token={token} nodes={view.nodes} onError={setError} />}
 
       {page === "alarms" && <AlarmsView token={token} rootID={view.roots[0]} nodes={view.nodes} canOperate={canOperate} canConfigure={canConfigure} onError={setError} openHistory={(id) => { setHistoryPoint(id); setPage("history") }} />}
 

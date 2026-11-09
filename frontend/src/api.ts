@@ -328,6 +328,16 @@ export async function createEnergyUnit(token: string, input: { asset_code?: stri
   return request<{ id: string; asset_code: string; plant_id: string }>(token, `/energy-units`, "POST", input)
 }
 
+export type EnergyDevice = { id: string; asset_code: string; description: string; rated_power_kw: number; power_setpoint_id: string }
+
+export async function fetchEnergyDevices(token: string, energyUnitId: string) {
+  return request<{ devices: EnergyDevice[] }>(token, `/energy-units/${energyUnitId}/devices`)
+}
+
+export async function createEnergyDevice(token: string, energyUnitId: string, input: { asset_code?: string; description: string; rated_power_kw: number; power_setpoint_id: string }) {
+  return request<{ id: string; asset_code: string }>(token, `/energy-units/${energyUnitId}/devices`, "POST", input)
+}
+
 export async function saveEnergyRule(token: string, energyUnitId: string, rule: CapabilityRule) {
   return request<{ saved: boolean }>(token, `/energy-units/${energyUnitId}/rule`, "PUT", rule)
 }
