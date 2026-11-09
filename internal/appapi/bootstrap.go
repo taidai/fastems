@@ -79,5 +79,9 @@ func Bootstrap(nc *nats.Conn, dataDir string) error {
 			return fmt.Errorf("save initial credentials: %w", err)
 		}
 	}
+	// 预置演示站点（失败不阻塞初始化，只记录）。
+	if err := seedDemoSite(nc); err != nil {
+		fmt.Printf("easyems: seed demo site: %v\n", err)
+	}
 	return os.WriteFile(marker, []byte("initialized\n"), 0600)
 }
