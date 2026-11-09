@@ -199,28 +199,28 @@
   .assistant-fab > span { font-size: 16px; }
 }
 
-/* 桌面宽屏：主导航改为左侧垂直栏，给内容腾出横向空间。
-   本文件在 styles.css 之后引入，此处同断点后定义，覆盖上方的底部导航样式。
-   小屏（<1000px 或高度 <650px）保留底部导航，触摸友好。 */
-@media (min-width: 1000px) and (min-height: 650px) {
-  .console-shell { padding-left: 108px; }
-  .console-bottomnav {
-    position: fixed; left: 14px; right: auto; top: 50%; bottom: auto;
-    transform: translateY(-50%); z-index: 50;
-    display: flex; flex-direction: column; align-items: stretch; justify-content: center;
-    gap: 6px; width: 84px; height: auto; min-height: 0; margin: 0; padding: 10px 8px;
-    border: 1px solid rgba(255, 255, 255, 0.6); border-radius: 18px;
-    background: rgba(246, 251, 255, 0.72);
-    box-shadow: 0 10px 30px rgba(31, 46, 58, 0.14);
-    backdrop-filter: blur(24px) saturate(1.2); -webkit-backdrop-filter: blur(24px) saturate(1.2);
-  }
-  .console-bottomnav button {
-    min-width: 0; width: 100%; height: 56px; min-height: 56px;
-    padding: 6px 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-  }
-  .console-bottomnav button svg { width: 24px; height: 24px; }
-  .console-bottomnav button small { font-size: 12px; }
-  /* 左侧栏占位后，内容区不再为底部导航预留空间。 */
-  .console-main { padding-bottom: 24px; }
-  .console-data-note { margin-bottom: 0; }
+/* 主导航并入顶部栏：替代原底部导航与"页面目录"下拉，去掉冗余 chrome。
+   子页面收进各组下拉，所有页面仍可达。 */
+.console-topnav { display: flex; align-items: center; gap: 2px; margin-left: 14px; }
+.topnav-item { position: relative; }
+.topnav-trigger {
+  display: flex; align-items: center; gap: 6px; padding: 8px 11px;
+  border: 1px solid transparent; border-radius: 10px; background: none;
+  color: #3a4a5a; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap;
 }
+.topnav-item.active .topnav-trigger { background: rgba(255, 255, 255, 0.9); color: #162025; border-color: rgba(255, 255, 255, 0.7); }
+.topnav-trigger:hover { color: #162025; }
+.topnav-caret { font-size: 10px; opacity: 0.6; }
+.topnav-dropdown {
+  position: absolute; top: calc(100% + 6px); left: 0; min-width: 148px; padding: 6px;
+  display: flex; flex-direction: column; gap: 2px; z-index: 60;
+  border: 1px solid rgba(255, 255, 255, 0.6); border-radius: 12px;
+  background: rgba(246, 251, 255, 0.95); box-shadow: 0 10px 30px rgba(31, 46, 58, 0.16);
+  backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+}
+.topnav-dropdown button { padding: 9px 12px; border: 0; border-radius: 8px; background: none; text-align: left; font-size: 13px; color: #3a4a5a; cursor: pointer; }
+.topnav-dropdown button.active, .topnav-dropdown button:hover { background: rgba(255, 255, 255, 0.9); color: #162025; }
+
+/* 底部导航已移除，回收其为内容区预留的底部空间。 */
+.console-shell { padding-bottom: 0; }
+.console-bottomnav { display: none; }

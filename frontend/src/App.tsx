@@ -202,8 +202,8 @@ export default function App() {
   }, [])
   const [historyPoint, setHistoryPoint] = useState("")
   const [stationID, setStationID] = useState("")
-  const [directoryOpen, setDirectoryOpen] = useState(false)
-  const directoryRef = useRef<HTMLDivElement>(null)
+  const [navMenu, setNavMenu] = useState<string | null>(null)
+  const navRef = useRef<HTMLElement>(null)
   const [display, setDisplay] = useState<DisplaySettings>(loadDisplay)
   const [displayOpen, setDisplayOpen] = useState(false)
   const displayRef = useRef<HTMLDivElement>(null)
@@ -291,12 +291,12 @@ export default function App() {
   }, [token])
 
   useEffect(() => {
-    if (!directoryOpen) return
+    if (!navMenu) return
     const close = (event: PointerEvent) => {
-      if (!directoryRef.current?.contains(event.target as globalThis.Node)) setDirectoryOpen(false)
+      if (!navRef.current?.contains(event.target as globalThis.Node)) setNavMenu(null)
     }
     const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setDirectoryOpen(false)
+      if (event.key === "Escape") setNavMenu(null)
     }
     document.addEventListener("pointerdown", close)
     document.addEventListener("keydown", escape)
@@ -304,7 +304,7 @@ export default function App() {
       document.removeEventListener("pointerdown", close)
       document.removeEventListener("keydown", escape)
     }
-  }, [directoryOpen])
+  }, [navMenu])
 
   useEffect(() => {
     const root = document.documentElement
@@ -477,13 +477,21 @@ export default function App() {
       <select className="console-station" aria-label="当前项目" value={view.roots[0]} onChange={(event) => setStationID(event.target.value)}>
         {snapshot.roots.map((root) => <option key={root} value={root}>{labelForRoot(root)}</option>)}
       </select>
-      <div className="console-menu" ref={directoryRef}>
-        <button className="console-chip" aria-label="页面目录" aria-expanded={directoryOpen} onClick={() => setDirectoryOpen(!directoryOpen)}><Icon name="layers" size={20} /><span className="chip-label">页面目录</span></button>
-        {directoryOpen && <div className="console-directory" role="navigation" aria-label="页面目录">
-          {directory.filter((item) => (!item.adminOnly || isAdmin) && (!item.configOnly || canConfigure)).map((item) =>
-            <button key={item.key} className={page === item.key ? "active" : ""} onClick={() => { setPage(item.key); setDirectoryOpen(false) }}>{item.label}</button>)}
-        </div>}
-      </div>
+      <nav className="console-topnav" aria-label="主导航" ref={navRef}>
+        {tabs.map((tab) => {
+          const subPages = directory.filter((d) => tab.pages.includes(d.key) && (!d.adminOnly || isAdmin) && (!d.configOnly || canConfigure))
+          const isActive = activeTab === tab.key
+          return <div key={tab.key} className={`topnav-item${isActive ? " active" : ""}`}>
+            <button className="topnav-trigger" aria-expanded={navMenu === tab.key} onClick={() => {
+              if (subPages.length > 1) setNavMenu(navMenu === tab.key ? null : tab.key)
+              else { setPage(tab.pages[0] as Page); setNavMenu(null) }
+            }}><Icon name={tab.icon} size={16} /><span>{tab.label}</span>{subPages.length > 1 && <span className="topnav-caret" aria-hidden="true">▾</span>}</button>
+            {navMenu === tab.key && subPages.length > 1 && <div className="topnav-dropdown" role="menu">
+              {subPages.map((d) => <button key={d.key} role="menuitem" className={page === d.key ? "active" : ""} onClick={() => { setPage(d.key); setNavMenu(null) }}>{d.label}</button>)}
+            </div>}
+          </div>
+        })}
+      </nav>
       <div className="console-top-actions">
         <button className="console-icon" title="运行画面" aria-label="运行画面" onClick={() => setPage("screen")}><Icon name="map" size={25} /></button>
         <div className="console-display" ref={displayRef}>
@@ -619,12 +627,6 @@ export default function App() {
       </footer>
       </div>
     </main>
-
-    <nav className="console-bottomnav" aria-label="主导航">
-      {tabs.map((tab) => <button key={tab.key} className={activeTab === tab.key ? "active" : ""} aria-current={activeTab === tab.key ? "page" : undefined} onClick={() => setPage(tab.pages[0] as Page)}>
-        <span aria-hidden="true"><Icon name={tab.icon} size={20} /></span><small>{tab.label}</small>
-      </button>)}
-    </nav>
 
     {page === "devices" && <>
       {!assistantOpen && <button className="assistant-fab" aria-label="打开能源管家" onClick={() => setAssistantOpen(true)}>
