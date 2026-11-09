@@ -168,6 +168,9 @@ func Start(ctx context.Context, cfg Config) (*App, error) {
 	}
 	clients := client.NewRunGroup("easyems clients")
 	clients.Add(client.NewManager(nc, decision.NewDecisionTableClient, nil))
+	// 多协议接入：注册 SimpleIoT 的 MQTT 客户端，让 MQTT 设备可接入节点树。
+	// Modbus 走自建 bridge，MQTT 复用上游 client。CAN 需硬件，留作可选。
+	clients.Add(client.NewManager(nc, client.NewMqttClient, nil))
 	siot.AddClient(clients)
 
 	var group run.Group
