@@ -85,6 +85,18 @@ func (h *Handler) RunCapabilityDispatch(energyUnitID string) ([]decision.DeviceD
 			return nil, fmt.Errorf("write device %s: %w", dispatch.DeviceID, err)
 		}
 	}
+	// OBS-01 追溯：生成 dispatchID，把能力快照/分配/设备设定串成一条记录，
+	// 供值班员按 dispatchID 复盘。保存失败不阻塞调度，只记录。
+	requestKW := 0.0
+	for _, action := range decision.EvaluateCapabilityRule(rule, values) {
+		if action.EnergyUnitID == energyUnitID {
+			requestKW += action.RequestKW
+		}
+	}
+	record := decision.BuildRecord(energyUnitID, rule.ID, requestKW, values, LoadCabinetState(nodes[0]), dispatches)
+	if err := appendDispatchRecord(h.nc, energyUnitID, record); err != nil {
+		fmt.Printf("easyems: append dispatch record %s: %v\n", energyUnitID, err)
+	}
 	return dispatches, nil
 }
 
