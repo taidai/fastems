@@ -257,3 +257,39 @@
 .wizard-preview strong { font-size: 12px; color: var(--amber); }
 .wizard-preview span { font-size: 12.5px; color: #3a4a5a; line-height: 1.5; }
 .wizard-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+
+/* ============ 常规界面交互设计：分区卡片 + 对齐表单 + 合理留白 ============ */
+/* 策略/设备配置区：统一的卡片分区，有视觉层次，不再平铺 */
+.energy-rule-editor { display: flex; flex-direction: column; gap: 16px; }
+.energy-rule-section {
+  display: grid; gap: 12px; padding: 16px 18px;
+  border: 1px solid var(--line); border-radius: 12px;
+  background: rgba(255, 255, 255, 0.6);
+}
+.energy-rule-section > strong { font-size: 13px; font-weight: 600; color: #203044; letter-spacing: 0.01em; }
+.energy-rule-section .panel-heading { margin: 0; }
+.energy-rule-section .form-note { font-size: 12px; }
+
+/* 表单行：label 固定宽度对齐，控件统一高度，不再挤一行 */
+.energy-rule-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.energy-rule-row .set-label { min-width: 76px; flex: 0 0 auto; color: var(--muted); font-size: 12px; }
+.energy-rule-row select, .energy-rule-row input {
+  min-height: 36px; padding: 6px 10px; font-size: 13px;
+  border: 1px solid var(--line); border-radius: 8px; background: #fff; color: #203044;
+}
+.energy-rule-row input { width: 120px; }
+.energy-rule-row select { min-width: 130px; }
+
+/* 主操作区（从模板创建）：主色边框突出，是这页的主行动 */
+.energy-template-section { border-color: rgba(45, 143, 120, 0.4); background: rgba(240, 253, 244, 0.55); }
+
+/* 高级折叠区：弱化，不抢主操作 */
+.energy-advanced > summary { font-size: 12.5px; color: var(--muted); cursor: pointer; padding: 4px 0; }
+
+/* 操作按钮区：右对齐 + 分隔线 + 统一尺寸 */
+.energy-rule-actions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 12px; border-top: 1px solid var(--line); }
+.energy-rule-actions .primary-button, .energy-rule-actions .secondary-button { min-height: 38px; padding: 8px 20px; font-size: 13px; }
+
+/* 能源节点/设备管理页：面板标题与内容区间距统一 */
+.energy-units-view .panel-heading, .energy-status-panel .panel-heading { margin-bottom: 12px; }
+.energy-unit-add.wizard { padding: 16px 18px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 255, 255, 0.6); }
