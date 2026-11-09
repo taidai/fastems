@@ -467,7 +467,7 @@ export default function App() {
   const directory: { key: Page; label: string; adminOnly?: boolean; configOnly?: boolean }[] = [
     { key: "devices", label: "工作台" }, { key: "screen", label: "运行画面" }, { key: "ledger", label: "设备台账" },
     { key: "points", label: "点位表" }, { key: "channels", label: "通道" }, { key: "aggregate", label: "虚拟聚合" },
-    { key: "rules", label: "决策表" }, { key: "allocators", label: "功率分配器", configOnly: true }, { key: "energyUnits", label: "能源节点", configOnly: true },
+    { key: "rules", label: "决策表" }, { key: "allocators", label: "功率分配器", configOnly: true }, { key: "energyUnits", label: "储能柜", configOnly: true },
     { key: "alarms", label: "报警与事件" }, { key: "history", label: "数据与追溯" },
     { key: "deploy", label: "部署与验收", configOnly: true },
     { key: "users", label: "账号与权限", adminOnly: true }, { key: "audit", label: "审计日志", adminOnly: true },

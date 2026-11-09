@@ -69,7 +69,7 @@ export default function EnergyUnitsView({ token, nodes, onError }: {
 
   if (selected) {
     return <section className="panel energy-units-view">
-      <div className="panel-heading"><div><span className="section-kicker">能源节点</span><h2>能力级规则</h2><p>{units.find((unit) => unit.id === selected)?.asset_code || selected}</p></div><button className="secondary-button" onClick={() => setSelected("")}>返回列表</button></div>
+      <div className="panel-heading"><div><span className="section-kicker">储能柜</span><h2>运行策略</h2><p>{units.find((unit) => unit.id === selected)?.asset_code || selected}</p></div><button className="secondary-button" onClick={() => setSelected("")}>返回列表</button></div>
       <DevicePanel token={token} unitId={selected} nodes={nodes} onError={onError} />
       <EnergyRuleEditor token={token} energyUnitId={selected} onError={onError} />
     </section>
@@ -77,8 +77,8 @@ export default function EnergyUnitsView({ token, nodes, onError }: {
 
   return <section className="panel energy-units-view">
     <PlantStrategyPanel token={token} nodes={nodes} onError={onError} />
-    <div className="panel-heading"><div><span className="section-kicker">能源节点</span><h2>能源单元</h2><p>一个柜体（能源单元）是一条能力级规则与分配的调度对象。</p></div>
-      <button className="secondary-button" onClick={() => showAdd ? setShowAdd(false) : openWizard()}>{showAdd ? "收起" : "+ 新建能源节点"}</button>
+    <div className="panel-heading"><div><span className="section-kicker">储能柜</span><h2>储能柜</h2><p>每台储能柜独立按策略自动充放电，可挂设备、配策略。</p></div>
+      <button className="secondary-button" onClick={() => showAdd ? setShowAdd(false) : openWizard()}>{showAdd ? "收起" : "+ 新建储能柜"}</button>
     </div>
 
     {showAdd && <div className="energy-unit-add wizard">
@@ -141,7 +141,7 @@ export default function EnergyUnitsView({ token, nodes, onError }: {
       </div>
     </div>}
 
-    {units.length === 0 ? <div className="empty-state"><strong>还没有能源节点</strong><span>点击"新建能源节点"创建一个储能柜，或走接入向导绑定真实设备。</span></div> : <div className="energy-unit-list">
+    {units.length === 0 ? <div className="empty-state"><strong>还没有储能柜</strong><span>点击"新建储能柜"，三步让一台柜子按策略自动跑起来。</span></div> : <div className="energy-unit-list">
       {units.map((unit) => <button key={unit.id} className="energy-unit-row" onClick={() => setSelected(unit.id)}>
         <strong>{unit.asset_code || unit.description || unit.id}</strong>
         <span>{unit.description || unit.id}</span>

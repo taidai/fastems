@@ -43,10 +43,21 @@ export default function EnergyUnitsStatus({ nodes, onOpen }: {
   onOpen: () => void
 }) {
   const units = useMemo(() => nodes.filter((node) => node.type === "energyUnit"), [nodes])
+  const stats = useMemo(() => {
+    let running = 0, attention = 0
+    for (const unit of units) {
+      const state = point(unit, "cabinetState")?.text || "running"
+      if (state === "fault" || state === "maintenance") attention++
+      else if (state === "running") running++
+    }
+    return { running, attention }
+  }, [units])
   if (units.length === 0) return null
 
   return <section className="panel energy-status-panel">
-    <div className="panel-heading"><div><span className="section-kicker">能源节点运行</span><h2>每柜当前状态</h2></div>
+    <div className="panel-heading"><div><span className="section-kicker">储能柜运行</span><h2>每柜当前状态</h2>
+      <p className="energy-status-summary">{stats.running} 台运行中{stats.attention > 0 ? ` · ${stats.attention} 台需处理` : " · 全部正常"}</p>
+    </div>
       <button className="secondary-button" onClick={onOpen}>调度配置</button>
     </div>
     <div className="energy-status-grid">
