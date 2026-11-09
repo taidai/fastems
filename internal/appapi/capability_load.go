@@ -10,8 +10,15 @@ import (
 	"easyems/internal/decision"
 )
 
-// pointFloat 读一个 point 的数值，兼容 string 与 float point。
+// pointFloat 读一个 point 的数值。float/int 点（NewPointFloat 写入，含
+// modbus 实测值）走 ValueFloat；string 点走文本解析。此前只对 string 点
+// 有效，float 点一律返回 0——这会读丢真实遥测，必须兼容。
 func pointFloat(point data.Point) float64 {
+	if point.Numeric() {
+		if value, err := point.ValueFloat(); err == nil {
+			return value
+		}
+	}
 	value, err := strconv.ParseFloat(point.Txt(), 64)
 	if err != nil {
 		return 0

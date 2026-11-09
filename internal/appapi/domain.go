@@ -31,6 +31,9 @@ const (
 	PointTypeSiteConstraint         = "totalConstraint"
 	PointTypePlantTarget            = "plantTarget"
 	PointTypePlantConstraint        = "plantConstraint"
+	// PCCFeedback 存 Plant 的并网点反馈绑定（JSON：meterPointID/sign/maxAgeMS/
+	// 上下限），防逆流/需量从它读主表实测，而非空参数。
+	PointTypePCCFeedback = "pccFeedback"
 	// PowerSetpoint 存该 Device 的功率设定 modbusIo 点位 ID，能力级调度
 	// 写 valueSet 到它，bridge 才能消费并写设备。
 	PointTypePowerSetpoint = "powerSetpoint"
