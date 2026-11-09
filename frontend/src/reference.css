@@ -294,3 +294,33 @@
 /* 能源节点/设备管理页：面板标题与内容区间距统一 */
 .energy-units-view .panel-heading, .energy-status-panel .panel-heading { margin-bottom: 12px; }
 .energy-unit-add.wizard { padding: 16px 18px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 255, 255, 0.6); }
+
+/* ============ 操作台基础：去背景照片，数据优先 ============ */
+/* 从"玻璃风展示页"转为"干净的监盘操作台"：纯色工作区、不透明白面板。 */
+body { background: #F7F9FB; }
+body::before { display: none; }
+:root {
+  --paper: #F7F9FB;
+  --surface: #FFFFFF;
+  --ink: #1A2A33;
+  --muted: #6B7C88;
+  --line: #E4E9EE;
+  --accent: #0E7C7B;
+}
+.panel, .energy-rule-section, .energy-unit-add.wizard, .kpi-card, .flow-panel, .energy-status-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+  box-shadow: 0 1px 2px rgba(26, 42, 51, 0.04);
+}
+.console-topbar {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+  box-shadow: 0 1px 2px rgba(26, 42, 51, 0.04);
+}
+/* 主行动按钮统一为能源青 */
+.primary-button { background: var(--accent); color: #fff; }
+.primary-button:hover { background: #0b6a69; }
+/* 控件统一：输入/下拉干净白底细边 */
+input, select { background: #fff; border: 1px solid var(--line); }
