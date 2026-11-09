@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
-import { fetchEnergyUnits, createEnergyUnit, fetchEnergyDevices, createEnergyDevice } from "./api"
+import { fetchEnergyUnits, createEnergyUnit, fetchEnergyDevices, createEnergyDevice, saveEnergyRule, publishEnergyRule } from "./api"
 import type { EnergyUnitSummary, EnergyDevice, Node } from "./api"
+import { templates, buildFromTemplate } from "./strategyTemplates"
 import EnergyRuleEditor from "./EnergyRuleEditor"
 
 // EnergyUnitsView 列出能源节点（EnergyUnit），点击进入能力级规则编辑器。
@@ -15,7 +16,12 @@ export default function EnergyUnitsView({ token, nodes, onError }: {
   const [showAdd, setShowAdd] = useState(false)
   const [name, setName] = useState("")
   const [rated, setRated] = useState(100)
+  const [pointId, setPointId] = useState("")
+  const [templateKey, setTemplateKey] = useState("discharge")
+  const [templateKW, setTemplateKW] = useState(50)
+  const [templateSOC, setTemplateSOC] = useState(20)
   const [busy, setBusy] = useState(false)
+  const powerPoints = nodes.filter((node) => node.type === "modbusIo")
 
   function refresh() {
     void fetchEnergyUnits(token)
@@ -24,13 +30,21 @@ export default function EnergyUnitsView({ token, nodes, onError }: {
   }
   useEffect(refresh, [token])
 
+  // 引导式创建：一个表单同时建能源节点、挂设备、配策略并发布，
+  // 让柜子直接跑起来，不用分步懂技术概念。
   async function add() {
-    if (!name.trim()) { onError("请填写能源节点名称"); return }
+    if (!name.trim()) { onError("请填写储能柜名称"); return }
     if (rated <= 0) { onError("额定功率必须大于 0"); return }
+    if (!pointId) { onError("请选择功率设定点位"); return }
+    if (templateKW <= 0) { onError("请填写大于 0 的策略功率"); return }
     setBusy(true)
     try {
-      await createEnergyUnit(token, { description: name.trim(), rated_power_kw: rated })
-      setName(""); setRated(100); setShowAdd(false)
+      const unit = await createEnergyUnit(token, { description: name.trim(), rated_power_kw: rated })
+      await createEnergyDevice(token, unit.id, { description: name.trim() + "-PCS", rated_power_kw: rated, power_setpoint_id: pointId })
+      const rule = buildFromTemplate(templateKey, unit.id, templateKW, templateSOC)
+      await saveEnergyRule(token, unit.id, rule)
+      await publishEnergyRule(token, unit.id)
+      setName(""); setRated(100); setPointId(""); setShowAdd(false)
       refresh()
     } catch (error) {
       onError(error instanceof Error ? error.message : "创建失败")
@@ -54,12 +68,32 @@ export default function EnergyUnitsView({ token, nodes, onError }: {
 
     {showAdd && <div className="energy-unit-add">
       <div className="energy-rule-row">
-        <input aria-label="节点名称" placeholder="例如：2 号储能柜" value={name} onChange={(event) => setName(event.target.value)} />
+        <input aria-label="节点名称" placeholder="储能柜名称，例如：2 号储能柜" value={name} onChange={(event) => setName(event.target.value)} />
         <span className="set-label">额定功率 kW</span>
         <input aria-label="额定功率" type="number" inputMode="decimal" value={rated} onChange={(event) => setRated(Number(event.target.value))} />
-        <button className="primary-button" disabled={busy} onClick={() => void add()}>{busy ? "创建中…" : "创建"}</button>
       </div>
-      <p className="form-note">创建后自动归属默认站点/电站，进入后可挂设备并配置能力级调度规则。</p>
+      <div className="energy-rule-row">
+        <span className="set-label">功率设定点位</span>
+        <select aria-label="创建功率点位" value={pointId} onChange={(event) => setPointId(event.target.value)}>
+          <option value="">选择 modbus 点位</option>
+          {powerPoints.map((node) => <option key={node.id} value={node.id}>{node.points.find((p) => p.type === "description")?.text || node.id}</option>)}
+        </select>
+      </div>
+      <div className="energy-rule-row">
+        <select aria-label="创建策略模板" value={templateKey} onChange={(event) => setTemplateKey(event.target.value)}>
+          {templates.map((t) => <option key={t.key} value={t.key}>{t.name}</option>)}
+        </select>
+        {templates.find((t) => t.key === templateKey)?.needKW && <>
+          <span className="set-label">功率 kW</span>
+          <input aria-label="创建策略功率" type="number" inputMode="decimal" value={templateKW} onChange={(event) => setTemplateKW(Number(event.target.value))} />
+        </>}
+        {templates.find((t) => t.key === templateKey)?.needSOC && <>
+          <span className="set-label">SOC 阈值 %</span>
+          <input aria-label="创建 SOC 阈值" type="number" inputMode="decimal" value={templateSOC} onChange={(event) => setTemplateSOC(Number(event.target.value))} />
+        </>}
+      </div>
+      <button className="primary-button" disabled={busy} onClick={() => void add()}>{busy ? "创建中…" : "创建并启动"}</button>
+      <p className="form-note">一次完成：建储能柜 + 挂设备 + 选策略，创建后自动开始调度。功率点位需先在"通道"页配置。</p>
     </div>}
 
     {units.length === 0 ? <div className="empty-state"><strong>还没有能源节点</strong><span>点击"新建能源节点"创建一个储能柜，或走接入向导绑定真实设备。</span></div> : <div className="energy-unit-list">
