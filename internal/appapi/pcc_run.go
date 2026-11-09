@@ -44,6 +44,15 @@ func (h *Handler) RunPlantAntiReverse(plantID string) ([]decision.EnergyAllocati
 	if err != nil {
 		return nil, err
 	}
+	// 闭环要落到设备：把各成员削减量写入其柜内设备。
+	for _, allocation := range allocations {
+		if allocation.Excluded {
+			continue
+		}
+		if err := h.writeEnergyUnitPower(allocation.EnergyUnitID, allocation.SetpointKW); err != nil {
+			return allocations, err
+		}
+	}
 	return allocations, nil
 }
 
@@ -74,7 +83,19 @@ func (h *Handler) RunPlantPeakShaving(plantID string) ([]decision.EnergyAllocati
 	if err != nil {
 		return nil, err
 	}
-	return decision.ApplyPeakShaving(shave, members, caps)
+	allocations, err := decision.ApplyPeakShaving(shave, members, caps)
+	if err != nil {
+		return nil, err
+	}
+	for _, allocation := range allocations {
+		if allocation.Excluded {
+			continue
+		}
+		if err := h.writeEnergyUnitPower(allocation.EnergyUnitID, allocation.SetpointKW); err != nil {
+			return allocations, err
+		}
+	}
+	return allocations, nil
 }
 
 // savePCCFeedbackForPlant 供 API/seed 写入 Plant 的 PCC 反馈绑定。
