@@ -3,6 +3,7 @@ import { fetchEnergyUnits, createEnergyUnit, fetchEnergyDevices, createEnergyDev
 import type { EnergyUnitSummary, EnergyDevice, Node } from "./api"
 import { templates, buildFromTemplate } from "./strategyTemplates"
 import EnergyRuleEditor from "./EnergyRuleEditor"
+import PlantStrategyPanel from "./PlantStrategyPanel"
 
 // EnergyUnitsView 列出能源节点（EnergyUnit），点击进入能力级规则编辑器。
 // 支持用户自建能源节点并挂设备（Device + 功率点位映射），真正可控。
@@ -63,6 +64,7 @@ export default function EnergyUnitsView({ token, nodes, onError }: {
   }
 
   return <section className="panel energy-units-view">
+    <PlantStrategyPanel token={token} nodes={nodes} onError={onError} />
     <div className="panel-heading"><div><span className="section-kicker">能源节点</span><h2>能源单元</h2><p>一个柜体（能源单元）是一条能力级规则与分配的调度对象。</p></div>
       <button className="secondary-button" onClick={() => setShowAdd(!showAdd)}>{showAdd ? "收起" : "+ 新建能源节点"}</button>
     </div>

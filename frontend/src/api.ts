@@ -338,6 +338,22 @@ export async function createEnergyDevice(token: string, energyUnitId: string, in
   return request<{ id: string; asset_code: string }>(token, `/energy-units/${energyUnitId}/devices`, "POST", input)
 }
 
+// 电站策略（防逆流/需量）：PCC 反馈绑定。
+export type PlantSummary = { id: string; asset_code: string; description: string }
+export type PCCBinding = { MeterPointID: string; Sign: number; MaxAgeMS: number; UpperLimitKW: number; LowerLimitKW: number }
+
+export async function fetchPlants(token: string) {
+  return request<{ plants: PlantSummary[] }>(token, `/plants`)
+}
+
+export async function fetchPlantPCC(token: string, plantId: string) {
+  return request<{ binding: PCCBinding; configured: boolean }>(token, `/plants/${plantId}/pcc`)
+}
+
+export async function savePlantPCC(token: string, plantId: string, binding: PCCBinding) {
+  return request<{ saved: boolean }>(token, `/plants/${plantId}/pcc`, "PUT", binding)
+}
+
 export async function saveEnergyRule(token: string, energyUnitId: string, rule: CapabilityRule) {
   return request<{ saved: boolean }>(token, `/energy-units/${energyUnitId}/rule`, "PUT", rule)
 }
