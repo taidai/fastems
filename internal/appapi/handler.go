@@ -275,6 +275,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case path == "ws":
 		h.serveWS(w, r, identity)
+	case path == "metrics" && r.Method == http.MethodGet:
+		h.serveMetrics(w, identity)
 	case path == "snapshot" && r.Method == http.MethodGet:
 		h.snapshot(w, identity)
 	case path == "audit" && r.Method == http.MethodGet:
