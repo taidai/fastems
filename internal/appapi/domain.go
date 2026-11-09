@@ -15,6 +15,8 @@ const (
 	NodeTypeSite       = "site"
 	NodeTypePlant      = "plant"
 	NodeTypeEnergyUnit = "energyUnit"
+	// ResourceGroup 资源集群：一组 EnergyUnit + 共享功率上限（G02/T27）。
+	NodeTypeResourceGroup = "resourceGroup"
 )
 
 // 四层节点字段的 point type。
@@ -40,6 +42,9 @@ const (
 	// DispatchLog 存 EnergyUnit 的调度追溯记录（JSON 数组，保留最近 50 条），
 	// 每条带 dispatchID 串起能力快照/分配/设备设定（OBS-01）。
 	PointTypeDispatchLog = "easyemsDispatchLog"
+	// ResourceGroup 的共享功率上限（kW）与成员（EnergyUnit ID 的 JSON 数组）。
+	PointTypeSharedLimitKW = "sharedLimitKW"
+	PointTypeGroupMembers  = "groupMembers"
 	// PowerSetpoint 存该 Device 的功率设定 modbusIo 点位 ID，能力级调度
 	// 写 valueSet 到它，bridge 才能消费并写设备。
 	PointTypePowerSetpoint = "powerSetpoint"
