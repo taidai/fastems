@@ -531,6 +531,8 @@ func (h *Handler) visibleNodes(identity Identity) ([]data.NodeEdge, error) {
 		data.NodeTypeDevice: true, data.NodeTypeGroup: true, data.NodeTypeVariable: true,
 		data.NodeTypeModbus: true, data.NodeTypeModbusIO: true,
 		"decisionTable": true, "deviceTemplate": true,
+		// 领域模型三层节点：不在白名单会被剪断整棵子树，前端看不到。
+		NodeTypeSite: true, NodeTypePlant: true, NodeTypeEnergyUnit: true,
 	}
 	nodes := []data.NodeEdge{}
 	seen := map[string]bool{}
