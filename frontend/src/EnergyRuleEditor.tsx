@@ -22,6 +22,33 @@ function emptyRule(energyUnitId: string): CapabilityRule {
   return { id: "rule-" + energyUnitId, state: "draft", conditions: [], actions: [] }
 }
 
+// 策略模板：把常见储能策略包装成业务参数，用户不用懂能力字段/规则语法。
+// 方向语义与 alloc 一致：正值=放电、负值=充电。
+type Template = { key: string; name: string; desc: string; needKW: boolean; needSOC: boolean }
+const templates: Template[] = [
+  { key: "discharge", name: "固定放电", desc: "持续按固定功率放电", needKW: true, needSOC: false },
+  { key: "charge", name: "固定充电", desc: "持续按固定功率充电", needKW: true, needSOC: false },
+  { key: "soc_discharge", name: "SOC 低时禁放", desc: "SOC 低于下限就停止放电，保护电池", needKW: true, needSOC: true },
+  { key: "soc_charge", name: "SOC 高时禁充", desc: "SOC 高于上限就停止充电，保护电池", needKW: true, needSOC: true },
+]
+
+function buildFromTemplate(key: string, energyUnitId: string, kw: number, soc: number): CapabilityRule {
+  const base = { id: "rule-" + energyUnitId, state: "draft" }
+  const always = { ref: { energy_unit_id: energyUnitId, field: "rated_power" }, operator: "gt", value: 0 }
+  switch (key) {
+    case "discharge":
+      return { ...base, conditions: [always], actions: [{ energy_unit_id: energyUnitId, request_kw: Math.abs(kw) }] }
+    case "charge":
+      return { ...base, conditions: [always], actions: [{ energy_unit_id: energyUnitId, request_kw: -Math.abs(kw) }] }
+    case "soc_discharge":
+      return { ...base, conditions: [{ ref: { energy_unit_id: energyUnitId, field: "soc" }, operator: "gt", value: soc }], actions: [{ energy_unit_id: energyUnitId, request_kw: Math.abs(kw) }] }
+    case "soc_charge":
+      return { ...base, conditions: [{ ref: { energy_unit_id: energyUnitId, field: "soc" }, operator: "lt", value: soc }], actions: [{ energy_unit_id: energyUnitId, request_kw: -Math.abs(kw) }] }
+    default:
+      return emptyRule(energyUnitId)
+  }
+}
+
 // EnergyRuleEditor 配置一个 EnergyUnit 的能力级规则：条件引用能力字段，
 // 动作是对该 EnergyUnit 的功率请求。草稿保存不改变运行，显式发布才生效；
 // 模拟只求值，绝不写设备。
@@ -36,6 +63,15 @@ export default function EnergyRuleEditor({ token, energyUnitId, onError }: {
   const [simSoc, setSimSoc] = useState(60)
   const [simPower, setSimPower] = useState(200)
   const [simResult, setSimResult] = useState<string>("")
+  const [templateKey, setTemplateKey] = useState("discharge")
+  const [templateKW, setTemplateKW] = useState(50)
+  const [templateSOC, setTemplateSOC] = useState(20)
+
+  function applyTemplate() {
+    const template = templates.find((t) => t.key === templateKey)
+    if (template?.needKW && templateKW <= 0) { onError("请填写大于 0 的功率"); return }
+    setRule(buildFromTemplate(templateKey, energyUnitId, templateKW, templateSOC))
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -128,6 +164,27 @@ export default function EnergyRuleEditor({ token, energyUnitId, onError }: {
     </div>
     {published && rule!.published_at && <p className="form-note">发布于 {rule!.published_at}。修改后需重新发布才会生效。</p>}
 
+    <div className="energy-rule-section energy-template-section">
+      <strong>从模板创建（推荐，无需懂规则语法）</strong>
+      <div className="energy-rule-row">
+        <select aria-label="策略模板" value={templateKey} onChange={(event) => setTemplateKey(event.target.value)}>
+          {templates.map((t) => <option key={t.key} value={t.key}>{t.name}</option>)}
+        </select>
+        {templates.find((t) => t.key === templateKey)?.needKW && <>
+          <span className="set-label">功率 kW</span>
+          <input aria-label="模板功率" type="number" inputMode="decimal" value={templateKW} onChange={(event) => setTemplateKW(Number(event.target.value))} />
+        </>}
+        {templates.find((t) => t.key === templateKey)?.needSOC && <>
+          <span className="set-label">SOC 阈值 %</span>
+          <input aria-label="模板 SOC 阈值" type="number" inputMode="decimal" value={templateSOC} onChange={(event) => setTemplateSOC(Number(event.target.value))} />
+        </>}
+        <button className="secondary-button" onClick={applyTemplate}>应用模板</button>
+      </div>
+      <p className="form-note">{templates.find((t) => t.key === templateKey)?.desc}。应用后可微调，再发布生效。</p>
+    </div>
+
+    <details className="energy-advanced">
+      <summary>高级：手动编辑条件与动作</summary>
     <div className="energy-rule-section">
       <strong>当以下条件同时满足</strong>
       {rule!.conditions.map((condition, index) => (
@@ -157,6 +214,7 @@ export default function EnergyRuleEditor({ token, energyUnitId, onError }: {
       ))}
       <button className="secondary-button" onClick={() => setRule({ ...rule!, actions: [...rule!.actions, { energy_unit_id: energyUnitId, request_kw: 0 }] })}>+ 动作</button>
     </div>
+    </details>
 
     <div className="energy-rule-section">
       <strong>模拟（只求值，不下发）</strong>
