@@ -16,6 +16,7 @@ export default function EnergyUnitsView({ token, nodes, onError }: {
   const [showAdd, setShowAdd] = useState(false)
   const [name, setName] = useState("")
   const [rated, setRated] = useState(100)
+  const [energyType, setEnergyType] = useState("storage")
   const [pointId, setPointId] = useState("")
   const [templateKey, setTemplateKey] = useState("discharge")
   const [templateKW, setTemplateKW] = useState(50)
@@ -39,7 +40,7 @@ export default function EnergyUnitsView({ token, nodes, onError }: {
     if (templateKW <= 0) { onError("请填写大于 0 的策略功率"); return }
     setBusy(true)
     try {
-      const unit = await createEnergyUnit(token, { description: name.trim(), rated_power_kw: rated })
+      const unit = await createEnergyUnit(token, { description: name.trim(), rated_power_kw: rated, energy_type: energyType })
       await createEnergyDevice(token, unit.id, { description: name.trim() + "-PCS", rated_power_kw: rated, power_setpoint_id: pointId })
       const rule = buildFromTemplate(templateKey, unit.id, templateKW, templateSOC)
       await saveEnergyRule(token, unit.id, rule)
@@ -71,6 +72,11 @@ export default function EnergyUnitsView({ token, nodes, onError }: {
         <input aria-label="节点名称" placeholder="储能柜名称，例如：2 号储能柜" value={name} onChange={(event) => setName(event.target.value)} />
         <span className="set-label">额定功率 kW</span>
         <input aria-label="额定功率" type="number" inputMode="decimal" value={rated} onChange={(event) => setRated(Number(event.target.value))} />
+        <select aria-label="能源类型" value={energyType} onChange={(event) => setEnergyType(event.target.value)}>
+          <option value="storage">储能（可充可放）</option>
+          <option value="pv">光伏（只发电）</option>
+          <option value="ev">充电桩（只耗电）</option>
+        </select>
       </div>
       <div className="energy-rule-row">
         <span className="set-label">功率设定点位</span>
