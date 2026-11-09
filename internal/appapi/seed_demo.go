@@ -2,6 +2,7 @@ package appapi
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/nats-io/nats.go"
 	siotclient "github.com/simpleiot/simpleiot/client"
@@ -9,6 +10,22 @@ import (
 
 	"easyems/internal/decision"
 )
+
+// SeedDemoSite 在 store 完全就绪后预置演示站点，带重试。必须在 app 启动
+// 流程的 ready 之后调用：若在 store 早期（root meta 未更新）创建节点，
+// StoreSyncAlways 模式下节点会卡在 replica boundary，进而扰动 store 状态。
+func SeedDemoSite(nc *nats.Conn) error {
+	var lastErr error
+	for attempt := 0; attempt < 5; attempt++ {
+		if err := seedDemoSite(nc); err == nil {
+			return nil
+		} else {
+			lastErr = err
+		}
+		time.Sleep(2 * time.Second)
+	}
+	return lastErr
+}
 
 // seedDemoSite 在首次初始化时预置一个完整演示站点，让能力级调度闭环
 // 开箱即可见：站点→电站→储能柜→PCS，一条已发布的能力级规则，EnergyScheduler
@@ -23,8 +40,16 @@ func seedDemoSite(nc *nats.Conn) error {
 		}
 	}
 
+	// root 节点的 ID 不是 "root" 字符串（"root" 只是 root 节点的 parent）；
+	// 用真实 root ID 作 parent，否则节点成为孤立节点、boundary 混乱。
+	rootNode, err := siotclient.GetRootNode(nc)
+	if err != nil {
+		return err
+	}
+	rootID := rootNode.ID
+
 	// Modbus 通道 + 功率设定点位（bridge 消费 valueSet 的落点）。
-	channelID, err := CreateDomainNode(nc, "root", data.NodeTypeModbus, map[string]string{
+	channelID, err := CreateDomainNode(nc, rootID, data.NodeTypeModbus, map[string]string{
 		"description": "演示总线（无真实设备）",
 	})
 	if err != nil {
@@ -38,7 +63,7 @@ func seedDemoSite(nc *nats.Conn) error {
 	}
 
 	// 领域节点：Site → Plant → EnergyUnit → Device。
-	siteID, err := CreateDomainNode(nc, "root", NodeTypeSite, map[string]string{
+	siteID, err := CreateDomainNode(nc, rootID, NodeTypeSite, map[string]string{
 		PointTypeAssetCode: "DEMO", "description": "演示站（可删除）",
 	})
 	if err != nil {
