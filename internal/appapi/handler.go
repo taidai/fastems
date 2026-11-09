@@ -394,6 +394,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.createResourceGroup(w, r, identity)
 	case len(parts) == 3 && parts[0] == "resource-groups" && parts[2] == "dispatch" && r.Method == http.MethodPost:
 		h.dispatchResourceGroup(w, r, identity, parts[1])
+	case path == "plants" && r.Method == http.MethodGet:
+		h.listPlants(w, identity)
+	case len(parts) == 3 && parts[0] == "plants" && parts[2] == "pcc" && r.Method == http.MethodGet:
+		h.getPlantPCC(w, identity, parts[1])
+	case len(parts) == 3 && parts[0] == "plants" && parts[2] == "pcc" && r.Method == http.MethodPut:
+		h.savePlantPCC(w, r, identity, parts[1])
 	case path == "safety" && r.Method == http.MethodPut:
 		h.putSafety(w, r, identity)
 	case path == "alarm-types":

@@ -14,14 +14,21 @@ import (
 // 对配置了能力级规则的单元自动执行能力级调度（读能力→求值→拆解→写设备）。
 // 这是能力级模型替代点位级 decision client 的运行时自动循环。
 type EnergyScheduler struct {
-	nc       *nats.Conn
-	dispatch func(energyUnitID string) error
-	stop     chan struct{}
+	nc            *nats.Conn
+	dispatch      func(energyUnitID string) error
+	plantDispatch func(plantID string) error
+	stop          chan struct{}
 }
 
 // NewEnergyScheduler 返回一个周期调度器，dispatch 是单次调度的执行函数。
 func NewEnergyScheduler(nc *nats.Conn, dispatch func(energyUnitID string) error) *EnergyScheduler {
 	return &EnergyScheduler{nc: nc, dispatch: dispatch, stop: make(chan struct{})}
+}
+
+// SetPlantDispatch 注入站级策略（防逆流/需量）的执行函数，每周期对有 PCC
+// 绑定的 Plant 执行。
+func (s *EnergyScheduler) SetPlantDispatch(dispatch func(plantID string) error) {
+	s.plantDispatch = dispatch
 }
 
 // Run 每 1 秒扫描一次 EnergyUnit 并执行调度，直到 Stop。
@@ -63,6 +70,21 @@ func (s *EnergyScheduler) tick() {
 		}
 		if err := s.dispatch(node.ID); err != nil {
 			log.Printf("energy dispatch %s: %v", node.ID, err)
+		}
+	}
+
+	// 站级策略：对配置了 PCC 反馈绑定的 Plant 执行防逆流/需量闭环。
+	if s.plantDispatch != nil {
+		plants, err := siotclient.GetNodes(s.nc, "all", "all", NodeTypePlant, false)
+		if err == nil {
+			for _, plant := range plants {
+				if _, ok := loadPCCFeedback(plant); !ok {
+					continue
+				}
+				if err := s.plantDispatch(plant.ID); err != nil {
+					log.Printf("plant strategy %s: %v", plant.ID, err)
+				}
+			}
 		}
 	}
 }
