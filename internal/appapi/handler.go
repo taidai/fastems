@@ -386,6 +386,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.simulateCapabilityRule(w, r, identity, parts[1])
 	case len(parts) == 3 && parts[0] == "energy-units" && parts[2] == "allocator" && (r.Method == http.MethodGet || r.Method == http.MethodPut):
 		h.energyAllocator(w, r, identity, parts[1])
+	case len(parts) == 3 && parts[0] == "energy-units" && parts[2] == "devices" && r.Method == http.MethodGet:
+		h.listEnergyDevices(w, identity, parts[1])
+	case len(parts) == 3 && parts[0] == "energy-units" && parts[2] == "devices" && r.Method == http.MethodPost:
+		h.createEnergyDevice(w, r, identity, parts[1])
 	case path == "safety" && r.Method == http.MethodPut:
 		h.putSafety(w, r, identity)
 	case path == "alarm-types":
