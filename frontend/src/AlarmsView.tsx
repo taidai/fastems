@@ -238,7 +238,7 @@ export default function AlarmsView({ token, rootID, nodes, canOperate, canConfig
     <div className="alarm-list">
       {shown.map((alarm) => renderCard(alarm, false))}
       {shown.length === 0 && <div className="panel empty-state large">
-        <strong>{filter === "active" ? "没有需要处理的报警" : "还没有报警记录"}</strong>
+        <strong>{filter === "active" ? "没有需要处理的报警，系统正常运行" : "还没有报警记录"}</strong>
         <span>设备离线、通道心跳过期、控制结果未知或规则异常时，会自动出现在这里。</span>
       </div>}
     </div>

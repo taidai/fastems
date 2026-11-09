@@ -891,7 +891,7 @@ function ChannelsView({ channels, ioCounts, isAdmin, canOperate, quality, goConf
         </article>
       })}
     </div>
-    {channels.length === 0 && <div className="panel empty-state large"><strong>还没有通信通道</strong><span>管理员可在“端口配置”中新增 Modbus TCP 或 RTU；单条通道故障不会影响其他通道。</span></div>}
+    {channels.length === 0 && <div className="panel empty-state large"><strong>还没有通信通道</strong><span>先新增一个 Modbus TCP 或 RTU 通道，接入第一台设备。</span><button className="primary-button" onClick={goConfigure}>+ 新增通道</button></div>}
     <div className="panel channel-note"><strong>状态口径</strong><p>在线表示最近一次完整轮询仍在时效内；不稳定表示有通信错误但仍有成功轮询；离线表示超过时效或从未成功。端口参数、单元与点位在同一工作区的“端口配置”中维护。</p></div>
   </section>
 }
