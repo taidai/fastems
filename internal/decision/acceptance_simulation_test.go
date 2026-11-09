@@ -33,7 +33,7 @@ func allocate(t *testing.T, requestKW float64, caps CapabilityValues) map[string
 // T03 双柜正常分配：A/B 上限 60/80，目标 +100。
 // 通过依据：合计 +100，各柜不越上限。
 // 注：清单假设"初始分配 60/40"是某策略的结果；本实现为按比例水填充，
-// 分配 42.9/57.1，同样满足"不越界+合计达标"。策略选择属 SCH-02 待裁决。
+// 分配 42.9/57.1，同样满足"不越界+合计达标"。SCH-02 已定案按比例。
 func TestAcceptanceT03NormalAllocation(t *testing.T) {
 	caps := CapabilityValues{
 		"A": {FieldRatedPower: 60, FieldAvailablePower: 60},
@@ -53,7 +53,7 @@ func TestAcceptanceT03NormalAllocation(t *testing.T) {
 // T04 单柜降额重分配：A 可放上限 60→30，B 仍 80，目标 +100。
 // 通过依据：A 不超新上限 30，合计尽量达 +100。
 // 注：清单假设"A 顶满新上限 30、B 补 70"（按上限优先）；本实现按比例
-// 分配 A=27.3、B=72.7，满足"不越界+合计达标"。策略差异见 SCH-02。
+// 分配 A=27.3、B=72.7，满足"不越界+合计达标"。SCH-02 已定案按比例。
 func TestAcceptanceT04DerateReallocation(t *testing.T) {
 	caps := CapabilityValues{
 		"A": {FieldRatedPower: 60, FieldAvailablePower: 30}, // 降额到 30
