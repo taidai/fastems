@@ -56,7 +56,7 @@ function roleLabel(role: PointRole) { return roleNames[role] || role }
 
 const savedViewsKey = "easyems-point-views"
 type SavedPointView = { name: string; query: string; bus: string; quality: string; access: string; role: string }
-const qualityFilterNames: Record<string, string> = { normal: "正常", stale: "过期", offline: "离线", unknown: "无值", disabled: "已停用" }
+const qualityFilterNames: Record<string, string> = { attention: "需处理", normal: "正常", stale: "过期", offline: "离线", unknown: "无值", disabled: "已停用" }
 
 function qualityReason(row: { disabled: boolean; quality: Quality; valueTime: string; errorCount: number }) {
   if (row.disabled) return "已停用"
@@ -244,6 +244,7 @@ export default function PointsView({ token, nodes, isAdmin, canOperate, busy, ru
     if (roleFilter !== "all" && row.role !== roleFilter) return false
     if (accessFilter === "readonly" && !row.readOnly) return false
     if (accessFilter === "writable" && row.readOnly) return false
+    if (qualityFilter === "attention" && row.quality === "normal" && !row.disabled) return false
     if (qualityFilter === "disabled" && !row.disabled) return false
     if (qualityFilter !== "all" && qualityFilter !== "disabled" && row.quality !== qualityFilter) return false
     if (!query.trim()) return true
@@ -563,7 +564,7 @@ export default function PointsView({ token, nodes, isAdmin, canOperate, busy, ru
           {buses.map((bus) => <option key={bus.id} value={bus.id}>{text(bus, "description") || bus.id}</option>)}
         </select>
         <select aria-label="过滤质量" value={qualityFilter} onChange={(event) => setQualityFilter(event.target.value)}>
-          <option value="all">全部质量</option><option value="normal">正常</option><option value="stale">过期</option>
+          <option value="all">全部质量</option><option value="attention">需处理</option><option value="normal">正常</option><option value="stale">过期</option>
           <option value="offline">离线</option><option value="unknown">无值</option><option value="disabled">已停用</option>
         </select>
         <select aria-label="过滤角色" value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
