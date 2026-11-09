@@ -390,6 +390,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.listEnergyDevices(w, identity, parts[1])
 	case len(parts) == 3 && parts[0] == "energy-units" && parts[2] == "devices" && r.Method == http.MethodPost:
 		h.createEnergyDevice(w, r, identity, parts[1])
+	case path == "resource-groups" && r.Method == http.MethodPost:
+		h.createResourceGroup(w, r, identity)
+	case len(parts) == 3 && parts[0] == "resource-groups" && parts[2] == "dispatch" && r.Method == http.MethodPost:
+		h.dispatchResourceGroup(w, r, identity, parts[1])
 	case path == "safety" && r.Method == http.MethodPut:
 		h.putSafety(w, r, identity)
 	case path == "alarm-types":
