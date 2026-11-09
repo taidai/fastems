@@ -73,6 +73,7 @@ export default function DeviceLedgerView({ token, onError, canConfigure, canOper
         <input aria-label="搜索设备" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索设备、业务节点、通道或 Profile" />
         <select aria-label="设备健康" value={health} onChange={(event) => setHealth(event.target.value)}><option value="all">全部健康状态</option><option value="healthy">在线</option><option value="degraded">不稳定</option><option value="offline">离线</option><option value="unknown">未知</option></select>
         <span>共 {shown.length} 台</span>
+        <button className="primary-button" onClick={goChannels}>+ 接入新设备</button>
       </div>
       <div className="ledger-table-wrap">
         <table className="ledger-table">
@@ -86,7 +87,13 @@ export default function DeviceLedgerView({ token, onError, canConfigure, canOper
               <td>{device.point_count} / {device.command_count}</td>
               <td><span className={`ledger-health ${device.health}`}>{healthNames[device.health] || device.health}</span>{device.success_rate > 0 && <small>通信 {device.success_rate.toFixed(0)}% · {Math.round(device.avg_latency_ms)}ms</small>}</td>
               <td>{device.verified ? <span className="ledger-verified">已验证</span> : <span className="ledger-unverified">未验证</span>}</td>
-              <td className="ledger-actions"><button onClick={() => setSelected(device)}>详情</button></td>
+              <td className="ledger-actions">
+                {!device.profile_id
+                  ? <button className="ledger-next-action" onClick={goChannels}>绑定 Profile →</button>
+                  : !device.verified
+                    ? <button className="ledger-next-action" onClick={() => setSelected(device)}>去验证 →</button>
+                    : <button onClick={() => setSelected(device)}>管理</button>}
+              </td>
             </tr>)}
           </tbody>
         </table>

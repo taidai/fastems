@@ -40,7 +40,7 @@ export default function EnergyUnitsView({ token, nodes, onError }: {
 
   function nextStep() {
     if (step === 1) {
-      if (!name.trim()) { onError("先填储能柜名称"); return }
+      if (!name.trim()) { onError("先填能源设备名称"); return }
       if (rated <= 0) { onError("额定功率必须大于 0"); return }
     }
     if (step === 2 && !pointId) { onError("选择功率设定点位，调度才能写到设备"); return }
@@ -69,7 +69,7 @@ export default function EnergyUnitsView({ token, nodes, onError }: {
 
   if (selected) {
     return <section className="panel energy-units-view">
-      <div className="panel-heading"><div><span className="section-kicker">储能柜</span><h2>运行策略</h2><p>{units.find((unit) => unit.id === selected)?.asset_code || selected}</p></div><button className="secondary-button" onClick={() => setSelected("")}>返回列表</button></div>
+      <div className="panel-heading"><div><span className="section-kicker">能源设备</span><h2>运行策略</h2><p>{units.find((unit) => unit.id === selected)?.asset_code || selected}</p></div><button className="secondary-button" onClick={() => setSelected("")}>返回列表</button></div>
       <DevicePanel token={token} unitId={selected} nodes={nodes} onError={onError} />
       <EnergyRuleEditor token={token} energyUnitId={selected} onError={onError} />
     </section>
@@ -77,19 +77,19 @@ export default function EnergyUnitsView({ token, nodes, onError }: {
 
   return <section className="panel energy-units-view">
     <PlantStrategyPanel token={token} nodes={nodes} onError={onError} />
-    <div className="panel-heading"><div><span className="section-kicker">储能柜</span><h2>储能柜</h2><p>每台储能柜独立按策略自动充放电，可挂设备、配策略。</p></div>
-      <button className="secondary-button" onClick={() => showAdd ? setShowAdd(false) : openWizard()}>{showAdd ? "收起" : "+ 新建储能柜"}</button>
+    <div className="panel-heading"><div><span className="section-kicker">能源设备</span><h2>能源设备</h2><p>每台能源设备独立按策略自动充放电，可挂设备、配策略。</p></div>
+      <button className="secondary-button" onClick={() => showAdd ? setShowAdd(false) : openWizard()}>{showAdd ? "收起" : "+ 新建能源设备"}</button>
     </div>
 
     {showAdd && <div className="energy-unit-add wizard">
       <ol className="wizard-steps">
-        {["储能柜信息", "挂设备", "选策略并启动"].map((title, index) => <li key={title} className={step > index + 1 ? "done" : step === index + 1 ? "active" : ""}>{index + 1}. {title}</li>)}
+        {["能源设备信息", "挂设备", "选策略并启动"].map((title, index) => <li key={title} className={step > index + 1 ? "done" : step === index + 1 ? "active" : ""}>{index + 1}. {title}</li>)}
       </ol>
 
       {step === 1 && <div className="wizard-body">
-        <p className="wizard-consequence">给这台储能柜起个名字、填额定功率。这一步只登记信息，不会动设备。</p>
+        <p className="wizard-consequence">给这台能源设备起个名字、填额定功率。这一步只登记信息，不会动设备。</p>
         <div className="energy-rule-row">
-          <input aria-label="节点名称" placeholder="储能柜名称，例如：2 号储能柜" value={name} onChange={(event) => setName(event.target.value)} />
+          <input aria-label="节点名称" placeholder="能源设备名称，例如：2 号能源设备" value={name} onChange={(event) => setName(event.target.value)} />
           <span className="set-label">额定功率 kW</span>
           <input aria-label="额定功率" type="number" inputMode="decimal" value={rated} onChange={(event) => setRated(Number(event.target.value))} />
           <select aria-label="能源类型" value={energyType} onChange={(event) => setEnergyType(event.target.value)}>
@@ -129,7 +129,7 @@ export default function EnergyUnitsView({ token, nodes, onError }: {
         </div>
         <div className="wizard-preview">
           <strong>确认后果</strong>
-          <span>储能柜「{name || "未命名"}」（额定 {rated} kW）将按「{templates.find((t) => t.key === templateKey)?.name}」以 {templateKW} kW 自动{templateKey === "charge" ? "充电" : "放电"}。</span>
+          <span>能源设备「{name || "未命名"}」（额定 {rated} kW）将按「{templates.find((t) => t.key === templateKey)?.name}」以 {templateKW} kW 自动{templateKey === "charge" ? "充电" : "放电"}。</span>
         </div>
       </div>}
 
@@ -141,7 +141,7 @@ export default function EnergyUnitsView({ token, nodes, onError }: {
       </div>
     </div>}
 
-    {units.length === 0 ? <div className="empty-state"><strong>还没有储能柜</strong><span>点击"新建储能柜"，三步让一台柜子按策略自动跑起来。</span></div> : <div className="energy-unit-list">
+    {units.length === 0 ? <div className="empty-state"><strong>还没有能源设备</strong><span>点击"新建能源设备"，三步让一台柜子按策略自动跑起来。</span></div> : <div className="energy-unit-list">
       {units.map((unit) => <button key={unit.id} className="energy-unit-row" onClick={() => setSelected(unit.id)}>
         <strong>{unit.asset_code || unit.description || unit.id}</strong>
         <span>{unit.description || unit.id}</span>

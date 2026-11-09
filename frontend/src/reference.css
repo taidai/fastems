@@ -243,6 +243,8 @@
 .energy-status-dispatch.muted { color: var(--muted); }
 .energy-status-shortfall { color: #b07a2a; margin-left: 6px; font-weight: 600; }
 .energy-status-summary { margin: 2px 0 0; font-size: 12px; color: var(--muted); font-weight: 500; }
+.ledger-next-action { color: var(--mint); font-weight: 600; }
+.ledger-toolbar .primary-button { margin-left: auto; }
 
 /* 创建储能柜分步引导：步骤条、每步后果说明、确认预览 */
 .wizard-steps { display: flex; gap: 6px; margin: 0 0 12px; padding: 0; list-style: none; }

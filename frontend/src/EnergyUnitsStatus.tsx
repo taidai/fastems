@@ -55,7 +55,7 @@ export default function EnergyUnitsStatus({ nodes, onOpen }: {
   if (units.length === 0) return null
 
   return <section className="panel energy-status-panel">
-    <div className="panel-heading"><div><span className="section-kicker">储能柜运行</span><h2>每柜当前状态</h2>
+    <div className="panel-heading"><div><span className="section-kicker">能源设备运行</span><h2>每柜当前状态</h2>
       <p className="energy-status-summary">{stats.running} 台运行中{stats.attention > 0 ? ` · ${stats.attention} 台需处理` : " · 全部正常"}</p>
     </div>
       <button className="secondary-button" onClick={onOpen}>调度配置</button>
