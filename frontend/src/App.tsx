@@ -17,6 +17,7 @@ import CommunicationView from "./CommunicationView"
 import ModbusTools from "./ModbusTools"
 import DeviceLedgerView from "./DeviceLedgerView"
 import EnergyUnitsView from "./EnergyUnitsView"
+import EnergyUnitsStatus from "./EnergyUnitsStatus"
 import FrameDrawer from "./FrameDrawer"
 import EnergyFlow, { type DispatchInfo } from "./EnergyFlow"
 import AssistantPanel from "./AssistantPanel"
@@ -558,7 +559,7 @@ export default function App() {
       {page === "devices" && <DevicesView
         snapshot={view} points={points} groups={groups} rules={rules.length} activeRules={activeRules.length} errors={errors.length}
         alarmCount={alarmCount} busy={busy} isAdmin={canConfigure} canOperate={canOperate} run={run} openPoint={openPoint}
-        goRules={() => setPage("rules")} goHistory={() => setPage("history")} goChannels={() => setPage("channels")} dispatch={dispatch} latestAlarm={latestAlarm} tariff={tariff}
+        goRules={() => setPage("rules")} goHistory={() => setPage("history")} goChannels={() => setPage("channels")} goEnergyUnits={() => setPage("energyUnits")} dispatch={dispatch} latestAlarm={latestAlarm} tariff={tariff}
         kpiConfig={kpiConfig}
       />}
 
@@ -646,9 +647,9 @@ export default function App() {
 
 type Run = (action: () => Promise<unknown>) => Promise<boolean>
 
-function DevicesView({ snapshot, points, groups, rules, activeRules, errors, alarmCount, busy, isAdmin, canOperate, run, openPoint, goRules, goHistory, goChannels, dispatch, latestAlarm, tariff, kpiConfig }: {
+function DevicesView({ snapshot, points, groups, rules, activeRules, errors, alarmCount, busy, isAdmin, canOperate, run, openPoint, goRules, goHistory, goChannels, goEnergyUnits, dispatch, latestAlarm, tariff, kpiConfig }: {
   snapshot: Snapshot; points: Node[]; groups: Node[]; rules: number; activeRules: number; errors: number; alarmCount: number
-  busy: boolean; isAdmin: boolean; canOperate: boolean; run: Run; goRules: () => void; goHistory: () => void; goChannels: () => void; dispatch: DispatchInfo | null
+  busy: boolean; isAdmin: boolean; canOperate: boolean; run: Run; goRules: () => void; goHistory: () => void; goChannels: () => void; goEnergyUnits: () => void; dispatch: DispatchInfo | null
   latestAlarm: EmsAlarm | null
   tariff: number | null
   kpiConfig: KpiConfig
@@ -676,6 +677,8 @@ function DevicesView({ snapshot, points, groups, rules, activeRules, errors, ala
       activeRules, rules, alarmCount, errors, pointCount: points.length, onOpenRules: goRules,
       latestAlarm: latestAlarm ? { title: latestAlarm.title, severity: latestAlarm.severity, at: latestAlarm.created_at } : undefined,
     }} />
+
+    <EnergyUnitsStatus nodes={snapshot.nodes} onOpen={goEnergyUnits} />
 
     <div className="console-data-note">
       <span><b>现场</b>{showDataNote ? "所有指标均取自已配置点位；未接入、无值或过期显示“—”。能流画面只用于展示，不替代控制、保护或结算。" : "仅展示已绑定点位；未接入指标显示“—”，不生成模拟数据。"}</span>

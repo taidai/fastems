@@ -224,3 +224,21 @@
 /* 底部导航已移除，回收其为内容区预留的底部空间。 */
 .console-shell { padding-bottom: 0; }
 .console-bottomnav { display: none; }
+
+/* 能源节点运行状态卡（值班员首屏：每柜当前状态） */
+.energy-status-panel { margin-top: 12px; }
+.energy-status-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(248px, 1fr)); gap: 12px; }
+.energy-status-card { padding: 12px 14px; display: grid; gap: 8px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 255, 255, 0.5); }
+.energy-status-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.energy-status-head strong { font-size: 14px; }
+.energy-status-badge { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.energy-status-badge.ok { color: #2d8f78; background: rgba(45, 143, 120, 0.14); }
+.energy-status-badge.warn { color: #b07a2a; background: rgba(176, 122, 42, 0.14); }
+.energy-status-badge.bad { color: #b14b53; background: rgba(177, 75, 83, 0.14); }
+.energy-status-badge.muted { color: #637489; background: rgba(99, 116, 137, 0.14); }
+.energy-status-figures { display: flex; gap: 18px; }
+.energy-status-figures span { color: var(--muted); font-size: 11px; margin-right: 5px; }
+.energy-status-figures b { font-size: 16px; }
+.energy-status-dispatch { font-size: 12px; color: #3a4a5a; }
+.energy-status-dispatch.muted { color: var(--muted); }
+.energy-status-shortfall { color: #b07a2a; margin-left: 6px; font-weight: 600; }
