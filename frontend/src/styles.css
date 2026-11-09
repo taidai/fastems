@@ -2853,4 +2853,6 @@ body::after {
 .energy-unit-row { display: grid; grid-template-columns: minmax(0,1fr) auto auto; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,0.34); cursor: pointer; text-align: left; }
 .energy-unit-row strong { font-size: 13px; }
 .energy-unit-row span { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.energy-unit-add { padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255, 255, 255, 0.34); display: grid; gap: 8px; }
+.energy-unit-add input { min-height: 34px; font-size: 12px; padding: 4px 8px; }
 

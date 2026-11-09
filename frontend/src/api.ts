@@ -324,6 +324,10 @@ export async function fetchEnergyUnits(token: string) {
   return request<{ units: EnergyUnitSummary[] }>(token, `/energy-units`)
 }
 
+export async function createEnergyUnit(token: string, input: { asset_code?: string; description: string; rated_power_kw: number; energy_type?: string }) {
+  return request<{ id: string; asset_code: string; plant_id: string }>(token, `/energy-units`, "POST", input)
+}
+
 export async function saveEnergyRule(token: string, energyUnitId: string, rule: CapabilityRule) {
   return request<{ saved: boolean }>(token, `/energy-units/${energyUnitId}/rule`, "PUT", rule)
 }
