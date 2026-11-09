@@ -198,3 +198,29 @@
   .assistant-fab { width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(140deg,#555f68,#39444d); color: #fff; }
   .assistant-fab > span { font-size: 16px; }
 }
+
+/* 桌面宽屏：主导航改为左侧垂直栏，给内容腾出横向空间。
+   本文件在 styles.css 之后引入，此处同断点后定义，覆盖上方的底部导航样式。
+   小屏（<1000px 或高度 <650px）保留底部导航，触摸友好。 */
+@media (min-width: 1000px) and (min-height: 650px) {
+  .console-shell { padding-left: 108px; }
+  .console-bottomnav {
+    position: fixed; left: 14px; right: auto; top: 50%; bottom: auto;
+    transform: translateY(-50%); z-index: 50;
+    display: flex; flex-direction: column; align-items: stretch; justify-content: center;
+    gap: 6px; width: 84px; height: auto; min-height: 0; margin: 0; padding: 10px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.6); border-radius: 18px;
+    background: rgba(246, 251, 255, 0.72);
+    box-shadow: 0 10px 30px rgba(31, 46, 58, 0.14);
+    backdrop-filter: blur(24px) saturate(1.2); -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  }
+  .console-bottomnav button {
+    min-width: 0; width: 100%; height: 56px; min-height: 56px;
+    padding: 6px 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  }
+  .console-bottomnav button svg { width: 24px; height: 24px; }
+  .console-bottomnav button small { font-size: 12px; }
+  /* 左侧栏占位后，内容区不再为底部导航预留空间。 */
+  .console-main { padding-bottom: 24px; }
+  .console-data-note { margin-bottom: 0; }
+}
