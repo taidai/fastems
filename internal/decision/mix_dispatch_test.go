@@ -50,3 +50,28 @@ func TestAcceptanceT23MixDispatch(t *testing.T) {
 		}
 	})
 }
+
+// 方向正确性：超购电时不能限发光伏（那会让净购电更高）；外送偏多时才限发。
+func TestMixDispatchPVDirection(t *testing.T) {
+	overPurchase := MixDispatch(MixInput{
+		TargetPCCKW: 60, BaseLoadKW: 100, PVActualKW: 35, ESSNetKW: 20, EVLoadKW: 30,
+		ESSExtraDischargeKW: 5, PVReducibleKW: 10,
+	})
+	if overPurchase.PVLimitKW != 35 {
+		t.Fatalf("超购电时限发光伏方向错误，PVLimit=%.1f", overPurchase.PVLimitKW)
+	}
+	if overPurchase.ShortfallKW != 10 {
+		t.Fatalf("缺口应为 10，实测 %.1f", overPurchase.ShortfallKW)
+	}
+
+	export := MixDispatch(MixInput{
+		TargetPCCKW: 0, BaseLoadKW: 50, PVActualKW: 80, ESSNetKW: 0,
+		ESSExtraChargeKW: 10, PVReducibleKW: 20,
+	})
+	if export.PVLimitKW != 60 || export.ESSNetKW != -10 {
+		t.Fatalf("外送偏多应先多充再限发，实测 ESS=%.1f PVLimit=%.1f", export.ESSNetKW, export.PVLimitKW)
+	}
+	if export.NetPCCKW != 0 || export.ShortfallKW != 0 {
+		t.Fatalf("应回到目标且无缺口，实测 net=%.1f shortfall=%.1f", export.NetPCCKW, export.ShortfallKW)
+	}
+}

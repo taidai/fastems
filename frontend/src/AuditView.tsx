@@ -16,7 +16,24 @@ function queryString(filters: Filters) {
   return params.toString()
 }
 
+type AuditSetting = { max_mb: number; backups: number; retention_days: number }
+
 export default function AuditView({ token, onError }: { token: string; onError: (message: string) => void }) {
+  const [auditSetting, setAuditSetting] = useState<AuditSetting>({ max_mb: 5, backups: 1, retention_days: 0 })
+  const [settingBusy, setSettingBusy] = useState(false)
+  useEffect(() => {
+    void request<AuditSetting>(token, "/audit-settings").then(setAuditSetting).catch(() => {})
+  }, [token])
+  async function saveAuditSetting() {
+    setSettingBusy(true)
+    try {
+      await request<AuditSetting>(token, "/audit-settings", "PUT", auditSetting)
+    } catch (error) {
+      onError(error instanceof Error ? error.message : "保存失败")
+    } finally {
+      setSettingBusy(false)
+    }
+  }
   const [filters, setFilters] = useState<Filters>(emptyFilters)
   const [draft, setDraft] = useState<Filters>(emptyFilters)
   const [records, setRecords] = useState<AuditRecord[]>([])
@@ -79,6 +96,16 @@ export default function AuditView({ token, onError }: { token: string; onError: 
         <span className="text-xs text-ems-ink">{record.object || "—"}</span>
       </button>}
     />
+
+    <EmsCard><IonCardContent className="grid gap-3">
+      <EmsSectionHeader title="审计保留" description="轮换大小、备份个数与按天保留；修改后立即生效，查询与导出包含仍保留的轮换文件。" />
+      <div className="grid gap-3 sm:grid-cols-3">
+        <EmsInput label="单个文件上限（MB）" aria-label="审计文件上限" type="number" value={auditSetting.max_mb} onIonInput={(event) => setAuditSetting({ ...auditSetting, max_mb: Number(event.detail.value) })} />
+        <EmsInput label="保留备份个数" aria-label="审计备份个数" type="number" value={auditSetting.backups} onIonInput={(event) => setAuditSetting({ ...auditSetting, backups: Number(event.detail.value) })} />
+        <EmsInput label="保留天数（0=不按时间清理）" aria-label="审计保留天数" type="number" value={auditSetting.retention_days} onIonInput={(event) => setAuditSetting({ ...auditSetting, retention_days: Number(event.detail.value) })} />
+      </div>
+      <div className="flex justify-end"><EmsButton busy={settingBusy} busyLabel="保存中…" onClick={() => void saveAuditSetting()}>保存审计保留</EmsButton></div>
+    </IonCardContent></EmsCard>
 
     <EmsOverlay open={Boolean(selected)} variant="drawer" title={selected?.action || "审计详情"} onClose={() => setSelected(null)}
       actions={<EmsButton variant="secondary" onClick={() => setSelected(null)}>关闭</EmsButton>}>

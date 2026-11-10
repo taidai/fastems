@@ -954,6 +954,8 @@ func (h *Handler) QualityReport() ([]contract.QualityStats, []contract.QualitySt
 	deviceStats := make([]contract.QualityStats, 0)
 	for _, ch := range channels {
 		aggregate := contract.QualityStats{ChannelID: ch.ID, UpdatedAt: now}
+		window5 := contract.WindowQuality{Minutes: 5, Errors: map[string]int{}}
+		window1h := contract.WindowQuality{Minutes: 60, Errors: map[string]int{}}
 		var totalLatency, maxLatency float64
 		var latencyCount int
 		for _, device := range ch.Devices {
@@ -971,6 +973,12 @@ func (h *Handler) QualityReport() ([]contract.QualityStats, []contract.QualitySt
 				item.AvgLatencyMS = stats.LatencyTotalMS / float64(stats.LatencyCount)
 			}
 			item.MaxLatencyMS = stats.LatencyMaxMS
+			file5 := ch.Window(device.ID, now, 5)
+			file1h := ch.Window(device.ID, now, 60)
+			item.Window5m = &contract.WindowQuality{Minutes: 5, Polls: file5.Polls, Failures: file5.Failures, SuccessRate: file5.SuccessRate, AvgLatencyMS: file5.AvgLatencyMS, MaxLatencyMS: file5.MaxLatencyMS, Errors: file5.Errors}
+			item.Window1h = &contract.WindowQuality{Minutes: 60, Polls: file1h.Polls, Failures: file1h.Failures, SuccessRate: file1h.SuccessRate, AvgLatencyMS: file1h.AvgLatencyMS, MaxLatencyMS: file1h.MaxLatencyMS, Errors: file1h.Errors}
+			addWindow(&window5, file5)
+			addWindow(&window1h, file1h)
 			deviceStats = append(deviceStats, item)
 			aggregate.Polls += stats.Requests
 			aggregate.Failures += stats.Failures
@@ -993,6 +1001,8 @@ func (h *Handler) QualityReport() ([]contract.QualityStats, []contract.QualitySt
 			aggregate.AvgLatencyMS = totalLatency / float64(latencyCount)
 		}
 		aggregate.MaxLatencyMS = maxLatency
+		aggregate.Window5m = &window5
+		aggregate.Window1h = &window1h
 		channelStats = append(channelStats, aggregate)
 	}
 	return channelStats, deviceStats
@@ -1041,5 +1051,27 @@ func (h *Handler) releaseAlarm(w http.ResponseWriter, access Access, id string) 
 func (h *Handler) persistMaintenance() {
 	if h.PersistMaintenance != nil {
 		h.PersistMaintenance()
+	}
+}
+
+// addWindow accumulates one device window into a channel window.
+func addWindow(total *contract.WindowQuality, item channel.WindowStats) {
+	total.Polls += item.Polls
+	total.Failures += item.Failures
+	if item.MaxLatencyMS > total.MaxLatencyMS {
+		total.MaxLatencyMS = item.MaxLatencyMS
+	}
+	if item.Polls-item.Failures > 0 {
+		latencyCount := item.Polls - item.Failures
+		total.AvgLatencyMS = (total.AvgLatencyMS*float64(total.Polls-total.Failures) + item.AvgLatencyMS*float64(latencyCount)) / float64(total.Polls-total.Failures+latencyCount)
+	}
+	for name, count := range item.Errors {
+		if total.Errors == nil {
+			total.Errors = map[string]int{}
+		}
+		total.Errors[name] += count
+	}
+	if total.Polls > 0 {
+		total.SuccessRate = float64(total.Polls-total.Failures) / float64(total.Polls) * 100
 	}
 }

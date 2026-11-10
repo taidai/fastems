@@ -40,7 +40,8 @@ func MixDispatch(in MixInput) MixResult {
 	reason := ""
 
 	if gap > 0 {
-		// 净购电超目标：先储能多放，再充电减载，最后光伏限发。
+		// 净购电超目标：储能多放，再充电减载。光伏限发会减少发电、抬高净购电，
+		// 方向相反，不能用于这一侧。
 		essAdd := minf(gap, in.ESSExtraDischargeKW)
 		essNet += essAdd
 		remaining := gap - essAdd
@@ -49,22 +50,23 @@ func MixDispatch(in MixInput) MixResult {
 			evLoad -= evReduce
 			remaining -= evReduce
 		}
-		if remaining > 0 {
-			pvReduce := minf(remaining, in.PVReducibleKW)
-			pvLimit -= pvReduce
-			remaining -= pvReduce
-		}
-		reason = "净购电超目标，按储能→充电→光伏顺序削减"
+		reason = "净购电超目标，按储能→充电顺序削减"
 		net = in.BaseLoadKW + evLoad - essNet - pvLimit
 		return MixResult{ESSNetKW: essNet, EVLoadKW: evLoad, PVLimitKW: pvLimit, NetPCCKW: net, ShortfallKW: remaining, Reason: reason}
 	}
 
-	// 净购电低于目标：储能少放/多充即可，不动光伏与充电服务。
+	// 净购电低于目标（外送偏多）：储能多充；仍不足时再限制光伏出力。
 	essReduce := minf(-gap, in.ESSExtraChargeKW)
 	essNet -= essReduce
-	net = in.BaseLoadKW + in.EVLoadKW - essNet - in.PVActualKW
-	reason = "净购电低于目标，储能少放/多充"
-	return MixResult{ESSNetKW: essNet, EVLoadKW: evLoad, PVLimitKW: pvLimit, NetPCCKW: net, ShortfallKW: 0, Reason: reason}
+	remaining := -gap - essReduce
+	if remaining > 0 {
+		pvReduce := minf(remaining, in.PVReducibleKW)
+		pvLimit -= pvReduce
+		remaining -= pvReduce
+	}
+	net = in.BaseLoadKW + in.EVLoadKW - essNet - pvLimit
+	reason = "净购电低于目标，储能多充；外送仍偏多时限制光伏"
+	return MixResult{ESSNetKW: essNet, EVLoadKW: evLoad, PVLimitKW: pvLimit, NetPCCKW: net, ShortfallKW: remaining, Reason: reason}
 }
 
 func minf(a, b float64) float64 {

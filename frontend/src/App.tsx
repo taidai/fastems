@@ -20,6 +20,7 @@ import DeviceLedgerView from "./DeviceLedgerView"
 import EnergyUnitsView from "./EnergyUnitsView"
 import ResourceGroupsView from "./ResourceGroupsView"
 import DispatchTraceView from "./DispatchTraceView"
+import OpcuaView from "./OpcuaView"
 import UnitWiringView from "./UnitWiringView"
 import EnergyUnitsStatus from "./EnergyUnitsStatus"
 import ConfirmDialog from "./ConfirmDialog"
@@ -54,7 +55,7 @@ import {
 
 const emptyDocument: Document = { table: { rows: [] }, bindings: { points: {}, actions: {} } }
 const roleNames: Record<string, string> = { admin: "管理员", implementer: "实施", operator: "操作员", viewer: "查看者" }
-type Page = "devices" | "screen" | "dispatchTrace" | "ledger" | "points" | "channels" | "aggregate" | "deploy" | "allocators" | "energyUnits" | "unitWiring" | "resourceGroups" | "alarms" | "history" | "rules" | "users" | "audit" | "delivery"
+type Page = "devices" | "screen" | "dispatchTrace" | "ledger" | "points" | "channels" | "aggregate" | "deploy" | "allocators" | "energyUnits" | "unitWiring" | "resourceGroups" | "alarms" | "history" | "rules" | "users" | "audit" | "delivery" | "opcua"
 type DisplaySettings = { background: number; glass: number }
 const defaultDisplay: DisplaySettings = { background: 78, glass: 62 }
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
@@ -466,7 +467,7 @@ export default function App() {
   const tabs = [
     { key: "run", label: "运行", icon: "home" as IconName, pages: ["devices", "screen", "alarms", "history", "dispatchTrace"] },
     { key: "ems", label: "EMS 业务", icon: "sliders" as IconName, pages: ["energyUnits", "resourceGroups", "allocators", "rules"] },
-    { key: "build", label: "接入建模", icon: "devices" as IconName, pages: ["ledger", "unitWiring", "channels", "points", "aggregate"] },
+    { key: "build", label: "接入建模", icon: "devices" as IconName, pages: ["ledger", "unitWiring", "channels", "points", "aggregate", "opcua"] },
     { key: "ops", label: "系统运维", icon: "gear" as IconName, pages: ["deploy", "users", "audit"] },
   ]
   const activeTab = tabs.find((tab) => tab.pages.includes(page))?.key
@@ -475,7 +476,7 @@ export default function App() {
     { key: "alarms", label: "报警与事件" }, { key: "history", label: "历史与追溯" }, { key: "dispatchTrace", label: "调度追溯" },
     { key: "energyUnits", label: "能源设备", configOnly: true }, { key: "resourceGroups", label: "资源集群", configOnly: true }, { key: "allocators", label: "功率分配器", configOnly: true },
     { key: "rules", label: "决策表" },
-    { key: "ledger", label: "设备台账" }, { key: "unitWiring", label: "能源设备接线", configOnly: true }, { key: "channels", label: "通道" }, { key: "points", label: "点位表" }, { key: "aggregate", label: "虚拟聚合" },
+    { key: "ledger", label: "设备台账" }, { key: "unitWiring", label: "能源设备接线", configOnly: true }, { key: "channels", label: "通道" }, { key: "points", label: "点位表" }, { key: "opcua", label: "OPC-UA", configOnly: true }, { key: "aggregate", label: "虚拟聚合" },
     { key: "deploy", label: "部署与验收", configOnly: true },
     { key: "users", label: "账号与权限", adminOnly: true }, { key: "audit", label: "审计日志", adminOnly: true },
   ]
@@ -604,6 +605,7 @@ export default function App() {
       {page === "energyUnits" && canConfigure && <EnergyUnitsView token={token} nodes={view.nodes} onError={setError} />}
       {page === "resourceGroups" && canConfigure && <ResourceGroupsView token={token} onError={setError} />}
       {page === "dispatchTrace" && <DispatchTraceView token={token} onError={setError} />}
+      {page === "opcua" && <OpcuaView token={token} onError={setError} />}
       {page === "unitWiring" && canConfigure && <UnitWiringView token={token} nodes={view.nodes} onError={setError} />}
 
       {page === "alarms" && <AlarmsView token={token} rootID={view.roots[0]} nodes={view.nodes} canOperate={canOperate} canConfigure={canConfigure} onError={setError} openHistory={(id) => { setHistoryPoint(id); setPage("history") }} />}
@@ -692,7 +694,7 @@ function DevicesView({ snapshot, points, groups, rules, activeRules, errors, ala
       latestAlarm: latestAlarm ? { title: latestAlarm.title, severity: latestAlarm.severity, at: latestAlarm.created_at } : undefined,
     }} />
 
-    <EnergyUnitsStatus nodes={snapshot.nodes} onOpen={goEnergyUnits} />
+    <EnergyUnitsStatus nodes={snapshot.nodes} onOpen={goEnergyUnits} token={token} canOperate={canOperate} />
 
     <InlineNotice tone="info"><b>现场</b>：{showDataNote ? "所有指标均取自已配置点位；未接入、无值或过期显示“—”。能流画面只用于展示，不替代控制、保护或结算。" : "仅展示已绑定点位；未接入指标显示“—”，不生成模拟数据。"}<button className="ml-2 text-ems-accent" onClick={() => setShowDataNote(!showDataNote)}>说明 {showDataNote ? "收起" : "展开"}</button></InlineNotice>
 
@@ -896,7 +898,18 @@ function ChannelsView({ channels, ioCounts, isAdmin, canOperate, quality, goConf
               <div><span className="block text-xs text-ems-muted">轮询周期</span><strong className="text-lg text-ems-ink">{poll ? `${poll} ms` : "—"}</strong></div>
               <div><span className="block text-xs text-ems-muted">{protocol === "RTU" ? "波特率" : "协议"}</span><strong className="text-lg text-ems-ink">{protocol === "RTU" ? (baud || "—") : "TCP"}</strong></div>
             </div>
-            {(() => { const q = quality[node.id]; return <div className="flex flex-wrap gap-3 text-xs text-ems-muted"><span>{q ? `${q.success_rate.toFixed(1)}% 成功率` : "— 成功率"}</span><span>{q && q.polls > 0 ? `${Math.round(q.avg_latency_ms)} ms 平均` : "— 延迟"}</span><span className={q && q.failures > 0 ? "text-ems-amber" : ""}>{q ? `${q.failures} 错误` : "— 错误"}</span></div> })()}
+            {(() => {
+              const q = quality[node.id] as (QualityStats & { window_5m?: { success_rate: number; polls: number; errors?: Record<string, number> } }) | undefined
+              const win = q?.window_5m
+              const topError = win?.errors ? Object.entries(win.errors).sort((a, b) => b[1] - a[1])[0] : undefined
+              return <div className="flex flex-wrap gap-3 text-xs text-ems-muted">
+                <span>{q ? `${q.success_rate.toFixed(1)}% 成功率` : "— 成功率"}</span>
+                <span>{q && q.polls > 0 ? `${Math.round(q.avg_latency_ms)} ms 平均` : "— 延迟"}</span>
+                <span className={q && q.failures > 0 ? "text-ems-amber" : ""}>{q ? `${q.failures} 错误` : "— 错误"}</span>
+                <span>近 5 分钟 {win && win.polls > 0 ? `${win.success_rate.toFixed(0)}%` : "—"}</span>
+                {topError && <span className="text-ems-amber">{topError[0]} ×{topError[1]}</span>}
+              </div>
+            })()}
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-ems-line pt-2">
               <span className="text-xs text-ems-muted">{state.detail}</span>
               <div className="flex flex-wrap gap-1">

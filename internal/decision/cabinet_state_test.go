@@ -58,3 +58,21 @@ func TestNeedsManualRelease(t *testing.T) {
 		t.Fatal("running must not need manual release")
 	}
 }
+
+// 停机请求先进入停机中，只有回读确认后才落到停机；停机中不允许自动调度。
+func TestStopWaitsForConfirmation(t *testing.T) {
+	next, ok := Transition(CabinetRunning, EvStop)
+	if !ok || next != CabinetStopping {
+		t.Fatalf("stop request = %v ok=%v, want stopping", next, ok)
+	}
+	if AllowsAutoDispatch(CabinetStopping) {
+		t.Fatal("stopping must not be auto-dispatchable")
+	}
+	next, ok = Transition(CabinetStopping, EvStopConfirmed)
+	if !ok || next != CabinetStopped {
+		t.Fatalf("stop confirmed = %v ok=%v, want stopped", next, ok)
+	}
+	if _, ok := Transition(CabinetStopping, EvStart); ok {
+		t.Fatal("start during stopping must be rejected")
+	}
+}

@@ -121,6 +121,9 @@ func Start(ctx context.Context, cfg Config) (*App, error) {
 	}
 	handlerRef := new(atomic.Value)
 	var energyDispatch func(string) error
+	var reconcileCabinet func()
+	var forecastTick func(time.Time)
+	var opcuaManager *appapi.OpcuaManager
 	options := server.Options{
 		ID:           "easyems",
 		DataDir:      cfg.DataDir,
@@ -143,6 +146,10 @@ func Start(ctx context.Context, cfg Config) (*App, error) {
 			energyDispatch = func(id string) error {
 				return handler.RunUnitArbitratedDispatch(id)
 			}
+			reconcileCabinet = handler.ReconcileCabinetCommands
+			forecastTick = handler.RunForecastTick
+			opcuaManager = appapi.NewOpcuaManager(nc, emsService)
+			handler.SetOpcua(opcuaManager)
 			fullHandler := api.NewAppHandler(api.ServerArgs{
 				AppOnly:      true,
 				AppHandler:   handler,
@@ -187,6 +194,16 @@ func Start(ctx context.Context, cfg Config) (*App, error) {
 			return nil
 		}
 		return energyDispatch(energyUnitID)
+	})
+	energyScheduler.SetReconcile(func() {
+		if reconcileCabinet != nil {
+			reconcileCabinet()
+		}
+	})
+	energyScheduler.SetForecast(func(now time.Time) {
+		if forecastTick != nil {
+			forecastTick(now)
+		}
 	})
 	group.Add(energyScheduler.Run, energyScheduler.Stop)
 

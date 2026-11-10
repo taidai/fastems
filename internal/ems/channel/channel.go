@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -133,6 +134,28 @@ type pendingWrite struct {
 
 type deviceState struct {
 	stats Stats
+	// buckets hold one-minute counters for sliding 5m/1h quality windows.
+	buckets [60]minuteBucket
+}
+
+type minuteBucket struct {
+	minute     int64 // unix minute
+	requests   int
+	failures   int
+	latencySum float64
+	latencyMax float64
+	errors     map[string]int
+}
+
+// WindowStats is the quality summary of one device over a recent window.
+type WindowStats struct {
+	Minutes      int            `json:"minutes"`
+	Polls        int            `json:"polls"`
+	Failures     int            `json:"failures"`
+	SuccessRate  float64        `json:"success_rate"`
+	AvgLatencyMS float64        `json:"avg_latency_ms"`
+	MaxLatencyMS float64        `json:"max_latency_ms"`
+	Errors       map[string]int `json:"errors,omitempty"`
 }
 
 // Channel is one serial communication path. Call RunOnce from a single
@@ -343,6 +366,12 @@ func (c *Channel) recordLatency(deviceID string, elapsed time.Duration) {
 	if ms > state.stats.LatencyMaxMS {
 		state.stats.LatencyMaxMS = ms
 	}
+	bucket := state.bucket(time.Now())
+	bucket.requests++
+	bucket.latencySum += ms
+	if ms > bucket.latencyMax {
+		bucket.latencyMax = ms
+	}
 }
 
 func (c *Channel) recordSuccess(deviceID string, now time.Time) {
@@ -363,6 +392,32 @@ func (c *Channel) recordFailure(deviceID string, err error, _ time.Time) {
 	state.stats.Failures++
 	state.stats.ConsecutiveFailures++
 	state.stats.LastError = err.Error()
+	bucket := state.bucket(time.Now())
+	bucket.requests++
+	bucket.failures++
+	if bucket.errors == nil {
+		bucket.errors = map[string]int{}
+	}
+	bucket.errors[classifyError(err)]++
+}
+
+// classifyError groups transport errors for the quality panel.
+func classifyError(err error) string {
+	text := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(text, "timeout") || strings.Contains(text, "deadline"):
+		return "timeout"
+	case strings.Contains(text, "connect") || strings.Contains(text, "refused") || strings.Contains(text, "closed") || strings.Contains(text, "broken pipe"):
+		return "disconnect"
+	case strings.Contains(text, "crc"):
+		return "crc"
+	case strings.Contains(text, "exception") || strings.Contains(text, "illegal"):
+		return "exception"
+	case strings.Contains(text, "write"):
+		return "write"
+	default:
+		return "other"
+	}
 }
 
 func (c *Channel) state(deviceID string) *deviceState {
@@ -372,6 +427,54 @@ func (c *Channel) state(deviceID string) *deviceState {
 		c.states[deviceID] = state
 	}
 	return state
+}
+
+// bucket returns the current minute bucket, resetting it when the minute
+// changes so old counters never leak into the new window.
+func (s *deviceState) bucket(now time.Time) *minuteBucket {
+	minute := now.Unix() / 60
+	slot := int(minute % 60)
+	bucket := &s.buckets[slot]
+	if bucket.minute != minute {
+		*bucket = minuteBucket{minute: minute}
+	}
+	return bucket
+}
+
+// Window summarizes the last minutes of one device from the minute buckets.
+func (c *Channel) Window(deviceID string, now time.Time, minutes int) WindowStats {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	result := WindowStats{Minutes: minutes, Errors: map[string]int{}}
+	state, ok := c.states[deviceID]
+	if !ok {
+		return result
+	}
+	oldest := now.Add(-time.Duration(minutes)*time.Minute).Unix() / 60
+	latencyCount := 0
+	for index := range state.buckets {
+		bucket := state.buckets[index]
+		if bucket.minute == 0 || bucket.minute < oldest {
+			continue
+		}
+		result.Polls += bucket.requests
+		result.Failures += bucket.failures
+		if bucket.latencyMax > result.MaxLatencyMS {
+			result.MaxLatencyMS = bucket.latencyMax
+		}
+		result.AvgLatencyMS += bucket.latencySum
+		latencyCount += bucket.requests - bucket.failures
+		for name, count := range bucket.errors {
+			result.Errors[name] += count
+		}
+	}
+	if latencyCount > 0 {
+		result.AvgLatencyMS = result.AvgLatencyMS / float64(latencyCount)
+	}
+	if result.Polls > 0 {
+		result.SuccessRate = float64(result.Polls-result.Failures) / float64(result.Polls) * 100
+	}
+	return result
 }
 
 // Stats returns a copy of the counters for one device.

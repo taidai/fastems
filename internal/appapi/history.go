@@ -19,7 +19,7 @@ func (h *Handler) history(w http.ResponseWriter, r *http.Request, identity Ident
 	if !ok {
 		return
 	}
-	if node.Type != data.NodeTypeVariable && node.Type != data.NodeTypeModbusIO {
+	if node.Type != data.NodeTypeVariable && node.Type != data.NodeTypeModbusIO && node.Type != NodeTypeOpcuaPoint && node.Type != "mqttSub" {
 		writeError(w, http.StatusBadRequest, "history_not_supported")
 		return
 	}

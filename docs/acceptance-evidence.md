@@ -39,3 +39,63 @@
 首版单柜储能的 9 个软件场景，仿真层逻辑全部验证通过、可复现。
 **已定案**：SCH-02 分配策略 = 按比例水填充。
 **待办**：真机验收（M5）覆盖对表/实测跟踪/长稳等物理相关场景。
+
+## 2026-11-10 剩余缺口收口（软件侧）
+
+证据来自 `go test`、前端生产构建与真实浏览器/容器验证；不代表 M5 真机签收。
+
+### 1. 树范围授权与生产演示策略
+
+- 新 EMS 路由（能源设备、规则/模拟、设备、能力来源、追溯、电站 PCC/策略、资源集群、站点目标、OPC-UA）统一使用 `h.node`/`h.allows`；列表按可见范围过滤，创建校验可见父节点与所有引用。
+- `emsapi` 代理的 channels/state/history/quality/重启/创建/删除同样按节点可见性过滤；管理员也不能越过范围。
+- `TestTreeScopeHTTPIsolation`（真实 HTTP，端口 9810/9811）证明站点 A 用户对站点 B 的读取、写入、发布、组调度全部 403，且无点位/追溯副作用。
+- 生产新实例默认不生成演示站点；仅 `EASYEMS_SEED_DEMO=1` 显式启用，验收脚本已显式打开。
+
+### 2. 动态能力：分方向、BMS 限制与时效
+
+- `CapabilityInputs` 增加 BMS 允许充/放点位、`max_age_ms`（默认 5000）、爬坡速率与死区（默认 10 kW/s、5 kW）。
+- 能力保存 `charge_max_kw`/`discharge_max_kw`；`AllocateEnergy` 使用分方向能力与在线状态，旧数据回退到双向合并值。
+- SOC/温度/BMS 样本必须带时间且未过期；SOC 过期双向关闭，单一 BMS 方向过期只关闭该方向，并在 `limit_reason` 说明。
+- 执行边界再次校验能力与人工/互锁状态，防止柜内拆解放大到 PCS 额定值。
+- `TestRefreshCapabilities` 覆盖分方向、单方向过期与 SOC 过期的双向关闭；`TestAllocateEnergyDirectionalCapabilityAndStatus` 覆盖充放上限与离线剔除。
+
+### 3. 唯一仲裁与命令生命周期
+
+- `EnergyScheduler` 每柜只调用一次 `RunUnitArbitratedDispatch`；站级策略（防逆流/需量/削峰填谷）只计算目标，不再直接写设备。
+- 没有已发布单柜规则的柜体也能被站级策略控制；仲裁结果记录来源、优先级与执行阶段。
+- 命令管理器支持单点写入、提交后新样本才可确认、参数指纹幂等、一次安全回退（上一个已确认值或 0）、取代语义与 `submitted`（未映射回读时不冒充确认）。内存订单有界，自动功率明细不写入命令历史以免淹没人工记录。
+- 运行时支持注册非 Modbus dispatcher 并接收真实观测进入共用状态/历史。
+- 测试：`command` 包新增旧样本不确认、参数冲突零写入、回退一次、取代不回退；`TestSchedulerDispatchesEveryUnit` 验证每柜一次且跳过停机单元。
+
+### 4. 控制器人工操作
+
+- 新增 `POST /energy-units/{id}/events`（start/stop/fault_clear/enter_maintenance/exit_maintenance）与 `PUT /energy-units/{id}/mode`。
+- 启停必须有设备命令与回读确认；停机新增 `stopping` 中间态；没有命令运行时时明确返回 503，不假装成功。
+- 人工模式立即停止自动目标，需显式恢复。
+- 运行页每柜提供启动/停机/检修/故障确认/人工接管，所有动作二次确认并说明后果。
+- `TestEnergyControlEvents` 覆盖人工模式、检修互锁、无运行时拒绝与故障解除；`TestStopWaitsForConfirmation` 覆盖停机确认。
+
+### 5. 站级计划、预测与光储充
+
+- Site 总目标按分方向能力分配到 Plant，再分配到 EnergyUnit，作为计划目标进入统一仲裁；1 秒内缓存，避免每柜重复计算。
+- 光伏预测按配置的慢周期读取历史，写 `pvForecastKW` 供能力规则使用；无历史不写。
+- `MixDispatch` 修正方向：超购电时不再限发光伏；外送偏多时先多充、再限发，并如实报告剩余缺口。
+
+### 6. 运维能力
+
+- 审计保留可配置（单文件大小、备份个数、按天清理），查询与 CSV 包含仍保留的轮换文件，轮换后不静默丢历史。
+- 通信质量新增最近 5 分钟/1 小时窗口与超时/断线/CRC/异常码/写失败分类，页面标注数据来自内存、重启归零。
+
+### 7. OPC-UA 接入
+
+- 完整 NodeID 解析（ns=/i=/g=/b=），读取保留源时间与状态；匿名轮询、断线重连、健康与最近错误。
+- 产品节点 `opcua`/`opcuaPoint`，接入建模页可创建通道与测点；运行器把真实读数写回点位 value，并接入共享命令管理器与历史/规则时效检查。
+- 测试：`TestParseNodeIDFormats`、`TestRunnerPollsAndWritesMappedPoints`、`TestRunnerReportsHealthAndReconnects`、`TestOpcuaRunnerPublishesValues`。未连接真实厂商服务器；证书/用户认证未实现，不宣称支持。
+
+### 仍未完成（外部或明确未宣称）
+
+- **M5 真机验收**：恩玖 PCS、BMS、电表、华为逆变器与四柜 800 kW 场景仍待现场签收。
+- **MQTT 设备接入**：上游 MQTT 认证仅支持共享 token/用户 JWT，缺少按设备 topic ACL；在实现并验证凭据与 ACL 前不开放产品 MQTT 接入，避免以共享管理员 token 充当设备方案。下行命令与外部 broker 亦未宣称。
+- **逐相独立调节**：三相判定纯函数已具备，但未接入真实三相遥测与独立执行点位；不宣称可分相调节。
+- **Profile/CSV 主入口合并与集中运行设置页**：现有入口可用，未做进一步合并。
+- ARM64 目标工控机性能、品牌 A/B 更换、独立用户试用与公网部署仍需外部验收。

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { IonCardContent } from "@ionic/react"
 import { EmsButton, EmsCard, EmsInput, EmsOverlay, EmsSectionHeader, EmsSelect, EmsSelectOption, InlineNotice, StatusBadge } from "./components/ems"
-import { fetchPlants, fetchPlantPCC, savePlantPCC, fetchPlantStrategy, savePlantStrategy } from "./api"
+import { fetchPlants, fetchPlantPCC, savePlantPCC, fetchPlantStrategy, savePlantStrategy, fetchSiteTarget, saveSiteTarget } from "./api"
 import type { Node, TariffPeriod } from "./api"
 
 const toMin = (text: string) => {
@@ -29,7 +29,37 @@ export default function PlantStrategyPanel({ token, nodes, onError }: {
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
   const [confirm, setConfirm] = useState(false)
+  const sites = nodes.filter((node) => node.type === "site")
+  const [siteId, setSiteId] = useState("")
+  const [siteTargetKW, setSiteTargetKW] = useState(0)
+  const [siteSaved, setSiteSaved] = useState(false)
   const meters = nodes.filter((node) => node.type === "variable" || node.type === "modbusIo")
+
+  useEffect(() => {
+    if (!sites.length) return
+    const first = sites[0].id
+    setSiteId((current) => current || first)
+  }, [nodes])
+
+  useEffect(() => {
+    if (!siteId) return
+    void fetchSiteTarget(token, siteId).then((result) => {
+      if (result.configured) { setSiteTargetKW(result.target_kw); setSiteSaved(result.target_kw !== 0) }
+    }).catch(() => {})
+  }, [token, siteId])
+
+  async function saveSite() {
+    if (!siteId) { onError("未选择场站"); return }
+    setBusy(true)
+    try {
+      await saveSiteTarget(token, siteId, siteTargetKW)
+      setSiteSaved(siteTargetKW !== 0)
+    } catch (error) {
+      onError(error instanceof Error ? error.message : "保存失败")
+    } finally {
+      setBusy(false)
+    }
+  }
 
   useEffect(() => {
     void fetchPlants(token).then((result) => {
@@ -78,7 +108,8 @@ export default function PlantStrategyPanel({ token, nodes, onError }: {
     }
   }
 
-  return <EmsCard>
+  return <>
+    <EmsCard>
     <IonCardContent className="grid gap-4">
       <EmsSectionHeader title="电站策略" description="选并网点主表，设反送与需量上限，保存后每秒自动闭环。"
         status={saved ? <StatusBadge tone="success">已启用</StatusBadge> : undefined} />
@@ -117,4 +148,18 @@ export default function PlantStrategyPanel({ token, nodes, onError }: {
       <p className="m-0 text-sm leading-6 text-ems-ink">启用后，该电站将按硬优先级自动调节：防逆流（反送 {reverseLimit} kW）→ 需量（{demandLimit || "不限"} kW）→ 削峰填谷（{pvPower > 0 ? `${pvPower} kW` : "未启用"}）。确认{saved ? "更新" : "启用"}？</p>
     </EmsOverlay>
   </EmsCard>
+
+  <EmsCard>
+    <IonCardContent className="grid gap-4">
+      <EmsSectionHeader title="站级计划" description="给整个场站一个总功率目标，先按能力分到各电站，再落到柜体；防逆流与需量仍优先。"
+        status={siteSaved ? <StatusBadge tone="success">已下发计划</StatusBadge> : undefined} />
+      {sites.length > 1 && <EmsSelect label="场站" aria-label="场站" value={siteId} onIonChange={(event) => setSiteId(event.detail.value)}>
+        {sites.map((site) => <EmsSelectOption key={site.id} value={site.id}>{site.points.find((p) => p.type === "description")?.text || site.id}</EmsSelectOption>)}
+      </EmsSelect>}
+      <EmsInput label="站级目标（kW，正=放电，负=充电，0=不计划）" aria-label="站级目标" type="number" value={siteTargetKW} onIonInput={(event) => setSiteTargetKW(Number(event.detail.value))} />
+      <InlineNotice tone="info">计划目标按可用能力比例分配到各电站与柜体，能力不足的部分如实计为缺口；不写入任何未映射点位。</InlineNotice>
+      <div className="flex justify-end"><EmsButton busy={busy} busyLabel="保存中…" onClick={() => void saveSite()}>保存站级计划</EmsButton></div>
+    </IonCardContent>
+  </EmsCard>
+  </>
 }

@@ -12,6 +12,7 @@ const (
 	CabinetStandby     CabinetState = "standby"     // 待机（已上电，未运行）
 	CabinetStarting    CabinetState = "starting"    // 启动中（待回读确认）
 	CabinetRunning     CabinetState = "running"     // 运行（可调度）
+	CabinetStopping    CabinetState = "stopping"    // 停机中（待回读确认）
 	CabinetStopped     CabinetState = "stopped"     // 停机
 	CabinetFault       CabinetState = "fault"       // 故障（硬停，禁止自动）
 	CabinetMaintenance CabinetState = "maintenance" // 检修（人工接管，禁止自动）
@@ -21,14 +22,14 @@ const (
 type CabinetEvent string
 
 const (
-	EvStart           CabinetEvent = "start"            // 请求启动
-	EvStartConfirmed  CabinetEvent = "start_confirmed"  // 启动回读确认（谁确认：命令回读）
-	EvStop            CabinetEvent = "stop"             // 请求停机
-	EvStopConfirmed   CabinetEvent = "stop_confirmed"   // 停机回读确认
-	EvFault           CabinetEvent = "fault"            // 故障/越限（硬停）
-	EvFaultCleared    CabinetEvent = "fault_cleared"    // 人工确认解除故障
+	EvStart            CabinetEvent = "start"             // 请求启动
+	EvStartConfirmed   CabinetEvent = "start_confirmed"   // 启动回读确认（谁确认：命令回读）
+	EvStop             CabinetEvent = "stop"              // 请求停机
+	EvStopConfirmed    CabinetEvent = "stop_confirmed"    // 停机回读确认
+	EvFault            CabinetEvent = "fault"             // 故障/越限（硬停）
+	EvFaultCleared     CabinetEvent = "fault_cleared"     // 人工确认解除故障
 	EvEnterMaintenance CabinetEvent = "enter_maintenance" // 进入检修
-	EvExitMaintenance CabinetEvent = "exit_maintenance"   // 退出检修
+	EvExitMaintenance  CabinetEvent = "exit_maintenance"  // 退出检修
 )
 
 // Transition 按转移表推进状态。返回新状态与是否允许该转移；非法转移
@@ -50,11 +51,12 @@ func Transition(state CabinetState, event CabinetEvent) (CabinetState, bool) {
 			return CabinetRunning, true
 		}
 	case EvStop:
+		// 停机请求立即撤出自动调度，最终状态等回读确认。
 		if state == CabinetRunning || state == CabinetStarting || state == CabinetStandby {
-			return CabinetStopped, true
+			return CabinetStopping, true
 		}
 	case EvStopConfirmed:
-		if state == CabinetStopped || state == CabinetRunning {
+		if state == CabinetStopping || state == CabinetStopped || state == CabinetRunning {
 			return CabinetStopped, true
 		}
 	case EvFaultCleared:

@@ -11,7 +11,7 @@ import (
 	"easyems/internal/audit"
 )
 
-var auditActions = []string{"登录", "端口配置", "点表配置", "设备模型", "命令执行", "控制写入", "决策表", "报警处理", "账号管理", "站点设置", "验收", "其他"}
+var auditActions = []string{"登录", "端口配置", "点表配置", "设备模型", "命令执行", "控制写入", "能源调度", "决策表", "报警处理", "账号管理", "站点设置", "验收", "其他"}
 
 type statusWriter struct {
 	http.ResponseWriter
@@ -58,6 +58,12 @@ func auditAction(r *http.Request) string {
 		return "验收"
 	case first == "nodes" && len(parts) >= 3 && (parts[2] == "value" || parts[2] == "manual"):
 		return "控制写入"
+	case first == "resource-groups" || first == "sites":
+		return "能源调度"
+	case first == "energy-units" && (strings.Contains(path, "/events") || strings.Contains(path, "/mode") || strings.Contains(path, "/dispatch")):
+		return "能源调度"
+	case first == "plants":
+		return "站点设置"
 	case first == "rules":
 		return "决策表"
 	case first == "alarms" || first == "alarm-types":

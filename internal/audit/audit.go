@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -36,13 +37,53 @@ type Filter struct {
 	Limit  int
 }
 
-// Store appends JSON lines to a local file and keeps one rotated backup.
+// Store appends JSON lines to a local file, rotating into numbered backups.
+// Rotation size, backup count and retention are configurable.
 type Store struct {
 	Path string
 	mu   sync.Mutex
+	// MaxBytes rotates the active file when it grows past this size.
+	MaxBytes int64
+	// Backups is how many rotated files to keep (.1 ... .N).
+	Backups int
+	// Retention drops records older than this many days at rotation; zero
+	// keeps everything.
+	RetentionDays int
 }
 
 func New(path string) *Store { return &Store{Path: path} }
+
+// Configure applies persisted retention settings.
+func (s *Store) Configure(maxBytes int64, backups, retentionDays int) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if maxBytes > 0 {
+		s.MaxBytes = maxBytes
+	}
+	if backups > 0 {
+		s.Backups = backups
+	}
+	if retentionDays >= 0 {
+		s.RetentionDays = retentionDays
+	}
+}
+
+func (s *Store) maxBytes() int64 {
+	if s.MaxBytes > 0 {
+		return s.MaxBytes
+	}
+	return 5 << 20
+}
+
+func (s *Store) backups() int {
+	if s.Backups > 0 {
+		return s.Backups
+	}
+	return 1
+}
 
 func (s *Store) Append(record Record) error {
 	if s == nil || s.Path == "" {
@@ -63,9 +104,8 @@ func (s *Store) Append(record Record) error {
 	if err := os.MkdirAll(filepath.Dir(s.Path), 0700); err != nil {
 		return err
 	}
-	if info, err := os.Stat(s.Path); err == nil && info.Size() > 5<<20 {
-		_ = os.Remove(s.Path + ".1")
-		_ = os.Rename(s.Path, s.Path+".1")
+	if info, err := os.Stat(s.Path); err == nil && info.Size() > s.maxBytes() {
+		s.rotateLocked()
 	}
 	file, err := os.OpenFile(s.Path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 	if err != nil {
@@ -78,16 +118,48 @@ func (s *Store) Append(record Record) error {
 	return nil
 }
 
-// Query returns newest records matching filter.
-func (s *Store) Query(filter Filter) ([]Record, error) {
-	if s == nil || s.Path == "" {
-		return []Record{}, nil
+// rotateLocked shifts .1→.2, ... and current→.1, dropping the oldest backup.
+func (s *Store) rotateLocked() {
+	keep := s.backups()
+	for index := keep - 1; index >= 1; index-- {
+		_ = os.Rename(s.Path+"."+strconv.Itoa(index), s.Path+"."+strconv.Itoa(index+1))
 	}
-	file, err := os.Open(s.Path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return []Record{}, nil
+	if keep >= 1 {
+		_ = os.Rename(s.Path, s.Path+".1")
+	}
+	if s.RetentionDays > 0 {
+		s.pruneLocked()
+	}
+}
+
+// pruneLocked rewrites the active file and backups without expired records.
+func (s *Store) pruneLocked() {
+	cutoff := time.Now().Add(-time.Duration(s.RetentionDays) * 24 * time.Hour)
+	for index := 0; index <= s.backups(); index++ {
+		path := s.Path
+		if index > 0 {
+			path = s.Path + "." + strconv.Itoa(index)
 		}
+		records, err := readRecords(path)
+		if err != nil {
+			continue
+		}
+		kept := records[:0]
+		for _, record := range records {
+			if record.Time.After(cutoff) {
+				kept = append(kept, record)
+			}
+		}
+		if len(kept) == len(records) {
+			continue
+		}
+		rewriteRecords(path, kept)
+	}
+}
+
+func readRecords(path string) ([]Record, error) {
+	file, err := os.Open(path)
+	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
@@ -99,28 +171,94 @@ func (s *Store) Query(filter Filter) ([]Record, error) {
 		if json.Unmarshal(scanner.Bytes(), &record) != nil {
 			continue
 		}
-		if filter.Actor != "" && !strings.Contains(strings.ToLower(record.Actor), strings.ToLower(filter.Actor)) {
-			continue
-		}
-		if filter.Action != "" && record.Action != filter.Action {
-			continue
-		}
-		if filter.Result != "" && record.Result != filter.Result {
-			continue
-		}
-		if !filter.From.IsZero() && record.Time.Before(filter.From) {
-			continue
-		}
-		if !filter.To.IsZero() && record.Time.After(filter.To) {
-			continue
-		}
 		records = append(records, record)
 	}
-	if err := scanner.Err(); err != nil {
-		return nil, err
+	return records, scanner.Err()
+}
+
+func rewriteRecords(path string, records []Record) {
+	temp := path + ".tmp"
+	file, err := os.OpenFile(temp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
+	if err != nil {
+		return
 	}
-	for i, j := 0, len(records)-1; i < j; i, j = i+1, j-1 {
-		records[i], records[j] = records[j], records[i]
+	writer := bufio.NewWriter(file)
+	for _, record := range records {
+		encoded, err := json.Marshal(record)
+		if err != nil {
+			continue
+		}
+		_, _ = writer.Write(append(encoded, '\n'))
+	}
+	_ = writer.Flush()
+	_ = file.Close()
+	_ = os.Rename(temp, path)
+}
+
+// Query returns newest records matching filter, including rotated backups so
+// an export does not silently lose history after rotation.
+func (s *Store) Query(filter Filter) ([]Record, error) {
+	if s == nil || s.Path == "" {
+		return []Record{}, nil
+	}
+	records := []Record{}
+	sequence := 0
+	type ordered struct {
+		record Record
+		seq    int
+	}
+	orderedRecords := []ordered{}
+	for index := 0; index <= s.backups(); index++ {
+		path := s.Path
+		if index > 0 {
+			path = s.Path + "." + strconv.Itoa(index)
+		}
+		file, err := os.Open(path)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, err
+		}
+		scanner := bufio.NewScanner(file)
+		scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+		for scanner.Scan() {
+			var record Record
+			if json.Unmarshal(scanner.Bytes(), &record) != nil {
+				continue
+			}
+			if filter.Actor != "" && !strings.Contains(strings.ToLower(record.Actor), strings.ToLower(filter.Actor)) {
+				continue
+			}
+			if filter.Action != "" && record.Action != filter.Action {
+				continue
+			}
+			if filter.Result != "" && record.Result != filter.Result {
+				continue
+			}
+			if !filter.From.IsZero() && record.Time.Before(filter.From) {
+				continue
+			}
+			if !filter.To.IsZero() && record.Time.After(filter.To) {
+				continue
+			}
+			orderedRecords = append(orderedRecords, ordered{record: record, seq: sequence})
+			sequence++
+		}
+		scanErr := scanner.Err()
+		_ = file.Close()
+		if scanErr != nil {
+			return nil, scanErr
+		}
+	}
+	sort.SliceStable(orderedRecords, func(i, j int) bool {
+		if orderedRecords[i].record.Time.Equal(orderedRecords[j].record.Time) {
+			return orderedRecords[i].seq > orderedRecords[j].seq
+		}
+		return orderedRecords[i].record.Time.After(orderedRecords[j].record.Time)
+	})
+	for _, item := range orderedRecords {
+		records = append(records, item.record)
 	}
 	if filter.Limit > 0 && len(records) > filter.Limit {
 		records = records[:filter.Limit]

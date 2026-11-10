@@ -96,4 +96,19 @@ type QualityStats struct {
 	LastSuccess   time.Time `json:"last_success,omitempty"`
 	LastError     string    `json:"last_error,omitempty"`
 	UpdatedAt     time.Time `json:"updated_at"`
+	// Rolling windows come from in-memory minute buckets and reset on
+	// restart; cumulative counters stay available above.
+	Window5m *WindowQuality `json:"window_5m,omitempty"`
+	Window1h *WindowQuality `json:"window_1h,omitempty"`
+}
+
+// WindowQuality is one rolling quality window.
+type WindowQuality struct {
+	Minutes      int            `json:"minutes"`
+	Polls        int            `json:"polls"`
+	Failures     int            `json:"failures"`
+	SuccessRate  float64        `json:"success_rate"`
+	AvgLatencyMS float64        `json:"avg_latency_ms"`
+	MaxLatencyMS float64        `json:"max_latency_ms"`
+	Errors       map[string]int `json:"errors,omitempty"`
 }

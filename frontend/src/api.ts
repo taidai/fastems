@@ -576,3 +576,49 @@ export async function updateUserPolicy(token: string, id: string, role: string, 
 export async function resetUserPassword(token: string, id: string, password: string) {
   return request<{ reset: boolean }>(token, `/users/${encodeURIComponent(id)}/password`, "POST", { password })
 }
+
+// 控制器人工操作（运行层）：启停/检修走命令回读，模式切换立即停止自动调度。
+export async function sendEnergyUnitEvent(token: string, energyUnitId: string, event: string, requestId: string) {
+  return request<{ state: string; request_id: string; command_state?: string }>(token, `/energy-units/${energyUnitId}/events`, "POST", { event, request_id: requestId })
+}
+
+export async function setEnergyUnitMode(token: string, energyUnitId: string, mode: "auto" | "manual") {
+  return request<{ mode: string }>(token, `/energy-units/${energyUnitId}/mode`, "PUT", { mode })
+}
+
+// 站级计划：Site 总功率目标按 Plant→EnergyUnit 分层分配，进入统一仲裁。
+export async function fetchSiteTarget(token: string, siteId: string) {
+  return request<{ target_kw: number; configured: boolean }>(token, `/sites/${siteId}/target`)
+}
+
+export async function saveSiteTarget(token: string, siteId: string, targetKW: number) {
+  return request<{ saved: boolean; target_kw: number }>(token, `/sites/${siteId}/target`, "PUT", { target_kw: targetKW })
+}
+
+// 光伏短期预测输入（历史估计，不冒充精确预测）。
+export type ForecastInputs = { source_point_id: string; interval_sec: number; window_minutes: number }
+
+export async function fetchForecastInputs(token: string, energyUnitId: string) {
+  return request<{ inputs: ForecastInputs; configured: boolean }>(token, `/energy-units/${energyUnitId}/forecast-inputs`)
+}
+
+export async function saveForecastInputs(token: string, energyUnitId: string, inputs: ForecastInputs) {
+  return request<{ saved: boolean }>(token, `/energy-units/${energyUnitId}/forecast-inputs`, "PUT", inputs)
+}
+
+// OPC-UA 接入（接入建模层）：端点通道 + 完整 NodeID 测点。
+export type OpcuaChannel = { id: string; description: string; endpoint: string; poll_ms: number; online: boolean; last_error?: string; last_good?: string; points: number }
+export type OpcuaPoint = { id: string; description: string; node_id: string; read_only: boolean; value?: number }
+
+export async function fetchOpcuaChannels(token: string) {
+  return request<{ channels: OpcuaChannel[] }>(token, "/opcua/channels")
+}
+export async function createOpcuaChannel(token: string, input: { description: string; endpoint: string; poll_ms: number }) {
+  return request<{ id: string }>(token, "/opcua/channels", "POST", input)
+}
+export async function fetchOpcuaPoints(token: string, channelId: string) {
+  return request<{ points: OpcuaPoint[] }>(token, `/opcua/channels/${channelId}/points`)
+}
+export async function createOpcuaPoint(token: string, channelId: string, input: { node_id: string; description: string; read_only: boolean }) {
+  return request<{ id: string }>(token, `/opcua/channels/${channelId}/points`, "POST", input)
+}

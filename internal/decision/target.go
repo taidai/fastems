@@ -39,8 +39,14 @@ func ValidateTarget(nc *nats.Conn, parent string, target Target, output bool, va
 		if err := ValidateAllocatorScope(nc, target.NodeID, config); err != nil {
 			return err
 		}
-	} else if nodeType != data.NodeTypeVariable && nodeType != data.NodeTypeModbusIO {
+	} else if nodeType != data.NodeTypeVariable && nodeType != data.NodeTypeModbusIO && nodeType != "opcuaPoint" && nodeType != "mqttSub" {
 		return fmt.Errorf("target type %s is not controllable", nodeType)
+	}
+	if output && (nodeType == "opcuaPoint" || nodeType == "mqttSub") {
+		readOnly, _ := nodes[0].Points.Value(data.PointTypeReadOnly, "")
+		if readOnly != 0 {
+			return fmt.Errorf("target is read-only")
+		}
 	}
 	if output {
 		disabled, _ := nodes[0].Points.Value(data.PointTypeDisabled, "")

@@ -700,6 +700,17 @@ func (c *Client) inputsFresh(active *activeTable) error {
 			return fmt.Errorf("point %s: input disabled", pointID)
 		}
 		if nodes[0].Type != data.NodeTypeModbusIO {
+			// 其他协议（OPC-UA/MQTT）没有 Modbus 心跳，按最新值时间判断时效。
+			if nodes[0].Type == "opcuaPoint" || nodes[0].Type == "mqttSub" {
+				value, found := nodes[0].Points.Find(data.PointTypeValue, "")
+				if !found || value.Time.IsZero() {
+					return fmt.Errorf("point %s: no %s sample", pointID, nodes[0].Type)
+				}
+				age := time.Since(value.Time)
+				if age > 15*time.Second || age < -5*time.Second {
+					return fmt.Errorf("point %s: stale %s input", pointID, nodes[0].Type)
+				}
+			}
 			continue
 		}
 		busID := nodes[0].Parent

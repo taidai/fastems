@@ -31,6 +31,13 @@ type Handler struct {
 	commandMu   sync.Mutex
 	ownershipMu sync.Mutex
 	ems         *emsapi.Handler
+	opcua       *OpcuaManager
+
+	siteGoalMu    sync.Mutex
+	siteGoalCache map[string]siteGoalEntry
+
+	forecastMu   sync.Mutex
+	forecastLast map[string]time.Time
 
 	acceptanceMu     sync.Mutex
 	latestAcceptance *acceptanceReport
@@ -58,7 +65,10 @@ func New(nc *nats.Conn, users api.UserAuthority, ready *atomic.Bool) *Handler {
 func (h *Handler) SetAudit(store *audit.Store) { h.audit = store }
 
 // SetDataDir tells the handler where local runtime settings are stored.
-func (h *Handler) SetDataDir(dir string) { h.dataDir = dir }
+func (h *Handler) SetDataDir(dir string) { h.dataDir = dir; h.applyAuditSettings() }
+
+// SetOpcua 注入 OPC-UA runner 管理器。
+func (h *Handler) SetOpcua(manager *OpcuaManager) { h.opcua = manager }
 
 func (h *Handler) SetEMS(handler *emsapi.Handler) {
 	h.ems = handler
@@ -280,6 +290,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.serveMetrics(w, identity)
 	case path == "snapshot" && r.Method == http.MethodGet:
 		h.snapshot(w, identity)
+	case path == "audit-settings" && (r.Method == http.MethodGet || r.Method == http.MethodPut):
+		h.auditSettings(w, r, identity)
 	case path == "audit" && r.Method == http.MethodGet:
 		h.auditList(w, r, identity)
 	case path == "audit/export" && r.Method == http.MethodGet:
@@ -397,14 +409,26 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.createEnergyDevice(w, r, identity, parts[1])
 	case len(parts) == 3 && parts[0] == "energy-units" && parts[2] == "capability-inputs" && (r.Method == http.MethodGet || r.Method == http.MethodPut):
 		h.capabilityInputs(w, r, identity, parts[1])
+	case len(parts) == 3 && parts[0] == "energy-units" && parts[2] == "forecast-inputs" && (r.Method == http.MethodGet || r.Method == http.MethodPut):
+		h.forecastInputs(w, r, identity, parts[1])
 	case len(parts) == 3 && parts[0] == "energy-units" && parts[2] == "dispatch-records" && r.Method == http.MethodGet:
 		h.dispatchRecords(w, identity, parts[1])
+	case len(parts) == 3 && parts[0] == "energy-units" && parts[2] == "events" && r.Method == http.MethodPost:
+		h.energyControl(w, r, identity, parts[1], "events")
+	case len(parts) == 3 && parts[0] == "energy-units" && parts[2] == "mode" && r.Method == http.MethodPut:
+		h.energyControl(w, r, identity, parts[1], "mode")
 	case path == "resource-groups" && r.Method == http.MethodPost:
 		h.createResourceGroup(w, r, identity)
 	case path == "resource-groups" && r.Method == http.MethodGet:
 		h.listResourceGroups(w, identity)
 	case len(parts) == 3 && parts[0] == "resource-groups" && parts[2] == "dispatch" && r.Method == http.MethodPost:
 		h.dispatchResourceGroup(w, r, identity, parts[1])
+	case path == "opcua/channels" && (r.Method == http.MethodGet || r.Method == http.MethodPost):
+		h.opcuaChannels(w, r, identity)
+	case len(parts) == 4 && parts[0] == "opcua" && parts[1] == "channels" && parts[3] == "points" && (r.Method == http.MethodGet || r.Method == http.MethodPost):
+		h.opcuaPoints(w, r, identity, parts[2])
+	case len(parts) == 3 && parts[0] == "sites" && parts[2] == "target" && (r.Method == http.MethodGet || r.Method == http.MethodPut):
+		h.siteTarget(w, r, identity, parts[1])
 	case path == "plants" && r.Method == http.MethodGet:
 		h.listPlants(w, identity)
 	case len(parts) == 3 && parts[0] == "plants" && parts[2] == "pcc" && r.Method == http.MethodGet:
@@ -562,6 +586,8 @@ func (h *Handler) visibleNodes(identity Identity) ([]data.NodeEdge, error) {
 		"decisionTable": true, "deviceTemplate": true,
 		// 领域模型三层节点：不在白名单会被剪断整棵子树，前端看不到。
 		NodeTypeSite: true, NodeTypePlant: true, NodeTypeEnergyUnit: true, NodeTypeResourceGroup: true,
+		NodeTypeOpcua: true, NodeTypeOpcuaPoint: true,
+		"mqtt": true, "mqttSub": true,
 	}
 	nodes := []data.NodeEdge{}
 	seen := map[string]bool{}

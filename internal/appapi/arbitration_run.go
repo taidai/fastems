@@ -49,6 +49,16 @@ func (h *Handler) RunUnitArbitratedDispatch(energyUnitID string) error {
 		for _, goal := range h.PlantUnitGoals(plantID)[energyUnitID] {
 			goals = append(goals, goal)
 		}
+		// 站级计划：Site 总目标按 Plant → EnergyUnit 分层分配，计划优先级。
+		if plantNodes, err := siotclient.GetNodes(h.nc, "all", plantID, "", false); err == nil && len(plantNodes) > 0 {
+			if siteID := plantNodes[0].Parent; siteID != "" {
+				if siteNodes, err := siotclient.GetNodes(h.nc, "all", siteID, "", false); err == nil && len(siteNodes) > 0 && siteNodes[0].Type == NodeTypeSite {
+					if goal, ok := h.SiteUnitGoals(siteID)[energyUnitID]; ok {
+						goals = append(goals, goal)
+					}
+				}
+			}
+		}
 	}
 
 	// 仲裁出唯一目标，统一写设备，并留下可复盘的追溯记录。

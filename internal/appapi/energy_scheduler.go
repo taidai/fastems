@@ -11,14 +11,27 @@ import (
 // EnergyScheduler 每 1 秒刷新能力并对每个 EnergyUnit 调用一次统一仲裁入口。
 // Plant/Site/Group 目标由仲裁入口按所属关系收集，调度器不再另跑站级写入。
 type EnergyScheduler struct {
-	nc       *nats.Conn
-	dispatch func(energyUnitID string) error
-	stop     chan struct{}
+	nc        *nats.Conn
+	dispatch  func(energyUnitID string) error
+	reconcile func()
+	forecast  func(time.Time)
+	stop      chan struct{}
 }
 
 // NewEnergyScheduler 返回一个周期调度器，dispatch 是单次调度的执行函数。
 func NewEnergyScheduler(nc *nats.Conn, dispatch func(energyUnitID string) error) *EnergyScheduler {
 	return &EnergyScheduler{nc: nc, dispatch: dispatch, stop: make(chan struct{})}
+}
+
+// SetReconcile injects the cabinet-command reconciler run after each dispatch
+// tick (start/stop confirmation into the cabinet state machine).
+func (s *EnergyScheduler) SetReconcile(reconcile func()) {
+	s.reconcile = reconcile
+}
+
+// SetForecast injects the slow-cadence PV forecast refresh (throttled inside).
+func (s *EnergyScheduler) SetForecast(forecast func(time.Time)) {
+	s.forecast = forecast
 }
 
 // Run 每 1 秒扫描一次 EnergyUnit 并执行调度，直到 Stop。
@@ -57,5 +70,11 @@ func (s *EnergyScheduler) tick() {
 		if err := s.dispatch(node.ID); err != nil {
 			log.Printf("energy dispatch %s: %v", node.ID, err)
 		}
+	}
+	if s.reconcile != nil {
+		s.reconcile()
+	}
+	if s.forecast != nil {
+		s.forecast(time.Now())
 	}
 }

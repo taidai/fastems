@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { IonCardContent } from "@ionic/react"
 import { EmsButton, EmsCard, EmsInput, EmsSelect, EmsSelectOption, EmsSectionHeader, InlineNotice } from "./components/ems"
-import { fetchCapabilityInputs, saveCapabilityInputs, type CapabilityInputs } from "./api"
+import { fetchCapabilityInputs, saveCapabilityInputs, fetchForecastInputs, saveForecastInputs, type CapabilityInputs, type ForecastInputs } from "./api"
 import type { Node } from "./api"
 
 const empty: CapabilityInputs = {
@@ -22,6 +22,9 @@ export default function CapabilityInputsPanel({ token, unitId, nodes, onError }:
   const [inputs, setInputs] = useState<CapabilityInputs>(empty)
   const [configured, setConfigured] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [forecast, setForecast] = useState<ForecastInputs>({ source_point_id: "", interval_sec: 300, window_minutes: 30 })
+  const [forecastSaved, setForecastSaved] = useState(false)
+  const [forecastBusy, setForecastBusy] = useState(false)
   const points = nodes.filter((node) => node.type === "modbusIo" || node.type === "variable")
   const unit = nodes.find((node) => node.id === unitId)
   let capability: CapabilityStatus | null = null
@@ -34,7 +37,22 @@ export default function CapabilityInputsPanel({ token, unitId, nodes, onError }:
     void fetchCapabilityInputs(token, unitId)
       .then((result) => { if (result.configured) { setInputs({ ...empty, ...result.inputs }); setConfigured(true) } })
       .catch(() => {})
+    void fetchForecastInputs(token, unitId)
+      .then((result) => { if (result.configured) { setForecast(result.inputs); setForecastSaved(!!result.inputs.source_point_id) } })
+      .catch(() => {})
   }, [token, unitId])
+
+  async function saveForecast() {
+    setForecastBusy(true)
+    try {
+      await saveForecastInputs(token, unitId, forecast)
+      setForecastSaved(!!forecast.source_point_id)
+    } catch (error) {
+      onError(error instanceof Error ? error.message : "保存失败")
+    } finally {
+      setForecastBusy(false)
+    }
+  }
 
   async function save() {
     if (!inputs.soc_point_id) { onError("请选择 SOC 点位"); return }
@@ -51,7 +69,8 @@ export default function CapabilityInputsPanel({ token, unitId, nodes, onError }:
   }
 
   const pointOptions = points.map((node) => <EmsSelectOption key={node.id} value={node.id}>{node.points.find((p) => p.type === "description")?.text || node.id}</EmsSelectOption>)
-  return <EmsCard>
+  return <>
+    <EmsCard>
     <IonCardContent className="grid gap-4">
       <EmsSectionHeader title="动态能力来源" description="充/放能力分别受 BMS 允许值、SOC 和温度约束；关键数据过期时关闭对应方向。"
         status={configured ? <span className="text-xs text-ems-mint">已启用</span> : undefined} />
@@ -85,4 +104,20 @@ export default function CapabilityInputsPanel({ token, unitId, nodes, onError }:
       <div className="flex justify-end"><EmsButton busy={busy} busyLabel="保存中…" onClick={() => void save()}>保存能力来源</EmsButton></div>
     </IonCardContent>
   </EmsCard>
+
+  <EmsCard>
+    <IonCardContent className="grid gap-4">
+      <EmsSectionHeader title="光伏短期预测" description="按慢周期读取历史出力，生成预测值供能力规则使用；这是历史估计，不是精确预测。"
+        status={forecastSaved ? <span className="text-xs text-ems-mint">已启用</span> : undefined} />
+      <EmsSelect label="历史来源点位（可选）" aria-label="预测来源点位" value={forecast.source_point_id} onIonChange={(event) => setForecast({ ...forecast, source_point_id: event.detail.value })}>
+        <EmsSelectOption value="">不启用</EmsSelectOption>{pointOptions}
+      </EmsSelect>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <EmsInput label="刷新周期（秒）" aria-label="预测刷新周期" type="number" value={forecast.interval_sec} onIonInput={(event) => setForecast({ ...forecast, interval_sec: Number(event.detail.value) })} />
+        <EmsInput label="历史窗口（分钟）" aria-label="预测历史窗口" type="number" value={forecast.window_minutes} onIonInput={(event) => setForecast({ ...forecast, window_minutes: Number(event.detail.value) })} />
+      </div>
+      <div className="flex justify-end"><EmsButton variant="secondary" busy={forecastBusy} busyLabel="保存中…" onClick={() => void saveForecast()}>保存预测来源</EmsButton></div>
+    </IonCardContent>
+  </EmsCard>
+  </>
 }
