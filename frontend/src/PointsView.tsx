@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { IonCardContent } from "@ionic/react"
 import { fetchHistory, Node, point, request } from "./api"
 import SafetyModal from "./SafetyModal"
-import ConfirmDialog from "./ConfirmDialog"
+import { BatchActionBar, EmsButton, EmsCard, EmsInput, EmsOverlay, EmsRecordList, EmsSelect, EmsSelectOption, EmptyState, FilterToolbar, InlineNotice, MetricStrip, StatusBadge, type EmsTone } from "./components/ems"
 
 type Run = (action: () => Promise<unknown>) => Promise<boolean>
 
@@ -39,6 +40,8 @@ const ioTypeNames: Record<string, string> = {
   modbusInputRegister: "输入寄存器",
 }
 const qualityNames: Record<Quality, string> = { normal: "正常", stale: "过期", offline: "离线", unknown: "无值" }
+const qualityTones: Record<Quality, EmsTone> = { normal: "success", stale: "warning", offline: "danger", unknown: "neutral" }
+const qualityValueColors: Record<Quality, string> = { normal: "text-ems-ink", stale: "text-ems-amber", offline: "text-ems-danger", unknown: "text-ems-faint" }
 const formatOptions = ["uint16", "int16", "uint32", "int32", "float32"]
 const ioTypeOptions = Object.keys(ioTypeNames)
 const roleNames: Record<PointRole, string> = {
@@ -151,11 +154,11 @@ function PointSparkline({ token, nodeId }: { token: string; nodeId: string }) {
     }).catch(() => { if (!cancelled) setValues([]) })
     return () => { cancelled = true }
   }, [nodeId, token])
-  if (values.length < 2) return <div className="point-sparkline empty">最近一小时样本不足</div>
+  if (values.length < 2) return <div className="rounded-xl border border-dashed border-ems-line px-3 py-4 text-center text-xs text-ems-muted">最近一小时样本不足</div>
   const width = 260, height = 64, pad = 5
   const min = Math.min(...values), max = Math.max(...values), span = max - min || 1
   const points = values.map((value, index) => `${pad + (index / (values.length - 1)) * (width - pad * 2)},${height - pad - ((value - min) / span) * (height - pad * 2)}`).join(" ")
-  return <div className="point-sparkline"><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="最近一小时趋势"><polyline points={points} fill="none" stroke="#2f6f9f" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" /><text x={pad} y="10" fontSize="9" fill="#7c8d9f">{max.toFixed(1)}</text><text x={pad} y={height - 2} fontSize="9" fill="#7c8d9f">{min.toFixed(1)}</text></svg></div>
+  return <div className="rounded-xl border border-ems-line bg-white/60 p-2"><svg className="h-20 w-full" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="最近一小时趋势"><polyline points={points} fill="none" stroke="#0e7c7b" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" /><text x={pad} y="10" fontSize="9" fill="#6b7c88">{max.toFixed(1)}</text><text x={pad} y={height - 2} fontSize="9" fill="#6b7c88">{min.toFixed(1)}</text></svg></div>
 }
 
 export default function PointsView({ token, nodes, isAdmin, canOperate, busy, run, onError, openHistory, goChannels }: {
@@ -209,6 +212,18 @@ export default function PointsView({ token, nodes, isAdmin, canOperate, busy, ru
   const [createDisabled, setCreateDisabled] = useState(false)
   const [createError, setCreateError] = useState("")
   const [createProgress, setCreateProgress] = useState("")
+  const closeCreate = useCallback(() => setCreateOpen(false), [])
+  const closeDetail = useCallback(() => { setOpenID(""); setEditing(false); setDraft(null) }, [])
+  const closeBatchEdit = useCallback(() => setBatchEdit(false), [])
+  const closeBatchWrite = useCallback(() => setBatchWriteOpen(false), [])
+  const cancelPendingWrite = useCallback(() => setPendingWrite(false), [])
+  const cancelPendingBatchWrite = useCallback(() => setPendingBatchWrite(false), [])
+
+  function showDetail(row: PointRow) {
+    setOpenID(row.node.id)
+    setEditing(false)
+    setNotice("")
+  }
 
   const buses = useMemo(() => nodes.filter((node) => node.type === "modbus"), [nodes])
   const busMap = useMemo(() => new Map(buses.map((bus) => [bus.id, bus])), [buses])
@@ -251,7 +266,7 @@ export default function PointsView({ token, nodes, isAdmin, canOperate, busy, ru
     const needle = query.trim().toLowerCase()
     return [row.name, row.busName, String(row.address), String(row.serverID), row.units, row.format]
       .some((value) => value.toLowerCase().includes(needle))
-  }), [rows, busFilter, accessFilter, qualityFilter, query])
+  }), [rows, busFilter, accessFilter, qualityFilter, roleFilter, query])
 
   const openRow = rows.find((row) => row.node.id === openID) || null
   useEffect(() => {
@@ -439,14 +454,6 @@ export default function PointsView({ token, nodes, isAdmin, canOperate, busy, ru
       setSelected(new Set(created))
     }
   }
-  useEffect(() => {
-    if (!createOpen) return
-    const close = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !busy) setCreateOpen(false)
-    }
-    document.addEventListener("keydown", close)
-    return () => document.removeEventListener("keydown", close)
-  }, [createOpen, busy])
 
   function openBatchEdit() {
     if (!selectedRows.length) return
@@ -545,243 +552,243 @@ export default function PointsView({ token, nodes, isAdmin, canOperate, busy, ru
     })
   }
 
-  return <section className="points-page">
-    <div className="point-stats">
-      <span><strong>{counts.total}</strong> 全部</span>
-      <span className="ok"><strong>{counts.normal}</strong> 正常</span>
-      <span className="warn"><strong>{counts.stale}</strong> 过期</span>
-      <span className="bad"><strong>{counts.offline}</strong> 离线</span>
-      <span><strong>{counts.writable}</strong> 可写</span>
-      <span><strong>{selected.size}</strong> 已选</span>
-      <span className="point-live-note"><i />实时值每 2 秒刷新</span>
-    </div>
+  const isDefaultView = !query.trim() && !busFilter && qualityFilter === "all" && roleFilter === "all" && accessFilter === "all"
+  const currentViewName = [
+    query.trim() ? `搜"${query.trim()}"` : "",
+    busFilter ? (buses.find((bus) => bus.id === busFilter) ? text(buses.find((bus) => bus.id === busFilter)!, "description") || busFilter : busFilter) : "",
+    qualityFilter !== "all" ? qualityFilterNames[qualityFilter] || qualityFilter : "",
+    roleFilter !== "all" ? roleNames[roleFilter as PointRole] || roleFilter : "",
+    accessFilter !== "all" ? (accessFilter === "writable" ? "可写" : "只读") : "",
+  ].filter(Boolean).join("·")
+  const matchedView = savedViews.find((view) => view.query === query && view.bus === busFilter && view.quality === qualityFilter && view.role === roleFilter && view.access === accessFilter)
+  function saveViews(views: SavedPointView[]) {
+    setSavedViews(views)
+    localStorage.setItem(savedViewsKey, JSON.stringify(views))
+  }
 
-    <div className="panel point-shell">
-      <div className="point-toolbar">
-        <input aria-label="搜索点位" placeholder="搜索名称、通道、地址或单位" value={query} onChange={(event) => setQuery(event.target.value)} />
-        <select aria-label="过滤通道" value={busFilter} onChange={(event) => setBusFilter(event.target.value)}>
-          <option value="">全部通道</option>
-          {buses.map((bus) => <option key={bus.id} value={bus.id}>{text(bus, "description") || bus.id}</option>)}
-        </select>
-        <select aria-label="过滤质量" value={qualityFilter} onChange={(event) => setQualityFilter(event.target.value)}>
-          <option value="all">全部质量</option><option value="attention">需处理</option><option value="normal">正常</option><option value="stale">过期</option>
-          <option value="offline">离线</option><option value="unknown">无值</option><option value="disabled">已停用</option>
-        </select>
-        <select aria-label="过滤角色" value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
-          <option value="all">全部角色</option><option value="telemetry">遥测</option><option value="status">遥信</option>
-          <option value="energy">电度</option><option value="setpoint">定值</option><option value="protection">压板</option>
-        </select>
-        <select aria-label="过滤读写" value={accessFilter} onChange={(event) => setAccessFilter(event.target.value)}>
-          <option value="all">全部读写</option><option value="writable">可写</option><option value="readonly">只读</option>
-        </select>
-        {(() => {
-          const isDefault = !query.trim() && !busFilter && qualityFilter === "all" && roleFilter === "all" && accessFilter === "all"
-          const viewName = [
-            query.trim() ? `搜"${query.trim()}"` : "",
-            busFilter ? (buses.find((bus) => bus.id === busFilter) ? text(buses.find((bus) => bus.id === busFilter)!, "description") || busFilter : busFilter) : "",
-            qualityFilter !== "all" ? qualityFilterNames[qualityFilter] || qualityFilter : "",
-            roleFilter !== "all" ? roleNames[roleFilter as PointRole] || roleFilter : "",
-            accessFilter !== "all" ? (accessFilter === "writable" ? "可写" : "只读") : "",
-          ].filter(Boolean).join("·")
-          const matched = savedViews.find((view) => view.query === query && view.bus === busFilter && view.quality === qualityFilter && view.role === roleFilter && view.access === accessFilter)
-          const saveViews = (views: SavedPointView[]) => { setSavedViews(views); localStorage.setItem(savedViewsKey, JSON.stringify(views)) }
-          return <>
-            {savedViews.length > 0 && <select aria-label="保存的视图" value="" onChange={(event) => {
-              const view = savedViews.find((item) => item.name === event.target.value)
-              if (!view) return
-              setQuery(view.query); setBusFilter(view.bus); setQualityFilter(view.quality); setRoleFilter(view.role); setAccessFilter(view.access)
-            }}>
-              <option value="">视图…</option>
-              {savedViews.map((view) => <option key={view.name} value={view.name}>{view.name}</option>)}
-            </select>}
-            {matched
-              ? <button className="secondary-button" onClick={() => saveViews(savedViews.filter((view) => view !== matched))}>删视图</button>
-              : <button className="secondary-button" disabled={isDefault} title={isDefault ? "先设置筛选条件" : undefined} onClick={() => {
-                  const name = viewName || "视图"
-                  saveViews([...savedViews.filter((view) => view.name !== name), { name, query, bus: busFilter, quality: qualityFilter, role: roleFilter, access: accessFilter }])
-                }}>存视图</button>}
-          </>
-        })()}
-        <button className="secondary-button" onClick={goChannels}>通道视图</button>
-        {isAdmin && <button className="primary-button" disabled={!buses.length || busy} title={!buses.length ? "先接入 Modbus 通道" : undefined} onClick={openCreate}>+ 批量新增</button>}
+  return <section className="points-page grid min-w-0 gap-4">
+    <MetricStrip items={[
+      { label: "全部点位", value: counts.total, note: "实时值每 2 秒刷新" },
+      { label: "正常", value: counts.normal, tone: "success" },
+      { label: "过期", value: counts.stale, tone: counts.stale ? "warning" : "neutral" },
+      { label: "离线", value: counts.offline, tone: counts.offline ? "danger" : "neutral" },
+      { label: "可写", value: counts.writable, tone: "info" },
+      { label: "已选", value: selected.size },
+    ]} />
+
+    <EmsCard><IonCardContent className="grid gap-4">
+      <FilterToolbar trailing={<>
+        <EmsButton variant="secondary" onClick={goChannels}>通道视图</EmsButton>
+        {isAdmin && <EmsButton disabled={!buses.length || busy} title={!buses.length ? "先接入 Modbus 通道" : undefined} onClick={openCreate}>+ 批量新增</EmsButton>}
+      </>}>
+        <EmsInput className="min-w-[220px] flex-[2_1_240px]" label="搜索点位" aria-label="搜索点位" placeholder="搜索名称、通道、地址或单位" value={query} onIonInput={(event) => setQuery(event.detail.value || "")} />
+        <EmsSelect label="通道" aria-label="过滤通道" value={busFilter} onIonChange={(event) => setBusFilter(event.detail.value)}>
+          <EmsSelectOption value="">全部通道</EmsSelectOption>
+          {buses.map((bus) => <EmsSelectOption key={bus.id} value={bus.id}>{text(bus, "description") || bus.id}</EmsSelectOption>)}
+        </EmsSelect>
+        <EmsSelect label="质量" aria-label="过滤质量" value={qualityFilter} onIonChange={(event) => setQualityFilter(event.detail.value)}>
+          <EmsSelectOption value="all">全部质量</EmsSelectOption><EmsSelectOption value="attention">需处理</EmsSelectOption><EmsSelectOption value="normal">正常</EmsSelectOption><EmsSelectOption value="stale">过期</EmsSelectOption>
+          <EmsSelectOption value="offline">离线</EmsSelectOption><EmsSelectOption value="unknown">无值</EmsSelectOption><EmsSelectOption value="disabled">已停用</EmsSelectOption>
+        </EmsSelect>
+        <EmsSelect label="角色" aria-label="过滤角色" value={roleFilter} onIonChange={(event) => setRoleFilter(event.detail.value)}>
+          <EmsSelectOption value="all">全部角色</EmsSelectOption><EmsSelectOption value="telemetry">遥测</EmsSelectOption><EmsSelectOption value="status">遥信</EmsSelectOption>
+          <EmsSelectOption value="energy">电度</EmsSelectOption><EmsSelectOption value="setpoint">定值</EmsSelectOption><EmsSelectOption value="protection">压板</EmsSelectOption>
+        </EmsSelect>
+        <EmsSelect label="读写" aria-label="过滤读写" value={accessFilter} onIonChange={(event) => setAccessFilter(event.detail.value)}>
+          <EmsSelectOption value="all">全部读写</EmsSelectOption><EmsSelectOption value="writable">可写</EmsSelectOption><EmsSelectOption value="readonly">只读</EmsSelectOption>
+        </EmsSelect>
+        {savedViews.length > 0 && <EmsSelect label="已存视图" aria-label="保存的视图" value="" onIonChange={(event) => {
+          const view = savedViews.find((item) => item.name === event.detail.value)
+          if (!view) return
+          setQuery(view.query); setBusFilter(view.bus); setQualityFilter(view.quality); setRoleFilter(view.role); setAccessFilter(view.access)
+        }}>
+          <EmsSelectOption value="">视图…</EmsSelectOption>
+          {savedViews.map((view) => <EmsSelectOption key={view.name} value={view.name}>{view.name}</EmsSelectOption>)}
+        </EmsSelect>}
+        <EmsButton variant="secondary" disabled={!matchedView && isDefaultView} title={!matchedView && isDefaultView ? "先设置筛选条件" : undefined} onClick={() => {
+          if (matchedView) {
+            saveViews(savedViews.filter((view) => view !== matchedView))
+          } else {
+            const name = currentViewName || "视图"
+            saveViews([...savedViews.filter((view) => view.name !== name), { name, query, bus: busFilter, quality: qualityFilter, role: roleFilter, access: accessFilter }])
+          }
+        }}>{matchedView ? "删视图" : "存视图"}</EmsButton>
+      </FilterToolbar>
+
+      <div className="[&_.ems-batch-bar]:flex-wrap">
+        <BatchActionBar count={selected.size} trailing={<>
+          <EmsButton variant="secondary" size="small" disabled={!visible.length} onClick={() => downloadCSV(selectedRows.length ? selectedRows : visible)}>导出 CSV</EmsButton>
+          {isAdmin && <EmsButton variant="secondary" size="small" disabled={!selected.size || busy} onClick={openBatchEdit}>批量改缩放/偏移</EmsButton>}
+          {isAdmin && <EmsButton variant="secondary" size="small" disabled={!selected.size || busy} onClick={() => batchDisabled(true)}>批量停用</EmsButton>}
+          {isAdmin && <EmsButton variant="secondary" size="small" disabled={!selected.size || busy} onClick={() => batchDisabled(false)}>批量启用</EmsButton>}
+          {canOperate && <EmsButton size="small" disabled={!writableSelected.length || busy} title={!writableSelected.length ? "先勾选表格左侧选择框，至少选一个可写点位" : undefined} onClick={openBatchWrite}>批量下发</EmsButton>}
+          {isAdmin && <EmsButton variant="danger" size="small" disabled={!selected.size || busy} onClick={batchDelete}>批量删除</EmsButton>}
+        </>}>
+          <label className="flex items-center gap-2 text-xs text-ems-muted"><input className="h-4 w-4 accent-ems-accent" type="checkbox" aria-label="全选当前筛选" checked={allVisible} onChange={toggleVisible} /> 当前筛选全选</label>
+          <span className="text-xs text-ems-muted">筛选 {visible.length} / 全部 {rows.length}</span>
+          {batchNotice && <span className="text-xs font-medium text-ems-mint">{batchNotice}</span>}
+        </BatchActionBar>
       </div>
 
-      <div className="point-batchbar">
-        <label className="point-check"><input type="checkbox" checked={allVisible} onChange={toggleVisible} /> 当前筛选全选</label>
-        <span>已选 {selected.size} / 筛选 {visible.length} / 全部 {rows.length}</span>
-        <button className="secondary-button" disabled={!visible.length} onClick={() => downloadCSV(selectedRows.length ? selectedRows : visible)}>导出 CSV</button>
-        {isAdmin && <button className="secondary-button" disabled={!selected.size || busy} onClick={openBatchEdit}>批量改缩放/偏移</button>}
-        {isAdmin && <span className="point-batch-group"><button className="secondary-button" disabled={!selected.size || busy} onClick={() => batchDisabled(true)}>批量停用</button><button className="secondary-button" disabled={!selected.size || busy} onClick={() => batchDisabled(false)}>批量启用</button><button className="secondary-button" disabled={!selected.size || busy} onClick={openBatchEdit}>批量改缩放/偏移</button></span>}
-        {canOperate && <button className="primary-button" disabled={!writableSelected.length || busy} title={!writableSelected.length ? "先勾选表格左侧选择框，至少选一个可写点位" : undefined} onClick={openBatchWrite}>批量下发</button>}
-        {isAdmin && <button className="danger-button" disabled={!selected.size || busy} onClick={batchDelete}>批量删除</button>}
-        {batchNotice && <span className="point-batch-ok">{batchNotice}</span>}
+      <div className="min-w-0 [&_.ems-table]:min-w-[1180px]">
+        <EmsRecordList rows={visible} keyOf={(row) => row.node.id} onRowClick={showDetail}
+          empty={<EmptyState title={rows.length ? "没有匹配的点位" : "还没有 Modbus 点位"} description={rows.length ? "调整筛选条件后再试。" : "到通道视图接入设备，或在部署页预检并导入点表。"} />}
+          columns={[
+            { key: "select", label: "选择", className: "w-10 text-center", render: (row) => <input className="h-4 w-4 accent-ems-accent" type="checkbox" aria-label={`选择 ${row.name}`} checked={selected.has(row.node.id)} onClick={(event) => event.stopPropagation()} onChange={() => toggle(row.node.id)} /> },
+            { key: "name", label: "点位名称", render: (row) => <div className="grid gap-1"><strong>{row.name}</strong><div className="flex flex-wrap gap-1">{row.readOnly && <StatusBadge dot={false}>只读</StatusBadge>}{row.disabled && <StatusBadge tone="warning" dot={false}>停用</StatusBadge>}</div></div> },
+            { key: "role", label: "角色", render: (row) => <StatusBadge tone="info" dot={false}>{roleLabel(row.role)}</StatusBadge> },
+            { key: "bus", label: "通道", render: (row) => <><span>{row.busName}</span><small className="block max-w-44 break-all text-ems-muted">{row.busAddress || "—"}</small></> },
+            { key: "server", label: "站号", render: (row) => row.serverID },
+            { key: "type", label: "类型", render: (row) => ioTypeNames[row.ioType] || row.ioType },
+            { key: "address", label: "地址", render: (row) => row.address },
+            { key: "format", label: "格式", render: (row) => row.format },
+            { key: "scale", label: "缩放 / 单位", render: (row) => `${row.scale} / ${row.units || "—"}` },
+            { key: "value", label: "当前值", render: (row) => <strong className={`whitespace-nowrap tabular-nums ${qualityValueColors[row.quality]}`}>{displayValue(row)}</strong> },
+            { key: "quality", label: "质量", render: (row) => <><StatusBadge tone={row.disabled ? "neutral" : qualityTones[row.quality]}>{row.disabled ? "已停用" : qualityNames[row.quality]}</StatusBadge><small className="mt-1 block text-ems-muted">{qualityReason(row)}</small></> },
+            { key: "time", label: "更新时间", render: (row) => <><span title={row.valueTime}>{timeLabel(row.valueTime)}</span><small className="block text-ems-muted">{ageLabel(row.valueTime)}</small></> },
+            { key: "action", label: "操作", render: (row) => <EmsButton variant="quiet" size="small" onClick={(event) => { event.stopPropagation(); showDetail(row) }}>详情</EmsButton> },
+          ]}
+          mobileCard={(row) => <div className="grid min-w-0 gap-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex min-w-0 items-start gap-2">
+                <input className="mt-1 h-4 w-4 shrink-0 accent-ems-accent" type="checkbox" aria-label={`选择 ${row.name}`} checked={selected.has(row.node.id)} onClick={(event) => event.stopPropagation()} onChange={() => toggle(row.node.id)} />
+                <div className="min-w-0"><strong className="break-words text-sm text-ems-ink">{row.name}</strong><div className="mt-1 flex flex-wrap gap-1">{row.readOnly && <StatusBadge dot={false}>只读</StatusBadge>}{row.disabled && <StatusBadge tone="warning" dot={false}>停用</StatusBadge>}</div></div>
+              </div>
+              <div className="shrink-0 text-right"><span className="block text-[10px] text-ems-muted">当前值</span><strong className={`text-lg tabular-nums ${qualityValueColors[row.quality]}`}>{displayValue(row)}</strong></div>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2"><StatusBadge tone={row.disabled ? "neutral" : qualityTones[row.quality]}>{row.disabled ? "已停用" : qualityNames[row.quality]}</StatusBadge><span className="text-xs text-ems-muted">{qualityReason(row)} · {ageLabel(row.valueTime)}</span></div>
+            <div className="min-w-0 text-xs text-ems-muted"><span className="block">{row.busName} · 站号 {row.serverID} / 地址 {row.address}</span><span className="block break-all">{row.busAddress || "—"}</span></div>
+            <div className="flex items-center justify-between gap-2"><StatusBadge tone="info" dot={false}>{roleLabel(row.role)}</StatusBadge><EmsButton variant="secondary" size="small" onClick={(event) => { event.stopPropagation(); showDetail(row) }}>详情</EmsButton></div>
+          </div>}
+        />
       </div>
+    </IonCardContent></EmsCard>
 
-      {batchEdit && <div className="point-batch-edit">
-        <div><strong>批量修改缩放 / 偏移</strong><span>已选 {selectedRows.length} 个点位；逐点保存，失败时已成功的点位保留新值。</span></div>
-        <label>缩放<input aria-label="批量缩放" type="number" step="any" value={batchScale} onChange={(event) => setBatchScale(event.target.value)} /></label>
-        <label>偏移<input aria-label="批量偏移" type="number" step="any" value={batchOffset} onChange={(event) => setBatchOffset(event.target.value)} /></label>
-        <button className="primary-button" disabled={busy || !selectedRows.length} onClick={applyBatchScaleOffset}>应用到已选</button>
-        <button className="secondary-button" disabled={busy} onClick={() => setBatchEdit(false)}>取消</button>
-      </div>}
-
-      {batchWriteOpen && <div className="point-batch-edit">
-        <div><strong>批量下发目标值</strong><span>已选 {writableSelected.length} 个可写点位；同一目标值逐点下发并等待回读。</span></div>
-        <label>目标值<input aria-label="批量下发目标值" type="number" step="any" value={batchWriteValue} onChange={(event) => setBatchWriteValue(Number(event.target.value))} /></label>
-        <button className="primary-button" disabled={busy || !Number.isFinite(batchWriteValue)} onClick={() => setPendingBatchWrite(true)}>确认下发</button>
-        <button className="secondary-button" disabled={busy} onClick={() => setBatchWriteOpen(false)}>取消</button>
-      </div>}
-
-      <div className="point-table-wrap">
-        <table className="point-table">
-          <thead><tr>
-            <th className="check"><input type="checkbox" aria-label="全选当前筛选" checked={allVisible} onChange={toggleVisible} /></th>
-            <th>点位名称</th><th>角色</th><th>通道</th><th>站号</th><th>类型</th><th>地址</th><th>格式</th><th>缩放 / 单位</th><th>当前值</th><th>质量</th><th>更新时间</th><th>操作</th>
-          </tr></thead>
-          <tbody>
-            {visible.map((row) => <tr key={row.node.id} className={`${row.disabled ? "disabled" : ""} ${selected.has(row.node.id) ? "selected" : ""} ${openID === row.node.id ? "open" : ""}`} onClick={() => { setOpenID(row.node.id); setEditing(false); setNotice("") }}>
-              <td className="check" onClick={(event) => event.stopPropagation()}><input type="checkbox" aria-label={`选择 ${row.name}`} checked={selected.has(row.node.id)} onChange={() => toggle(row.node.id)} /></td>
-              <td><strong>{row.name}</strong>{row.readOnly && <span className="point-tag">只读</span>}{row.disabled && <span className="point-tag warn">停用</span>}</td>
-              <td><span className={`point-role ${row.role}`}>{roleLabel(row.role)}</span></td>
-              <td><span>{row.busName}</span><small>{row.busAddress}</small></td>
-              <td>{row.serverID}</td>
-              <td>{ioTypeNames[row.ioType] || row.ioType}</td>
-              <td>{row.address}</td>
-              <td>{row.format}</td>
-              <td>{row.scale} / {row.units || "—"}</td>
-              <td className={`point-value ${row.quality}`}>{displayValue(row)}</td>
-              <td><span className={`point-quality ${row.quality}`}>{row.disabled ? "已停用" : qualityNames[row.quality]}</span><small className="point-quality-reason">{qualityReason(row)}</small></td>
-              <td title={row.valueTime}>{timeLabel(row.valueTime)}<small>{ageLabel(row.valueTime)}</small></td>
-              <td><button className="manage-button" onClick={(event) => { event.stopPropagation(); setOpenID(row.node.id); setEditing(false); setNotice("") }}>详情</button></td>
-            </tr>)}
-            {visible.length === 0 && <tr><td colSpan={13}><div className="point-empty">{rows.length ? "没有匹配的点位，调整筛选条件。" : "还没有 Modbus 点位。到通道视图接入设备，或在部署页预检并导入点表。"}</div></td></tr>}
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    {createOpen && <>
-      <div className="point-create-backdrop" onClick={() => { if (!busy) setCreateOpen(false) }} />
-      <div className="point-create" role="dialog" aria-label="批量新增点位">
-        <div className="point-create-head">
-          <div><span className="section-kicker">按通道批量新增</span><h2>批量新增点位</h2><p>生成连续地址点位；先看预览，再创建。</p></div>
-          <button className="icon-button" aria-label="关闭批量新增" disabled={busy} onClick={() => setCreateOpen(false)}>×</button>
+    <EmsOverlay open={batchEdit} title="批量修改缩放 / 偏移" busy={busy} onClose={closeBatchEdit}
+      actions={<><EmsButton variant="secondary" disabled={busy} onClick={closeBatchEdit}>取消</EmsButton><EmsButton busy={busy} disabled={!selectedRows.length} onClick={applyBatchScaleOffset}>应用到已选</EmsButton></>}>
+      <div className="grid gap-4">
+        <InlineNotice>已选 {selectedRows.length} 个点位；逐点保存，失败时已成功的点位保留新值。</InlineNotice>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <EmsInput label="缩放" aria-label="批量缩放" type="number" step="any" value={batchScale} onIonInput={(event) => setBatchScale(event.detail.value || "")} />
+          <EmsInput label="偏移" aria-label="批量偏移" type="number" step="any" value={batchOffset} onIonInput={(event) => setBatchOffset(event.detail.value || "")} />
         </div>
-        <div className="point-create-grid">
-          <label>通道<select value={createChannel} onChange={(event) => setCreateChannel(event.target.value)}>
-            {buses.map((bus) => <option key={bus.id} value={bus.id}>{text(bus, "description") || bus.id}</option>)}
-          </select></label>
-          <label>名称前缀<input value={createPrefix} onChange={(event) => setCreatePrefix(event.target.value)} placeholder="例如：电芯温度-" /></label>
-          <label>起始序号<input type="number" min={0} value={createStartIndex} onChange={(event) => setCreateStartIndex(event.target.value)} /></label>
-          <label>站号<input type="number" min={1} max={247} value={createServer} onChange={(event) => setCreateServer(event.target.value)} /></label>
-          <label>起始地址<input type="number" min={0} value={createAddress} onChange={(event) => setCreateAddress(event.target.value)} /></label>
-          <label>数量<input type="number" min={1} max={200} value={createCount} onChange={(event) => setCreateCount(event.target.value)} /></label>
-          <label>地址步长<input type="number" min={1} value={createStep} onChange={(event) => setCreateStep(event.target.value)} /></label>
-          <label>类型<select value={createType} onChange={(event) => changeCreateType(event.target.value)}>{ioTypeOptions.map((value) => <option key={value} value={value}>{ioTypeNames[value]}</option>)}</select></label>
-          <label>数据格式<select value={createFormat} disabled={createType === "modbusCoil" || createType === "modbusDiscreteInput"} onChange={(event) => setCreateFormat(event.target.value)}>{formatOptions.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
-          <label>缩放<input type="number" step="any" value={createScale} onChange={(event) => setCreateScale(event.target.value)} /></label>
-          <label>偏移<input type="number" step="any" value={createOffset} onChange={(event) => setCreateOffset(event.target.value)} /></label>
-          <label>单位<input value={createUnits} onChange={(event) => setCreateUnits(event.target.value)} /></label>
+      </div>
+    </EmsOverlay>
+
+    <EmsOverlay open={batchWriteOpen && !pendingBatchWrite} title="批量下发目标值" busy={busy} onClose={closeBatchWrite}
+      actions={<><EmsButton variant="secondary" disabled={busy} onClick={closeBatchWrite}>取消</EmsButton><EmsButton disabled={busy || !Number.isFinite(batchWriteValue)} onClick={() => setPendingBatchWrite(true)}>确认下发</EmsButton></>}>
+      <div className="grid gap-4">
+        <InlineNotice tone="warning">已选 {writableSelected.length} 个可写点位；同一目标值逐点下发并等待回读。</InlineNotice>
+        <EmsInput label="目标值" aria-label="批量下发目标值" type="number" step="any" value={batchWriteValue} onIonInput={(event) => setBatchWriteValue(Number(event.detail.value))} />
+      </div>
+    </EmsOverlay>
+
+    <EmsOverlay open={createOpen} title="批量新增点位" busy={busy} onClose={closeCreate}
+      actions={<><EmsButton variant="secondary" disabled={busy} onClick={closeCreate}>取消</EmsButton><EmsButton busy={busy} busyLabel={createProgress || "创建中…"} onClick={() => void createPoints()}>{createPreview.length ? `创建 ${createPreview.length} 个点位` : "创建点位"}</EmsButton></>}>
+      <div className="grid gap-4">
+        <InlineNotice>按通道生成连续地址点位；先看预览，再创建。失败时会回滚本次已创建的点位。</InlineNotice>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <EmsSelect label="通道" aria-label="新增通道" value={createChannel} onIonChange={(event) => setCreateChannel(event.detail.value)}>
+            {buses.map((bus) => <EmsSelectOption key={bus.id} value={bus.id}>{text(bus, "description") || bus.id}</EmsSelectOption>)}
+          </EmsSelect>
+          <EmsInput label="名称前缀" value={createPrefix} onIonInput={(event) => setCreatePrefix(event.detail.value || "")} placeholder="例如：电芯温度-" />
+          <EmsInput label="起始序号" type="number" min={0} value={createStartIndex} onIonInput={(event) => setCreateStartIndex(event.detail.value || "")} />
+          <EmsInput label="站号" type="number" min={1} max={247} value={createServer} onIonInput={(event) => setCreateServer(event.detail.value || "")} />
+          <EmsInput label="起始地址" type="number" min={0} value={createAddress} onIonInput={(event) => setCreateAddress(event.detail.value || "")} />
+          <EmsInput label="数量" type="number" min={1} max={200} value={createCount} onIonInput={(event) => setCreateCount(event.detail.value || "")} />
+          <EmsInput label="地址步长" type="number" min={1} value={createStep} onIonInput={(event) => setCreateStep(event.detail.value || "")} />
+          <EmsSelect label="类型" value={createType} onIonChange={(event) => changeCreateType(event.detail.value)}>{ioTypeOptions.map((value) => <EmsSelectOption key={value} value={value}>{ioTypeNames[value]}</EmsSelectOption>)}</EmsSelect>
+          <EmsSelect label="数据格式" value={createFormat} disabled={createType === "modbusCoil" || createType === "modbusDiscreteInput"} onIonChange={(event) => setCreateFormat(event.detail.value)}>{formatOptions.map((value) => <EmsSelectOption key={value} value={value}>{value}</EmsSelectOption>)}</EmsSelect>
+          <EmsInput label="缩放" type="number" step="any" value={createScale} onIonInput={(event) => setCreateScale(event.detail.value || "")} />
+          <EmsInput label="偏移" type="number" step="any" value={createOffset} onIonInput={(event) => setCreateOffset(event.detail.value || "")} />
+          <EmsInput label="单位" value={createUnits} onIonInput={(event) => setCreateUnits(event.detail.value || "")} />
         </div>
-        <div className="point-create-checks">
-          <label className="point-check"><input type="checkbox" checked={createReadOnly} disabled={createType === "modbusInputRegister" || createType === "modbusDiscreteInput"} onChange={(event) => setCreateReadOnly(event.target.checked)} /> 只读</label>
-          <label className="point-check"><input type="checkbox" checked={createDisabled} onChange={(event) => setCreateDisabled(event.target.checked)} /> 停用</label>
+        <div className="flex flex-wrap items-center gap-4 text-xs text-ems-muted">
+          <label className="flex items-center gap-2"><input className="h-4 w-4 accent-ems-accent" type="checkbox" checked={createReadOnly} disabled={createType === "modbusInputRegister" || createType === "modbusDiscreteInput"} onChange={(event) => setCreateReadOnly(event.target.checked)} /> 只读</label>
+          <label className="flex items-center gap-2"><input className="h-4 w-4 accent-ems-accent" type="checkbox" checked={createDisabled} onChange={(event) => setCreateDisabled(event.target.checked)} /> 停用</label>
           <span>当前通道 {createPointsInChannel} 个点位</span>
         </div>
-        <div className="point-create-preview">
-          <strong>预览</strong>
-          {createPreview.length ? <span>{createPreview.slice(0, 3).map((point) => `${point.name} @ ${point.address}`).join("、")}{createPreview.length > 3 ? ` … ${createPreview[createPreview.length - 1].name} @ ${createPreview[createPreview.length - 1].address}` : ""}</span> : <span>填写通道、前缀、起始地址和数量后显示预览。</span>}
-          {createAddressWarning && <em>{createAddressWarning}</em>}
+        <div className="grid gap-2 rounded-xl border border-ems-line bg-white/60 p-3 text-xs">
+          <strong className="text-ems-ink">创建预览</strong>
+          {createPreview.length ? <span className="break-all text-ems-muted">{createPreview.slice(0, 3).map((point) => `${point.name} @ ${point.address}`).join("、")}{createPreview.length > 3 ? ` … ${createPreview[createPreview.length - 1].name} @ ${createPreview[createPreview.length - 1].address}` : ""}</span> : <span className="text-ems-muted">填写通道、前缀、起始地址和数量后显示预览。</span>}
         </div>
-        {createError && <div className="inline-error" role="alert">{createError}</div>}
-        <div className="point-create-actions">
-          <button className="secondary-button" disabled={busy} onClick={() => setCreateOpen(false)}>取消</button>
-          <button className="primary-button" disabled={busy} onClick={() => void createPoints()}>{busy ? (createProgress || "创建中…") : (createPreview.length ? `创建 ${createPreview.length} 个点位` : "创建点位")}</button>
-        </div>
+        {createAddressWarning && <InlineNotice tone="warning">{createAddressWarning}</InlineNotice>}
+        {createError && <InlineNotice tone="danger">{createError}</InlineNotice>}
       </div>
-    </>}
+    </EmsOverlay>
 
-    {openRow && <>
-      <div className="point-drawer-backdrop" onClick={() => { setOpenID(""); setEditing(false); setDraft(null) }} />
-      <aside className="point-drawer" role="dialog" aria-label={`${openRow.name} 详情`}>
-        <div className="point-drawer-head">
-          <div><span className="section-kicker">点位详情</span><h2>{openRow.name}</h2></div>
-          <button className="icon-button" aria-label="关闭点位详情" onClick={() => { setOpenID(""); setEditing(false); setDraft(null) }}>×</button>
-        </div>
-        <div className={`point-drawer-live ${openRow.quality}`}>
-          <strong>{displayValue(openRow)}</strong>
-          <span>{openRow.disabled ? "已停用" : qualityNames[openRow.quality]} · {ageLabel(openRow.valueTime)} · {qualityReason(openRow)}</span>
+    <EmsOverlay open={Boolean(openRow) && !safetyOpen && !pendingWrite} variant="drawer" title={openRow ? `${openRow.name} 详情` : "点位详情"} onClose={closeDetail}
+      actions={<EmsButton variant="secondary" onClick={closeDetail}>关闭</EmsButton>}>
+      {openRow && <div className="grid gap-4">
+        <div className="grid gap-2 rounded-xl border border-ems-line bg-white/65 p-4">
+          <span className="text-xs text-ems-muted">当前值</span>
+          <strong className={`text-3xl tabular-nums ${qualityValueColors[openRow.quality]}`}>{displayValue(openRow)}</strong>
+          <div className="flex flex-wrap items-center gap-2"><StatusBadge tone={openRow.disabled ? "neutral" : qualityTones[openRow.quality]}>{openRow.disabled ? "已停用" : qualityNames[openRow.quality]}</StatusBadge><span className="text-xs text-ems-muted">{ageLabel(openRow.valueTime)} · {qualityReason(openRow)}</span></div>
         </div>
         <PointSparkline token={token} nodeId={openRow.node.id} />
-        {openRow.command && <div className="point-command">最近命令：{({ accepted: "已接受", confirmed: "已回读", unknown: "结果未知", failed: "失败" } as Record<string, string>)[openRow.command] || openRow.command}</div>}
-        {notice && <div className="success-message" role="status">{notice}</div>}
+        {openRow.command && <InlineNotice>最近命令：{({ accepted: "已接受", confirmed: "已回读", unknown: "结果未知", failed: "失败" } as Record<string, string>)[openRow.command] || openRow.command}</InlineNotice>}
+        {notice && <InlineNotice tone="success">{notice}</InlineNotice>}
 
-        {!openRow.readOnly && canOperate && <div className="point-write">
-          <strong>下发目标值</strong>
-          <div><input aria-label="目标值" type="number" step="any" value={writeValue} onChange={(event) => setWriteValue(Number(event.target.value))} /><button className="primary-button" disabled={busy} onClick={writePoint}>下发</button></div>
-          <small>{openRow.valueSet !== undefined ? `当前目标 ${openRow.valueSet}${openRow.units ? ` ${openRow.units}` : ""}` : "该点位还没有目标值"}</small>
+        {!openRow.readOnly && canOperate && <div className="grid gap-2 rounded-xl border border-ems-line bg-white/50 p-3">
+          <strong className="text-sm">下发目标值</strong>
+          <div className="flex items-end gap-2"><EmsInput label="目标值" aria-label="目标值" type="number" step="any" value={writeValue} onIonInput={(event) => setWriteValue(Number(event.detail.value))} /><EmsButton className="shrink-0" disabled={busy} onClick={writePoint}>下发</EmsButton></div>
+          <small className="text-xs text-ems-muted">{openRow.valueSet !== undefined ? `当前目标 ${openRow.valueSet}${openRow.units ? ` ${openRow.units}` : ""}` : "该点位还没有目标值"}</small>
         </div>}
 
-        <div className="point-actions">
-          <button className="secondary-button" onClick={() => openHistory(openRow.node.id)}>查看历史</button>
-          {canOperate && <button className="secondary-button" disabled={busy} onClick={toggleManual}>{openRow.manual ? "恢复自动" : "接管自动"}</button>}
-          {isAdmin && !openRow.readOnly && <button className="secondary-button" onClick={() => setSafetyOpen(true)}>安全约束{point(openRow.node, "easyemsSafety")?.text ? "" : " · 未配置"}</button>}
-          {isAdmin && !editing && <button className="secondary-button" onClick={startEdit}>编辑点位</button>}
+        <div className="flex flex-wrap gap-2">
+          <EmsButton variant="secondary" size="small" onClick={() => openHistory(openRow.node.id)}>查看历史</EmsButton>
+          {canOperate && <EmsButton variant="secondary" size="small" disabled={busy} onClick={toggleManual}>{openRow.manual ? "恢复自动" : "接管自动"}</EmsButton>}
+          {isAdmin && !openRow.readOnly && <EmsButton variant="secondary" size="small" onClick={() => setSafetyOpen(true)}>安全约束{point(openRow.node, "easyemsSafety")?.text ? "" : " · 未配置"}</EmsButton>}
+          {isAdmin && !editing && <EmsButton variant="secondary" size="small" onClick={startEdit}>编辑点位</EmsButton>}
         </div>
 
-        {editing && draft ? <div className="point-edit">
-          <label>名称<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
-          <div className="point-edit-row">
-            <label>站号<input type="number" min={1} max={247} value={draft.serverID} onChange={(event) => setDraft({ ...draft, serverID: Number(event.target.value) })} /></label>
-            <label>地址<input type="number" min={0} value={draft.address} onChange={(event) => setDraft({ ...draft, address: Number(event.target.value) })} /></label>
+        {editing && draft ? <div className="grid gap-3 border-t border-ems-line pt-4">
+          <EmsInput label="名称" value={draft.name} onIonInput={(event) => setDraft({ ...draft, name: event.detail.value || "" })} />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <EmsInput label="站号" type="number" min={1} max={247} value={draft.serverID} onIonInput={(event) => setDraft({ ...draft, serverID: Number(event.detail.value) })} />
+            <EmsInput label="地址" type="number" min={0} value={draft.address} onIonInput={(event) => setDraft({ ...draft, address: Number(event.detail.value) })} />
+            <EmsSelect label="类型" value={draft.ioType} onIonChange={(event) => setDraft({ ...draft, ioType: event.detail.value })}>{ioTypeOptions.map((value) => <EmsSelectOption key={value} value={value}>{ioTypeNames[value]}</EmsSelectOption>)}</EmsSelect>
+            <EmsSelect label="数据格式" value={draft.format} onIonChange={(event) => setDraft({ ...draft, format: event.detail.value })}>{formatOptions.map((value) => <EmsSelectOption key={value} value={value}>{value}</EmsSelectOption>)}</EmsSelect>
+            <EmsInput label="缩放" type="number" step="any" value={draft.scale} onIonInput={(event) => setDraft({ ...draft, scale: Number(event.detail.value) })} />
+            <EmsInput label="偏移" type="number" step="any" value={draft.offset} onIonInput={(event) => setDraft({ ...draft, offset: Number(event.detail.value) })} />
           </div>
-          <div className="point-edit-row">
-            <label>类型<select value={draft.ioType} onChange={(event) => setDraft({ ...draft, ioType: event.target.value })}>{ioTypeOptions.map((value) => <option key={value} value={value}>{ioTypeNames[value]}</option>)}</select></label>
-            <label>数据格式<select value={draft.format} onChange={(event) => setDraft({ ...draft, format: event.target.value })}>{formatOptions.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
+          <EmsInput label="单位" value={draft.units} onIonInput={(event) => setDraft({ ...draft, units: event.detail.value || "" })} />
+          <div className="flex flex-wrap gap-4 text-xs text-ems-muted">
+            <label className="flex items-center gap-2"><input className="h-4 w-4 accent-ems-accent" type="checkbox" checked={draft.readOnly} onChange={(event) => setDraft({ ...draft, readOnly: event.target.checked })} /> 只读</label>
+            <label className="flex items-center gap-2"><input className="h-4 w-4 accent-ems-accent" type="checkbox" checked={draft.disabled} onChange={(event) => setDraft({ ...draft, disabled: event.target.checked })} /> 停用</label>
           </div>
-          <div className="point-edit-row">
-            <label>缩放<input type="number" step="any" value={draft.scale} onChange={(event) => setDraft({ ...draft, scale: Number(event.target.value) })} /></label>
-            <label>偏移<input type="number" step="any" value={draft.offset} onChange={(event) => setDraft({ ...draft, offset: Number(event.target.value) })} /></label>
-            <label>单位<input value={draft.units} onChange={(event) => setDraft({ ...draft, units: event.target.value })} /></label>
-          </div>
-          <label className="point-check"><input type="checkbox" checked={draft.readOnly} onChange={(event) => setDraft({ ...draft, readOnly: event.target.checked })} /> 只读</label>
-          <label className="point-check"><input type="checkbox" checked={draft.disabled} onChange={(event) => setDraft({ ...draft, disabled: event.target.checked })} /> 停用</label>
-          <div className="point-edit-actions"><button className="secondary-button" onClick={() => { setEditing(false); setDraft(null) }}>取消</button><button className="primary-button" disabled={busy} onClick={saveEdit}>保存点位</button></div>
-        </div> : <>
-          <dl className="point-meta">
-            <div><dt>通道</dt><dd>{openRow.busName} · {openRow.busAddress}</dd></div>
-            <div><dt>站号 / 地址</dt><dd>{openRow.serverID} / {openRow.address}</dd></div>
-            <div><dt>类型 / 格式</dt><dd>{ioTypeNames[openRow.ioType] || openRow.ioType} · {openRow.format}</dd></div>
-            <div><dt>缩放 / 偏移 / 单位</dt><dd>{openRow.scale} / {openRow.offset} / {openRow.units || "—"}</dd></div>
-            <div><dt>读写</dt><dd>{openRow.readOnly ? "只读" : "可写"} · {openRow.disabled ? "已停用" : "启用"}</dd></div>
-            <div><dt>业务 ID</dt><dd className="point-id">{text(openRow.node, "businessId") || openRow.node.id}</dd></div>
-          </dl>
-        </>}
-      </aside>
-      {safetyOpen && <SafetyModal token={token} node={openRow.node} nodes={nodes} onClose={() => setSafetyOpen(false)} onSaved={() => { setSafetyOpen(false); setNotice("安全约束已保存") }} />}
-    </>}
+          <div className="flex justify-end gap-2"><EmsButton variant="secondary" onClick={() => { setEditing(false); setDraft(null) }}>取消</EmsButton><EmsButton busy={busy} onClick={saveEdit}>保存点位</EmsButton></div>
+        </div> : <dl className="grid gap-3">
+          {[
+            ["通道", `${openRow.busName} · ${openRow.busAddress}`],
+            ["站号 / 地址", `${openRow.serverID} / ${openRow.address}`],
+            ["类型 / 格式", `${ioTypeNames[openRow.ioType] || openRow.ioType} · ${openRow.format}`],
+            ["缩放 / 偏移 / 单位", `${openRow.scale} / ${openRow.offset} / ${openRow.units || "—"}`],
+            ["读写", `${openRow.readOnly ? "只读" : "可写"} · ${openRow.disabled ? "已停用" : "启用"}`],
+          ].map(([label, value]) => <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-3 text-sm sm:grid-cols-[130px_minmax(0,1fr)]" key={label}><dt className="text-ems-muted">{label}</dt><dd className="m-0 break-all text-ems-ink">{value}</dd></div>)}
+          <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-3 text-sm sm:grid-cols-[130px_minmax(0,1fr)]"><dt className="text-ems-muted">业务 ID</dt><dd className="m-0 break-all font-mono text-xs text-ems-muted">{text(openRow.node, "businessId") || openRow.node.id}</dd></div>
+        </dl>}
+      </div>}
+    </EmsOverlay>
+    {safetyOpen && openRow && <SafetyModal token={token} node={openRow.node} nodes={nodes} onClose={() => setSafetyOpen(false)} onSaved={() => { setSafetyOpen(false); setNotice("安全约束已保存") }} />}
 
-    {pendingWrite && openRow && <ConfirmDialog
-      title={`确认下发「${openRow.name}」`}
-      message="目标值会直接写入设备，等待回读确认；失败不会自动重试。"
-      rows={[
-        { label: "当前值", value: `${displayValue(openRow)}${openRow.units ? ` ${openRow.units}` : ""}` },
-        { label: "目标值", value: `${writeValue}${openRow.units ? ` ${openRow.units}` : ""}` },
-      ]}
-      confirmLabel="确认下发"
-      busy={busy}
-      onCancel={() => setPendingWrite(false)}
-      onConfirm={confirmWrite}
-    />}
+    <EmsOverlay open={pendingWrite && Boolean(openRow)} title={openRow ? `确认下发「${openRow.name}」` : "确认下发"} busy={busy} onClose={cancelPendingWrite}
+      actions={<><EmsButton variant="secondary" disabled={busy} onClick={cancelPendingWrite}>取消</EmsButton><EmsButton busy={busy} busyLabel="执行中…" onClick={confirmWrite}>确认下发</EmsButton></>}>
+      {openRow && <div className="grid gap-4">
+        <InlineNotice tone="warning">目标值会直接写入设备，等待回读确认；失败不会自动重试。</InlineNotice>
+        <dl className="grid gap-3 text-sm">
+          <div className="flex items-center justify-between gap-3"><dt className="text-ems-muted">当前值</dt><dd className="m-0 font-medium">{displayValue(openRow)}</dd></div>
+          <div className="flex items-center justify-between gap-3"><dt className="text-ems-muted">目标值</dt><dd className="m-0 font-semibold text-ems-accent">{writeValue}{openRow.units ? ` ${openRow.units}` : ""}</dd></div>
+        </dl>
+      </div>}
+    </EmsOverlay>
 
-    {pendingBatchWrite && <ConfirmDialog
-      title={`确认批量下发（${writableSelected.length} 个点位）`}
-      message="同一目标值会直接写入所选点位，逐点下发并等待回读；失败不会自动重试。"
-      rows={writableSelected.map((row) => ({ label: row.name, value: `${row.value === undefined ? "—" : row.value} → ${batchWriteValue}${row.units ? ` ${row.units}` : ""}` }))}
-      confirmLabel="确认下发"
-      busy={busy}
-      onCancel={() => setPendingBatchWrite(false)}
-      onConfirm={doBatchWrite}
-    />}
+    <EmsOverlay open={pendingBatchWrite} title={`确认批量下发（${writableSelected.length} 个点位）`} busy={busy} onClose={cancelPendingBatchWrite}
+      actions={<><EmsButton variant="secondary" disabled={busy} onClick={cancelPendingBatchWrite}>取消</EmsButton><EmsButton busy={busy} busyLabel="执行中…" onClick={doBatchWrite}>确认下发</EmsButton></>}>
+      <div className="grid gap-4">
+        <InlineNotice tone="warning">同一目标值会直接写入所选点位，逐点下发并等待回读；失败不会自动重试。</InlineNotice>
+        <div className="grid gap-2">{writableSelected.map((row) => <div className="flex items-center justify-between gap-3 rounded-lg border border-ems-line bg-white/55 px-3 py-2 text-xs" key={row.node.id}><strong className="break-words">{row.name}</strong><span className="shrink-0 tabular-nums text-ems-muted">{row.value === undefined ? "—" : row.value} → <b className="text-ems-accent">{batchWriteValue}{row.units ? ` ${row.units}` : ""}</b></span></div>)}</div>
+      </div>
+    </EmsOverlay>
   </section>
 }

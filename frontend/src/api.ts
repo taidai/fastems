@@ -73,8 +73,12 @@ export async function login(email: string, password: string) {
     body: JSON.stringify({ email, password }),
   })
   if (!response.ok) {
-    const result = await response.json().catch(() => ({ error: "无法连接应用" }))
-    throw new ApiError(response.status === 403 ? "账号或密码不正确" : result.error || "无法连接应用", response.status)
+    const result = await response.json().catch(() => ({ error: "" }))
+    const friendly = response.status === 403 ? "账号或密码不正确"
+      : response.status === 409 ? "该账号同时登录的会话数已达上限，请稍后再试或退出其他会话"
+      : response.status === 503 ? "认证服务暂不可用，请稍后重试"
+      : ""
+    throw new ApiError(friendly || "登录失败，请稍后重试", response.status)
   }
   return (await response.json()) as { token: string }
 }
@@ -89,10 +93,46 @@ export async function request<T>(token: string, path: string, method = "GET", bo
     body: body === undefined ? undefined : JSON.stringify(body),
   })
   if (!response.ok) {
-    const result = await response.json().catch(() => ({ error: `请求失败 (${response.status})` }))
-    throw new ApiError(result.error || `请求失败 (${response.status})`, response.status)
+    const result = await response.json().catch(() => ({ error: "" }))
+    throw new ApiError(errorMessage(result.error, response.status), response.status)
   }
   return (await response.json()) as T
+}
+
+// 服务端错误码 → 面向值班员的业务文案；未知码按状态给出可操作提示。
+const errorTexts: Record<string, string> = {
+  admin_required: "需要管理员权限",
+  forbidden: "当前账号无权执行此操作",
+  not_found: "对象不存在或已删除",
+  requires_energy_unit: "只能对能源设备执行此操作",
+  requires_plant: "只能对电站执行此操作",
+  energy_unit_not_found: "能源设备不存在",
+  plant_not_found: "电站不存在",
+  no_rule: "还没有规则，请先配置并保存草稿",
+  rule_id_required: "规则缺少标识",
+  invalid_rule: "规则内容不合法",
+  invalid_members: "成员配置不合法",
+  description_required: "请填写名称",
+  rated_power_required: "请填写大于 0 的额定功率",
+  meter_point_required: "请选择 PCC 主表点位",
+  save_failed: "保存失败，请稍后重试",
+  create_failed: "创建失败，请稍后重试",
+  list_failed: "读取失败，请稍后刷新",
+  invalid_login: "账号或密码不正确",
+  authentication_unavailable: "认证服务暂不可用，请稍后重试",
+  session_limit_reached: "该账号同时登录的会话数已达上限",
+  capability_load_failed: "读取设备能力失败",
+  plant_resolve_failed: "无法确定所属电站，请先创建电站",
+  channel_busy: "该地址正被运行中的通道占用",
+}
+
+function errorMessage(code: string, status: number): string {
+  if (code && errorTexts[code]) return errorTexts[code]
+  if (status === 401) return "登录已失效，请重新登录"
+  if (status === 403) return "当前账号无权执行此操作"
+  if (status === 404) return "对象不存在或已删除"
+  if (status >= 500) return "服务暂时不可用，请稍后重试"
+  return "操作未完成，请稍后重试"
 }
 
 export async function importCSV(token: string, path: string, csv: string) {

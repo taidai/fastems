@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { IonCardContent } from "@ionic/react"
 import { downloadHistory, EmsAlarm, fetchAlarms, fetchEmsHistory, fetchEmsState, fetchHistory, nameOf, Node, point, Point, request } from "./api"
+import { EmsButton, EmsCard, EmsInput, EmsSectionHeader, EmsSelect, EmsSelectOption, EmptyState, InlineNotice, SegmentedTabs } from "./components/ems"
 
 const ranges = [
   { key: "1h", label: "1 小时", hours: 1 },
@@ -305,68 +307,67 @@ export default function HistoryView({ token, points, initialPoint, onError, isAd
 
   if (points.length === 0) {
     return <section className="history-page">
-      <div className="panel empty-state large">
-        <strong>还没有可查询的点位</strong>
-        <span>先在工作台接入 Modbus 设备或添加测试变量，历史与趋势会从这里读取。</span>
-      </div>
+      <EmptyState title="还没有可查询的点位" description="先在工作台接入 Modbus 设备或添加测试变量，历史与趋势会从这里读取。" />
     </section>
   }
 
-  return <section className="history-page">
-    <div className="panel history-toolbar">
-      <label className="history-add-label">对比点位
-        <select aria-label="添加对比点位" value="" onChange={(event) => addPoint(event.target.value)}>
-          <option value="">＋ 添加点位…</option>
-          {points.map((item) => <option key={item.id} value={item.id}>{nameOf(item)}</option>)}
-        </select>
-      </label>
-      <div className="history-series" role="list" aria-label="已选对比点位">
-        {selected.map((id) => {
-          const node = points.find((item) => item.id === id)
-          const color = seriesColors[selected.indexOf(id) % seriesColors.length]
-          return <span key={id} className="history-series-chip" role="listitem">
-            <i style={{ background: color }} />
-            <b>{node ? nameOf(node) : id}</b>
-            <button aria-label={`移除 ${node ? nameOf(node) : id}`} disabled={selected.length <= 1} onClick={() => removePoint(id)}>×</button>
-          </span>
-        })}
-      </div>
-      <div className="range-buttons" role="group" aria-label="时间范围">
-        {ranges.map((item) => <button key={item.key} className={range === item.key ? "active" : ""} onClick={() => setRange(item.key)}>{item.label}</button>)}
-      </div>
-      <label>聚合
-        <select value={interval} onChange={(event) => setInterval(event.target.value)}>
-          <option value="raw">原始</option><option value="5m">5 分钟平均</option><option value="1h">1 小时平均</option>
-        </select>
-      </label>
-      <label className="history-alarm-toggle"><input type="checkbox" checked={showAlarms} onChange={(event) => setShowAlarms(event.target.checked)} />叠加报警</label>
-      <button className="secondary-button" disabled={selected.length === 0} onClick={() => void downloadHistory(token, selected[0], bounds.start, bounds.end).catch((cause) => onError(cause instanceof Error ? cause.message : "导出失败"))}>导出 CSV</button>
-      {isAdmin && <div className="history-limit"><span>每个点位保留</span><input aria-label="历史保留条数" type="number" min={1000} max={200000} step={1000} value={limitDraft} onChange={(event) => setLimitDraft(Number(event.target.value))} /><span>条</span><button className="secondary-button" disabled={limitBusy} onClick={() => void saveLimit()}>{limitBusy ? "保存中…" : "保存"}</button>{limitNotice && <small>{limitNotice}</small>}</div>}
-      <div className="history-query-row">
-        {savedQueries.length > 0 && <select aria-label="保存的查询" value="" onChange={(event) => applyQuery(event.target.value)}>
-          <option value="">查询/模板…</option>
-          {savedQueries.map((query) => <option key={query.name} value={query.name}>{query.name}</option>)}
-        </select>}
-        <input aria-label="查询名称" value={queryName} onChange={(event) => setQueryName(event.target.value)} placeholder="查询/模板名称" />
-        {matchedQuery
-          ? <button className="secondary-button" onClick={() => saveQueries(savedQueries.filter((query) => query !== matchedQuery))}>删查询</button>
-          : <button className="secondary-button" disabled={selected.length === 0} onClick={saveQuery}>保存查询</button>}
-      </div>
-      <span className="history-hint">类型 value · 单次最多 2000 点 · 聚合只影响显示</span>
-    </div>
-
-    <div className="panel trend-panel">
-      <div className="trend-head">
-        <div><span className="section-kicker">最近变化</span><h2>{title}</h2></div>
-        {selected.length === 1 && primary && <div className="trend-value">{primary.latestValue ?? "—"}<small>{primary.units}</small></div>}
-      </div>
-      <div className="trend-body">
-        <div className="trend-main">
-          {loading ? <div className="trend-empty">正在读取历史…</div> : <Trend series={series} alarms={alarmMarks} start={bounds.start.getTime()} end={bounds.end.getTime()} />}
+  return <section className="history-page min-w-0">
+    <EmsCard className="history-toolbar !block !p-0"><IonCardContent className="grid min-w-0 gap-4">
+      <div className="flex min-w-0 flex-wrap items-end gap-3">
+        <div className="w-full min-w-0 sm:w-56"><EmsSelect label="对比点位" aria-label="添加对比点位" value="" onIonChange={(event) => addPoint(event.detail.value)}>
+          <EmsSelectOption value="">＋ 添加点位…</EmsSelectOption>
+          {points.map((item) => <EmsSelectOption key={item.id} value={item.id}>{nameOf(item)}</EmsSelectOption>)}
+        </EmsSelect></div>
+        <div className="history-series min-w-0 flex-1" role="list" aria-label="已选对比点位">
+          {selected.map((id) => {
+            const node = points.find((item) => item.id === id)
+            const color = seriesColors[selected.indexOf(id) % seriesColors.length]
+            return <span key={id} className="history-series-chip min-w-0 max-w-full" role="listitem">
+              <i style={{ background: color }} />
+              <b className="min-w-0 break-words">{node ? nameOf(node) : id}</b>
+              <button aria-label={`移除 ${node ? nameOf(node) : id}`} disabled={selected.length <= 1} onClick={() => removePoint(id)}>×</button>
+            </span>
+          })}
         </div>
-        <aside className="quality-summary" aria-label="数据质量摘要">
-          <span className="section-kicker">数据质量</span>
-          <h3>所选时间段</h3>
+        <EmsButton variant="secondary" size="small" disabled={selected.length === 0} onClick={() => void downloadHistory(token, selected[0], bounds.start, bounds.end).catch((cause) => onError(cause instanceof Error ? cause.message : "导出失败"))}>导出 CSV</EmsButton>
+      </div>
+
+      <div className="flex min-w-0 flex-wrap items-end gap-3">
+        <div className="grid min-w-0 gap-1"><span className="ems-field-label text-ems-muted">时间范围</span><SegmentedTabs value={range} onChange={setRange} ariaLabel="时间范围" options={ranges.map((item) => ({ value: item.key, label: item.label }))} /></div>
+        <div className="w-full min-w-0 sm:w-40"><EmsSelect label="聚合" aria-label="聚合" value={interval} onIonChange={(event) => setInterval(event.detail.value)}>
+          <EmsSelectOption value="raw">原始</EmsSelectOption><EmsSelectOption value="5m">5 分钟平均</EmsSelectOption><EmsSelectOption value="1h">1 小时平均</EmsSelectOption>
+        </EmsSelect></div>
+        <label className="history-alarm-toggle min-h-10"><input type="checkbox" checked={showAlarms} onChange={(event) => setShowAlarms(event.target.checked)} />叠加报警</label>
+      </div>
+
+      {isAdmin && <div className="history-limit flex flex-wrap items-end gap-2">
+        <div className="w-40"><EmsInput label="每个点位保留" aria-label="历史保留条数" type="number" min="1000" max="200000" step="1000" value={String(limitDraft)} onIonInput={(event) => setLimitDraft(Number(event.detail.value))} /></div>
+        <span className="pb-3 text-xs text-ems-muted">条</span>
+        <EmsButton variant="secondary" size="small" busy={limitBusy} busyLabel="保存中…" onClick={() => void saveLimit()}>保存</EmsButton>
+        {limitNotice && <small className="w-full !whitespace-normal">{limitNotice}</small>}
+      </div>}
+
+      <div className="flex min-w-0 flex-wrap items-end gap-2">
+        {savedQueries.length > 0 && <div className="w-full min-w-0 sm:w-56"><EmsSelect label="已保存查询" aria-label="保存的查询" value="" onIonChange={(event) => applyQuery(event.detail.value)}>
+          <EmsSelectOption value="">查询/模板…</EmsSelectOption>
+          {savedQueries.map((query) => <EmsSelectOption key={query.name} value={query.name}>{query.name}</EmsSelectOption>)}
+        </EmsSelect></div>}
+        <div className="w-full min-w-0 sm:w-56"><EmsInput label="查询名称" aria-label="查询名称" value={queryName} onIonInput={(event) => setQueryName(event.detail.value || "")} placeholder="查询/模板名称" /></div>
+        {matchedQuery
+          ? <EmsButton variant="secondary" size="small" onClick={() => saveQueries(savedQueries.filter((query) => query !== matchedQuery))}>删查询</EmsButton>
+          : <EmsButton variant="secondary" size="small" disabled={selected.length === 0} onClick={saveQuery}>保存查询</EmsButton>}
+      </div>
+      <span className="history-hint !m-0">类型 value · 单次最多 2000 点 · 聚合只影响显示</span>
+    </IonCardContent></EmsCard>
+
+    <EmsCard className="trend-panel min-w-0">
+      <EmsSectionHeader kicker="最近变化" title={title} actions={selected.length === 1 && primary ? <div className="trend-value">{primary.latestValue ?? "—"}<small>{primary.units}</small></div> : undefined} />
+      <div className="trend-body mt-4">
+        <div className="trend-main">
+          {loading ? <InlineNotice tone="busy">正在读取历史…</InlineNotice> : <Trend series={series} alarms={alarmMarks} start={bounds.start.getTime()} end={bounds.end.getTime()} />}
+        </div>
+        <aside className="quality-summary min-w-0" aria-label="数据质量摘要">
+          <EmsSectionHeader kicker="数据质量" title="所选时间段" />
           {qualityTotal === 0
             ? <p className="quality-empty">所选点位暂无运行质量样本。</p>
             : <ul className="quality-bars">
@@ -383,7 +384,7 @@ export default function HistoryView({ token, points, initialPoint, onError, isAd
           <p className="quality-note">质量来自接入运行时的 Modbus 点位；测试变量不经运行时质量判定。</p>
         </aside>
       </div>
-      <p className="trend-note">缺失段不插值；数据来自内嵌历史，按点位保留上限裁剪。过期或无效的数据不会冒充实时值。</p>
-    </div>
+      <div className="trend-note mt-3"><InlineNotice tone="info">缺失段不插值；数据来自内嵌历史，按点位保留上限裁剪。过期或无效的数据不会冒充实时值。</InlineNotice></div>
+    </EmsCard>
   </section>
 }

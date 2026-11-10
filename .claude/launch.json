@@ -2,16 +2,11 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "easyems",
-      "runtimeExecutable": "C:\\Users\\chent\\Desktop\\2026成果\\AAAAA开源\\easyems\\easyems.exe",
-      "runtimeArgs": ["-port", "62943", "-nats-port", "9820", "-data", "C:\\Users\\chent\\Desktop\\2026成果\\AAAAA开源\\easyems\\data\\preview"],
-      "port": 62943
-    },
-    {
       "name": "easyems-ui-dev",
       "runtimeExecutable": "C:\\Program Files\\Git\\bin\\bash.exe",
-      "runtimeArgs": ["-lc", "cd '/c/Users/chent/Desktop/2026成果/AAAAA开源/easyems/frontend' && EASYEMS_API=http://127.0.0.1:4409 npm run dev -- --host 127.0.0.1"],
-      "port": 5173
+      "runtimeArgs": ["-lc", "cd '/c/Users/chent/Desktop/2026成果/AAAAA开源/easyems/frontend' && EASYEMS_API=http://127.0.0.1:4409 npm run dev -- --host 127.0.0.1 --port 5180 --strictPort"],
+      "port": 5180,
+      "autoPort": false
     }
   ]
 }

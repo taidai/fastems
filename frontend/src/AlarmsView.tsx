@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { createPortal } from "react-dom"
+import { IonCardContent } from "@ionic/react"
 import { ackAlarm, closeAlarm, EmsAlarm, fetchAlarms, maintainAlarm, nameOf, Node, releaseAlarm } from "./api"
 import AlarmTypesPanel from "./AlarmTypesPanel"
 import AlarmStatsPanel, { AlarmSoundSettings, inSilenceWindow, loadAlarmSound, saveAlarmSound } from "./AlarmStatsPanel"
 import AckDialog from "./AckDialog"
+import { EmsButton, EmsCard, EmsInput, EmsOverlay, EmsSelect, EmsSelectOption, EmptyState, FilterToolbar, InlineNotice, MetricStrip, SegmentedTabs, StatusBadge, type EmsTone } from "./components/ems"
 
 const severityNames: Record<string, string> = { critical: "严重", warning: "重要", info: "提示" }
 const stateNames: Record<string, string> = {
@@ -12,6 +13,9 @@ const stateNames: Record<string, string> = {
   resolved: "已恢复 · 待关闭",
   closed: "已关闭",
 }
+
+const severityTone: Record<string, EmsTone> = { critical: "danger", warning: "warning", info: "info" }
+const stateTone: Record<string, EmsTone> = { active: "danger", acknowledged: "warning", resolved: "success", closed: "neutral" }
 
 function timeOf(text: string) {
   if (!text) return "—"
@@ -39,6 +43,7 @@ export default function AlarmsView({ token, rootID, nodes, canOperate, canConfig
   const [maintenanceReason, setMaintenanceReason] = useState("")
   const [maintenanceMinutes, setMaintenanceMinutes] = useState(120)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const closeMaintenance = useCallback(() => setMaintaining(null), [])
 
   const names = new Map(nodes.map((node) => [node.id, nameOf(node)]))
   const nameOfDevice = (id?: string) => (id ? names.get(id) || id : "—")
@@ -185,63 +190,68 @@ export default function AlarmsView({ token, rootID, nodes, canOperate, canConfig
   function renderCard(alarm: EmsAlarm, isChild: boolean) {
     const children = isChild ? [] : visibleChildren(alarm.id)
     const isOpen = expanded.has(alarm.id)
-    return <div key={alarm.id}>
-      <article className={`panel alarm-card ${alarm.severity} ${alarm.state}`}>
+    return <div className="min-w-0" key={alarm.id}>
+      <EmsCard className={`alarm-card ${alarm.severity} ${alarm.state} min-w-0`}>
         <div className="alarm-head">
-          <span className={`alarm-severity ${alarm.severity}`}>{severityNames[alarm.severity] || alarm.severity}</span>
-          <strong>{alarm.title}</strong>
-          {(alarm.count || 0) > 1 && <span className="alarm-count" style={{ fontSize: 12, opacity: 0.75 }}>×{alarm.count}</span>}
-          <span className="alarm-state">{stateNames[alarm.state] || alarm.state}</span>
+          <StatusBadge tone={severityTone[alarm.severity] || "neutral"}>{severityNames[alarm.severity] || alarm.severity}</StatusBadge>
+          <strong className="min-w-0 break-words">{alarm.title}</strong>
+          {(alarm.count || 0) > 1 && <StatusBadge tone="neutral" dot={false}>×{alarm.count}</StatusBadge>}
+          <span className="alarm-state"><StatusBadge tone={stateTone[alarm.state] || "neutral"} dot={false}>{stateNames[alarm.state] || alarm.state}</StatusBadge></span>
         </div>
-        <p>{alarm.detail || "没有更多说明"}</p>
-        <div className="alarm-meta">
-          <span>对象 {nameOfDevice(alarm.device_id)}</span>
-          {alarm.root_cause && <span>根因 {nameOfDevice(alarm.root_cause)}</span>}
+        <p className="min-w-0 break-words">{alarm.detail || "没有更多说明"}</p>
+        <div className="alarm-meta min-w-0 gap-x-4 gap-y-1">
+          <span className="min-w-0 break-words">对象 {nameOfDevice(alarm.device_id)}</span>
+          {alarm.root_cause && <span className="min-w-0 break-words">根因 {nameOfDevice(alarm.root_cause)}</span>}
           <span>发生 {timeOf(alarm.created_at)}</span>
-          {alarm.acked_by && <span>确认人 {alarm.acked_by}{alarm.ack_note ? ` · ${alarm.ack_note}` : ""}</span>}
+          {alarm.acked_by && <span className="min-w-0 break-words">确认人 {alarm.acked_by}{alarm.ack_note ? ` · ${alarm.ack_note}` : ""}</span>}
         </div>
-        {isMaintained(alarm) && <div className="alarm-maintenance">维护中 · 至 {timeOf(alarm.maintenance_until || "")} · {alarm.maintenance_reason || "未填写原因"} · {alarm.maintained_by || "—"}</div>}
-        {(alarm.point_id || alarm.device_id) && nodes.some((node) => node.id === (alarm.point_id || alarm.device_id)) && <div className="alarm-drilldown"><button className="text-button" onClick={() => openHistory((alarm.point_id || alarm.device_id)!)}>查看点位趋势</button></div>}
-        {canOperate && <div className="alarm-actions">
-          {alarm.active && alarm.state === "active" && <button className="primary-button" disabled={busyId === alarm.id} onClick={() => void act(alarm, "ack")}>确认接手</button>}
-          {!isMaintained(alarm) && alarm.state !== "closed" && <button className="secondary-button" disabled={busyId === alarm.id} onClick={() => { setMaintaining(alarm); setMaintenanceReason(""); setMaintenanceMinutes(120) }}>维护</button>}
-          {isMaintained(alarm) && <button className="secondary-button" disabled={busyId === alarm.id} onClick={() => void act(alarm, "release")}>结束维护</button>}
-          {!alarm.active && alarm.state !== "closed" && <button className="secondary-button" disabled={busyId === alarm.id} onClick={() => void act(alarm, "close")}>关闭记录</button>}
+        {isMaintained(alarm) && <InlineNotice tone="warning">维护中 · 至 {timeOf(alarm.maintenance_until || "")} · {alarm.maintenance_reason || "未填写原因"} · {alarm.maintained_by || "—"}</InlineNotice>}
+        {(alarm.point_id || alarm.device_id) && nodes.some((node) => node.id === (alarm.point_id || alarm.device_id)) && <div className="alarm-drilldown"><EmsButton variant="quiet" size="small" onClick={() => openHistory((alarm.point_id || alarm.device_id)!)}>查看点位趋势 →</EmsButton></div>}
+        {canOperate && <div className="alarm-actions flex flex-wrap gap-2 border-t border-ems-line pt-3">
+          {alarm.active && alarm.state === "active" && <EmsButton size="small" disabled={busyId === alarm.id} onClick={() => void act(alarm, "ack")}>确认接手</EmsButton>}
+          {!isMaintained(alarm) && alarm.state !== "closed" && <EmsButton variant="secondary" size="small" disabled={busyId === alarm.id} onClick={() => { setMaintaining(alarm); setMaintenanceReason(""); setMaintenanceMinutes(120) }}>维护</EmsButton>}
+          {isMaintained(alarm) && <EmsButton variant="secondary" size="small" disabled={busyId === alarm.id} onClick={() => void act(alarm, "release")}>结束维护</EmsButton>}
+          {!alarm.active && alarm.state !== "closed" && <EmsButton variant="secondary" size="small" disabled={busyId === alarm.id} onClick={() => void act(alarm, "close")}>关闭记录</EmsButton>}
         </div>}
-      </article>
-      {!isChild && children.length > 0 && <>
-        <button className="text-button alarm-group-toggle" onClick={() => toggleGroup(alarm.id)}>{isOpen ? "收起同根因报警" : `同根因 ${children.length} 条`}</button>
-        {isOpen && <div className="alarm-children" style={{ paddingLeft: 24 }}>{children.map((child) => renderCard(child, true))}</div>}
-      </>}
+      </EmsCard>
+      {!isChild && children.length > 0 && <div className="mt-2 grid gap-2">
+        <div><EmsButton variant="quiet" size="small" onClick={() => toggleGroup(alarm.id)}>{isOpen ? "收起同根因报警" : `展开同根因 ${children.length} 条`}</EmsButton></div>
+        {isOpen && <div className="alarm-children grid min-w-0 gap-3 border-l border-ems-line pl-3 sm:pl-6">{children.map((child) => renderCard(child, true))}</div>}
+      </div>}
     </div>
   }
 
-  return <section className="alarm-page">
-    <div className="alarm-view-tabs" role="group" aria-label="报警与类型">
-      <button className={tab === "records" ? "active" : ""} onClick={() => setTab("records")}>报警记录</button>
-      <button className={tab === "types" ? "active" : ""} onClick={() => setTab("types")}>类型管理</button>
-      <button className={tab === "stats" ? "active" : ""} onClick={() => setTab("stats")}>统计与提醒</button>
+  return <section className="alarm-page min-w-0">
+    <div className="alarm-view-tabs min-w-0">
+      <SegmentedTabs value={tab} onChange={setTab} ariaLabel="报警与类型" options={[
+        { value: "records", label: "报警记录" },
+        { value: "types", label: "类型管理" },
+        { value: "stats", label: "统计与提醒" },
+      ]} />
     </div>
     {tab === "types" ? <AlarmTypesPanel token={token} rootID={rootID} nodes={nodes} canConfigure={canConfigure} onError={onError} /> : tab === "stats" ? <AlarmStatsPanel token={token} onError={onError} sound={sound} onSound={updateSound} onTest={playTone} /> : <>
-    <div className="channel-summary">
-      <div><strong>{active.length}</strong><span>活动报警</span></div>
-      <div className={unacked.length ? "has-warning" : ""}><strong>{unacked.length}</strong><span>未确认</span></div>
-      <div><strong>{resolved.length}</strong><span>已恢复待关闭</span></div>
-      <div className="alarm-filter">
-        {maintained.length > 0 && <span className="alarm-maintained-count">维护中 {maintained.length}</span>}
-        <button className="secondary-button" onClick={exportAlarms}>导出 CSV</button>
-        <button className={filter === "active" ? "active" : ""} onClick={() => setFilter("active")}>只看需要处理</button>
-        <button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>全部记录</button>
-      </div>
-    </div>
+      <EmsCard><IonCardContent className="grid min-w-0 gap-4">
+        <MetricStrip items={[
+          { label: "活动报警", value: active.length, tone: active.length ? "danger" : "success" },
+          { label: "未确认", value: unacked.length, tone: unacked.length ? "warning" : "success" },
+          { label: "已恢复待关闭", value: resolved.length },
+          { label: "维护中", value: maintained.length, tone: maintained.length ? "warning" : "neutral" },
+        ]} />
+        <FilterToolbar trailing={<EmsButton variant="secondary" size="small" onClick={exportAlarms}>导出 CSV</EmsButton>}>
+          <SegmentedTabs value={filter} onChange={setFilter} ariaLabel="报警记录筛选" options={[
+            { value: "active", label: "只看需要处理" },
+            { value: "all", label: "全部记录" },
+          ]} />
+        </FilterToolbar>
+      </IonCardContent></EmsCard>
 
-    <div className="alarm-list">
-      {shown.map((alarm) => renderCard(alarm, false))}
-      {shown.length === 0 && <div className="panel empty-state large">
-        <strong>{filter === "active" ? "没有需要处理的报警，系统正常运行" : "还没有报警记录"}</strong>
-        <span>设备离线、通道心跳过期、控制结果未知或规则异常时，会自动出现在这里。</span>
-      </div>}
-    </div>
+      <div className="alarm-list min-w-0">
+        {shown.map((alarm) => renderCard(alarm, false))}
+        {shown.length === 0 && <EmptyState
+          title={filter === "active" ? "没有需要处理的报警，系统正常运行" : "还没有报警记录"}
+          description="设备离线、通道心跳过期、控制结果未知或规则异常时，会自动出现在这里。"
+        />}
+      </div>
     </>}
 
     {ackTarget && <AckDialog
@@ -256,17 +266,18 @@ export default function AlarmsView({ token, rootID, nodes, canOperate, canConfig
       }}
     />}
 
-    {maintaining && createPortal(<>
-      <div className="alarm-type-backdrop" onClick={() => setMaintaining(null)} />
-      <section className="alarm-type-modal alarm-maintenance-modal" role="dialog" aria-label="报警维护">
-        <div className="alarm-type-modal-head"><div><span className="section-kicker">维护期抑制</span><h2>{maintaining.title}</h2></div><button className="icon-button" aria-label="关闭" onClick={() => setMaintaining(null)}>×</button></div>
-        <p className="alarm-maintenance-note">维护期内该报警条件不会重新产生打扰；已有记录保留。维护结束后若条件仍存在，会重新出现。</p>
-        <div className="alarm-type-grid">
-          <label>维护时长<select value={maintenanceMinutes} onChange={(event) => setMaintenanceMinutes(Number(event.target.value))}><option value={30}>30 分钟</option><option value={120}>2 小时</option><option value={480}>8 小时</option><option value={1440}>24 小时</option></select></label>
-          <label>维护原因<input autoFocus value={maintenanceReason} onChange={(event) => setMaintenanceReason(event.target.value)} placeholder="如 检修、备件更换" /></label>
-        </div>
-        <div className="alarm-type-modal-actions"><button className="secondary-button" onClick={() => setMaintaining(null)}>取消</button><button className="primary-button" disabled={busyId === maintaining.id || !maintenanceReason.trim()} onClick={() => void submitMaintenance()}>{busyId === maintaining.id ? "保存中…" : "开始维护"}</button></div>
-      </section>
-    </>, document.body)}
+    <EmsOverlay open={Boolean(maintaining)} title={maintaining?.title || "报警维护"} busy={busyId === maintaining?.id} onClose={closeMaintenance}
+      actions={<>
+        <EmsButton variant="secondary" disabled={busyId === maintaining?.id} onClick={() => setMaintaining(null)}>取消</EmsButton>
+        <EmsButton busy={busyId === maintaining?.id} busyLabel="保存中…" disabled={!maintenanceReason.trim()} onClick={() => void submitMaintenance()}>开始维护</EmsButton>
+      </>}>
+      <div className="grid min-w-0 gap-4">
+        <InlineNotice tone="info">维护期内该报警条件不会重新产生打扰；已有记录保留。维护结束后若条件仍存在，会重新出现。</InlineNotice>
+        <EmsSelect label="维护时长" aria-label="维护时长" value={maintenanceMinutes} onIonChange={(event) => setMaintenanceMinutes(Number(event.detail.value))}>
+          <EmsSelectOption value={30}>30 分钟</EmsSelectOption><EmsSelectOption value={120}>2 小时</EmsSelectOption><EmsSelectOption value={480}>8 小时</EmsSelectOption><EmsSelectOption value={1440}>24 小时</EmsSelectOption>
+        </EmsSelect>
+        <EmsInput label="维护原因" aria-label="维护原因" autoFocus value={maintenanceReason} onIonInput={(event) => setMaintenanceReason(event.detail.value || "")} placeholder="如 检修、备件更换" />
+      </div>
+    </EmsOverlay>
   </section>
 }

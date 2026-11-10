@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { createPortal } from "react-dom"
+import { IonCardContent } from "@ionic/react"
 import { nameOf, Node, request } from "./api"
+import { EmsButton, EmsCard, EmsInput, EmsOverlay, EmsRecordList, EmsSectionHeader, EmsSelect, EmsSelectOption, EmptyState, StatusBadge } from "./components/ems"
 
 type Severity = "critical" | "warning" | "info"
 type Trigger = "gt" | "lt" | "eq" | "ne" | "offline"
@@ -54,6 +55,7 @@ export default function AlarmTypesPanel({ token, rootID, nodes, canConfigure, on
   const [editing, setEditing] = useState<AlarmType | null>(null)
   const [originalCode, setOriginalCode] = useState("")
   const [busy, setBusy] = useState(false)
+  const closeEditor = useCallback(() => setEditing(null), [])
   const points = useMemo(() => nodes.filter((node) => node.type === "variable" || node.type === "modbusIo"), [nodes])
   const channels = useMemo(() => nodes.filter((node) => node.type === "modbus"), [nodes])
   const names = useMemo(() => new Map(nodes.map((node) => [node.id, nameOf(node)])), [nodes])
@@ -109,60 +111,81 @@ export default function AlarmTypesPanel({ token, rootID, nodes, canConfigure, on
     }
   }
 
-  return <section className="alarm-types-panel">
-    <div className="alarm-types-head">
-      <div><span className="section-kicker">可配置阈值与延时</span><h2>告警类型</h2><p>类型只读点位并生成告警；采集、规则与命令的固定告警仍然保留。</p></div>
-      {canConfigure && <button className="primary-button" onClick={add}>+ 新增类型</button>}
+  function renderActions(type: AlarmType) {
+    if (!canConfigure) return <span className="text-xs text-ems-muted">只读</span>
+    return <div className="flex flex-wrap gap-1">
+      <EmsButton variant="quiet" size="small" onClick={() => edit(type)}>编辑</EmsButton>
+      <EmsButton variant="danger" size="small" disabled={busy} onClick={() => void remove(type)}>删除</EmsButton>
     </div>
-    <div className="alarm-type-table-wrap">
-      <table className="alarm-type-table">
-        <thead><tr><th>#</th><th>告警类型</th><th>分组</th><th>级别</th><th>触发条件</th><th>延时</th><th>自动确认</th><th>记录复归</th><th>编码</th><th>操作</th></tr></thead>
-        <tbody>
-          {types.map((type, index) => <tr key={type.code} className={!type.enabled ? "disabled" : ""}>
-            <td>{index + 1}</td>
-            <td><strong>{type.name}</strong></td>
-            <td>{type.group || "—"}</td>
-            <td><span className={`alarm-type-severity ${type.severity}`}>{severityNames[type.severity]}</span></td>
-            <td>{names.get(type.point_id) || type.point_id} · {triggerSummary(type)}</td>
-            <td>{type.delay_seconds} 秒</td>
-            <td>{type.confirm === "auto" ? "是" : "否"}</td>
-            <td>{type.record_recovery ? "是" : "否"}</td>
-            <td><code>{type.code}</code></td>
-            <td className="alarm-type-actions">
-              {canConfigure && <button onClick={() => edit(type)}>编辑</button>}
-              {canConfigure && <button className="danger-text" disabled={busy} onClick={() => void remove(type)}>删除</button>}
-            </td>
-          </tr>)}
-          {types.length === 0 && <tr><td colSpan={10}><div className="empty-state"><strong>还没有自定义告警类型</strong><span>新增后按点位阈值或通道离线生成告警；没有配置时只保留固定告警。</span></div></td></tr>}
-        </tbody>
-      </table>
-    </div>
+  }
 
-    {editing && createPortal(<>
-      <div className="alarm-type-backdrop" onClick={() => setEditing(null)} />
-      <section className="alarm-type-modal" role="dialog" aria-label="告警类型">
-        <div className="alarm-type-modal-head"><div><span className="section-kicker">告警类型</span><h2>{originalCode ? "编辑告警类型" : "新增告警类型"}</h2></div><button className="icon-button" aria-label="关闭" onClick={() => setEditing(null)}>×</button></div>
-        <div className="alarm-type-grid">
-          <label>告警类型<input value={editing.name} onChange={(event) => setEditing({ ...editing, name: event.target.value })} placeholder="如 电池温度过高" /></label>
-          <label>编码<input value={editing.code} disabled={Boolean(originalCode)} onChange={(event) => setEditing({ ...editing, code: event.target.value.trim() })} placeholder="如 BMS_TEMP_HIGH" /></label>
-          <label>类型分组<input value={editing.group || ""} onChange={(event) => setEditing({ ...editing, group: event.target.value })} placeholder="如 电池系统" /></label>
-          <label>告警级别<select value={editing.severity} onChange={(event) => setEditing({ ...editing, severity: event.target.value as Severity })}><option value="critical">严重</option><option value="warning">重要</option><option value="info">提示</option></select></label>
-          <label>提示方式<select value={editing.prompt || "声音+弹窗"} onChange={(event) => setEditing({ ...editing, prompt: event.target.value })}><option>声音+弹窗</option><option>弹窗</option><option>仅记录</option></select></label>
-          <label>触发类型<select value={editing.trigger} onChange={(event) => {
-            const trigger = event.target.value as Trigger
-            setEditing({ ...editing, trigger, point_id: trigger === "offline" ? (channels[0]?.id || "") : (points[0]?.id || "") })
-          }}><option value="gt">大于</option><option value="lt">小于</option><option value="eq">等于</option><option value="ne">不等于</option><option value="offline">离线</option></select></label>
-          <label>{editing.trigger === "offline" ? "通道" : "触发点位"}<select value={editing.point_id} onChange={(event) => setEditing({ ...editing, point_id: event.target.value })}>
-            {(editing.trigger === "offline" ? channels : points).map((node) => <option key={node.id} value={node.id}>{nameOf(node)}</option>)}
-          </select></label>
-          {editing.trigger !== "offline" && <label>阈值<input type="number" step="any" value={editing.value ?? 0} onChange={(event) => setEditing({ ...editing, value: Number(event.target.value) })} /></label>}
-          <label>触发延时（秒）<input type="number" min="0" max="86400" value={editing.delay_seconds} onChange={(event) => setEditing({ ...editing, delay_seconds: Math.max(0, Number(event.target.value) || 0) })} /></label>
-          <label>确认方式<select value={editing.confirm} onChange={(event) => setEditing({ ...editing, confirm: event.target.value as "manual" | "auto" })}><option value="manual">手动确认</option><option value="auto">自动确认</option></select></label>
-          <label className="alarm-type-check"><input type="checkbox" checked={editing.record_recovery} onChange={(event) => setEditing({ ...editing, record_recovery: event.target.checked })} /> 记录复归</label>
-          <label className="alarm-type-check"><input type="checkbox" checked={editing.enabled} onChange={(event) => setEditing({ ...editing, enabled: event.target.checked })} /> 启用</label>
-        </div>
-        <div className="alarm-type-modal-actions"><button className="secondary-button" onClick={() => setEditing(null)}>取消</button><button className="primary-button" disabled={busy} onClick={() => void save()}>{busy ? "保存中…" : "保存"}</button></div>
-      </section>
-    </>, document.body)}
+  return <section className="grid min-w-0 gap-4">
+    <EmsSectionHeader kicker="可配置阈值与延时" title="告警类型" description="类型只读点位并生成告警；采集、规则与命令的固定告警仍然保留。"
+      actions={canConfigure ? <EmsButton size="small" onClick={add}>+ 新增类型</EmsButton> : undefined} />
+    <EmsCard><IonCardContent className="min-w-0">
+      <EmsRecordList rows={types} keyOf={(type) => type.code}
+        empty={<EmptyState title="还没有自定义告警类型" description="新增后按点位阈值或通道离线生成告警；没有配置时只保留固定告警。" />}
+        columns={[
+          { key: "index", label: "#", render: (type) => types.indexOf(type) + 1 },
+          { key: "name", label: "告警类型", render: (type) => <div className="flex flex-wrap items-center gap-2"><strong>{type.name}</strong>{!type.enabled && <StatusBadge tone="neutral" dot={false}>已停用</StatusBadge>}</div> },
+          { key: "group", label: "分组", render: (type) => type.group || "—" },
+          { key: "severity", label: "级别", render: (type) => <StatusBadge tone={type.severity === "critical" ? "danger" : type.severity === "warning" ? "warning" : "info"}>{severityNames[type.severity]}</StatusBadge> },
+          { key: "trigger", label: "触发条件", render: (type) => <span className="break-words">{names.get(type.point_id) || type.point_id} · {triggerSummary(type)}</span> },
+          { key: "delay", label: "延时", render: (type) => `${type.delay_seconds} 秒` },
+          { key: "confirm", label: "自动确认", render: (type) => type.confirm === "auto" ? "是" : "否" },
+          { key: "recovery", label: "记录复归", render: (type) => type.record_recovery ? "是" : "否" },
+          { key: "code", label: "编码", render: (type) => <code className="break-all text-xs text-ems-muted">{type.code}</code> },
+          { key: "actions", label: "操作", render: renderActions },
+        ]}
+        mobileCard={(type) => <div className="grid min-w-0 gap-3">
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+            <strong className="min-w-0 break-words">{type.name}</strong>
+            <StatusBadge tone={type.severity === "critical" ? "danger" : type.severity === "warning" ? "warning" : "info"}>{severityNames[type.severity]}</StatusBadge>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {!type.enabled && <StatusBadge tone="neutral" dot={false}>已停用</StatusBadge>}
+            {type.group && <StatusBadge tone="neutral" dot={false}>{type.group}</StatusBadge>}
+          </div>
+          <p className="m-0 break-words text-xs text-ems-ink">{names.get(type.point_id) || type.point_id} · {triggerSummary(type)}</p>
+          <p className="m-0 text-xs text-ems-muted">延时 {type.delay_seconds} 秒 · 自动确认 {type.confirm === "auto" ? "是" : "否"} · 记录复归 {type.record_recovery ? "是" : "否"}</p>
+          <code className="break-all text-xs text-ems-muted">{type.code}</code>
+          {renderActions(type)}
+        </div>}
+      />
+    </IonCardContent></EmsCard>
+
+    <EmsOverlay open={Boolean(editing)} title={originalCode ? "编辑告警类型" : "新增告警类型"} busy={busy} onClose={closeEditor}
+      actions={<>
+        <EmsButton variant="secondary" disabled={busy} onClick={closeEditor}>取消</EmsButton>
+        <EmsButton busy={busy} busyLabel="保存中…" onClick={() => void save()}>保存</EmsButton>
+      </>}>
+      {editing && <div className="alarm-type-grid !mt-0">
+        <EmsInput label="告警类型" aria-label="告警类型" value={editing.name} onIonInput={(event) => setEditing({ ...editing, name: event.detail.value || "" })} placeholder="如 电池温度过高" />
+        <EmsInput label="编码" aria-label="编码" value={editing.code} disabled={Boolean(originalCode)} onIonInput={(event) => setEditing({ ...editing, code: (event.detail.value || "").trim() })} placeholder="如 BMS_TEMP_HIGH" />
+        <EmsInput label="类型分组" aria-label="类型分组" value={editing.group || ""} onIonInput={(event) => setEditing({ ...editing, group: event.detail.value || "" })} placeholder="如 电池系统" />
+        <EmsSelect label="告警级别" aria-label="告警级别" value={editing.severity} onIonChange={(event) => setEditing({ ...editing, severity: event.detail.value as Severity })}>
+          <EmsSelectOption value="critical">严重</EmsSelectOption><EmsSelectOption value="warning">重要</EmsSelectOption><EmsSelectOption value="info">提示</EmsSelectOption>
+        </EmsSelect>
+        <EmsSelect label="提示方式" aria-label="提示方式" value={editing.prompt || "声音+弹窗"} onIonChange={(event) => setEditing({ ...editing, prompt: event.detail.value })}>
+          <EmsSelectOption value="声音+弹窗">声音+弹窗</EmsSelectOption><EmsSelectOption value="弹窗">弹窗</EmsSelectOption><EmsSelectOption value="仅记录">仅记录</EmsSelectOption>
+        </EmsSelect>
+        <EmsSelect label="触发类型" aria-label="触发类型" value={editing.trigger} onIonChange={(event) => {
+          const trigger = event.detail.value as Trigger
+          setEditing({ ...editing, trigger, point_id: trigger === "offline" ? (channels[0]?.id || "") : (points[0]?.id || "") })
+        }}>
+          <EmsSelectOption value="gt">大于</EmsSelectOption><EmsSelectOption value="lt">小于</EmsSelectOption><EmsSelectOption value="eq">等于</EmsSelectOption><EmsSelectOption value="ne">不等于</EmsSelectOption><EmsSelectOption value="offline">离线</EmsSelectOption>
+        </EmsSelect>
+        <EmsSelect label={editing.trigger === "offline" ? "通道" : "触发点位"} aria-label={editing.trigger === "offline" ? "通道" : "触发点位"} value={editing.point_id} onIonChange={(event) => setEditing({ ...editing, point_id: event.detail.value })}>
+          {(editing.trigger === "offline" ? channels : points).map((node) => <EmsSelectOption key={node.id} value={node.id}>{nameOf(node)}</EmsSelectOption>)}
+        </EmsSelect>
+        {editing.trigger !== "offline" && <EmsInput label="阈值" aria-label="阈值" type="number" step="any" value={editing.value ?? 0} onIonInput={(event) => setEditing({ ...editing, value: Number(event.detail.value) })} />}
+        <EmsInput label="触发延时（秒）" aria-label="触发延时（秒）" type="number" min={0} max={86400} value={editing.delay_seconds} onIonInput={(event) => setEditing({ ...editing, delay_seconds: Math.max(0, Number(event.detail.value) || 0) })} />
+        <EmsSelect label="确认方式" aria-label="确认方式" value={editing.confirm} onIonChange={(event) => setEditing({ ...editing, confirm: event.detail.value as "manual" | "auto" })}>
+          <EmsSelectOption value="manual">手动确认</EmsSelectOption><EmsSelectOption value="auto">自动确认</EmsSelectOption>
+        </EmsSelect>
+        <label className="alarm-type-check min-h-10"><input type="checkbox" checked={editing.record_recovery} onChange={(event) => setEditing({ ...editing, record_recovery: event.target.checked })} /> 记录复归</label>
+        <label className="alarm-type-check min-h-10"><input type="checkbox" checked={editing.enabled} onChange={(event) => setEditing({ ...editing, enabled: event.target.checked })} /> 启用</label>
+      </div>}
+    </EmsOverlay>
   </section>
 }

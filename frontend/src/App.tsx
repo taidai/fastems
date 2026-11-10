@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
-import { IonApp, IonContent, IonSpinner } from "@ionic/react"
+import { IonApp, IonCardContent, IonContent, IonSpinner } from "@ionic/react"
+import { EmsButton, EmsCard, EmsInput, EmsSectionHeader, EmsSelect, EmsSelectOption, EmptyState, InlineNotice, SegmentedTabs, StatusBadge } from "./components/ems"
 import DecisionEditor from "./DecisionEditor"
 import { writable } from "./writable"
 import NodeManager from "./NodeManager"
@@ -562,6 +563,7 @@ export default function App() {
         alarmCount={alarmCount} busy={busy} isAdmin={canConfigure} canOperate={canOperate} run={run} openPoint={openPoint}
         goRules={() => setPage("rules")} goHistory={() => setPage("history")} goChannels={() => setPage("channels")} goEnergyUnits={() => setPage("energyUnits")} dispatch={dispatch} latestAlarm={latestAlarm} tariff={tariff}
         kpiConfig={kpiConfig}
+        onError={setError}
       />}
 
       {page === "screen" && <ScreenView
@@ -648,13 +650,14 @@ export default function App() {
 
 type Run = (action: () => Promise<unknown>) => Promise<boolean>
 
-function DevicesView({ snapshot, points, groups, rules, activeRules, errors, alarmCount, busy, isAdmin, canOperate, run, openPoint, goRules, goHistory, goChannels, goEnergyUnits, dispatch, latestAlarm, tariff, kpiConfig }: {
+function DevicesView({ snapshot, points, groups, rules, activeRules, errors, alarmCount, busy, isAdmin, canOperate, run, openPoint, goRules, goHistory, goChannels, goEnergyUnits, dispatch, latestAlarm, tariff, kpiConfig, onError }: {
   snapshot: Snapshot; points: Node[]; groups: Node[]; rules: number; activeRules: number; errors: number; alarmCount: number
   busy: boolean; isAdmin: boolean; canOperate: boolean; run: Run; goRules: () => void; goHistory: () => void; goChannels: () => void; goEnergyUnits: () => void; dispatch: DispatchInfo | null
   latestAlarm: EmsAlarm | null
   tariff: number | null
   kpiConfig: KpiConfig
   openPoint: (keywords: string[], fallback?: Page) => void
+  onError: (message: string) => void
 }) {
   const [showAdd, setShowAdd] = useState(false)
   const [kind, setKind] = useState("variable")
@@ -682,26 +685,24 @@ function DevicesView({ snapshot, points, groups, rules, activeRules, errors, ala
 
     <EnergyUnitsStatus nodes={snapshot.nodes} onOpen={goEnergyUnits} />
 
-    <div className="console-data-note">
-      <span><b>现场</b>{showDataNote ? "所有指标均取自已配置点位；未接入、无值或过期显示“—”。能流画面只用于展示，不替代控制、保护或结算。" : "仅展示已绑定点位；未接入指标显示“—”，不生成模拟数据。"}</span>
-      <button onClick={() => setShowDataNote(!showDataNote)}>说明 {showDataNote ? "收起" : "展开"}</button>
-    </div>
+    <InlineNotice tone="info"><b>现场</b>：{showDataNote ? "所有指标均取自已配置点位；未接入、无值或过期显示“—”。能流画面只用于展示，不替代控制、保护或结算。" : "仅展示已绑定点位；未接入指标显示“—”，不生成模拟数据。"}<button className="ml-2 text-ems-accent" onClick={() => setShowDataNote(!showDataNote)}>说明 {showDataNote ? "收起" : "展开"}</button></InlineNotice>
 
     <section className="content-grid">
-      <div className="panel device-panel">
-        <div className="panel-heading"><div><span className="section-kicker">设备树与点位</span><h2>当前状态</h2></div><div className="panel-heading-actions">{isAdmin && <button className="secondary-button" onClick={goChannels}>通道配置</button>}{isAdmin && <button className="secondary-button" onClick={() => setShowAdd(!showAdd)}>{showAdd ? "收起" : "+ 添加"}</button>}</div></div>
+      <EmsCard><IonCardContent>
+        <EmsSectionHeader kicker="设备树与点位" title="当前状态" actions={<>{isAdmin && <EmsButton variant="secondary" onClick={goChannels}>通道配置</EmsButton>}{isAdmin && <EmsButton variant="secondary" onClick={() => setShowAdd(!showAdd)}>{showAdd ? "收起" : "+ 添加"}</EmsButton>}</>} />
         {showAdd && isAdmin && <form className="add-node-form" onSubmit={(event) => {
           event.preventDefault()
+          if (!description.trim()) { onError("请填写名称"); return }
           void run(async () => {
             await request(token, "/nodes", "POST", { parent, type: kind, description, value: kind === "variable" ? initialValue : undefined })
             setDescription("")
             setShowAdd(false)
           })
         }}>
-          <div className="form-row"><label>类型<select value={kind} onChange={(event) => setKind(event.target.value)}><option value="variable">测试变量</option><option value="group">分组</option></select></label><label>所属位置<select value={parent} onChange={(event) => setParent(event.target.value)}>{groups.map((group) => <option key={group.id} value={group.id}>{snapshot.roots.includes(group.id) ? "根节点" : nameOf(group)}</option>)}</select></label></div>
-          <div className="form-row"><label>名称<input value={description} onChange={(event) => setDescription(event.target.value)} placeholder={kind === "variable" ? "例如：室温" : "例如：1 号电站"} required /></label>{kind === "variable" && <label>初始值<input type="number" value={initialValue} onChange={(event) => setInitialValue(Number(event.target.value))} /></label>}</div>
-          {kind === "variable" && <p className="form-note">测试变量用于验证数据与规则，不代表真实物理设备。</p>}
-          <button className="primary-button" disabled={busy}>添加到设备树</button>
+          <div className="grid gap-3 sm:grid-cols-2"><EmsSelect label="类型" value={kind} onIonChange={(event) => setKind(event.detail.value)}><EmsSelectOption value="variable">测试变量</EmsSelectOption><EmsSelectOption value="group">分组</EmsSelectOption></EmsSelect><EmsSelect label="所属位置" value={parent} onIonChange={(event) => setParent(event.detail.value)}>{groups.map((group) => <EmsSelectOption key={group.id} value={group.id}>{snapshot.roots.includes(group.id) ? "根节点" : nameOf(group)}</EmsSelectOption>)}</EmsSelect></div>
+          <div className="grid gap-3 sm:grid-cols-2"><EmsInput label="名称" value={description} onIonInput={(event) => setDescription(event.detail.value || "")} placeholder={kind === "variable" ? "例如：室温" : "例如：1 号电站"} />{kind === "variable" && <EmsInput label="初始值" type="number" value={initialValue} onIonInput={(event) => setInitialValue(Number(event.detail.value))} />}</div>
+          {kind === "variable" && <p className="m-0 text-xs text-ems-muted">测试变量用于验证数据与规则，不代表真实物理设备。</p>}
+          <EmsButton type="submit" disabled={busy}>添加到设备树</EmsButton>
         </form>}
         {isAdmin && <details className="modbus-setup"><summary>接入 Modbus TCP / RTU</summary><p className="form-note">端口、单元与点位已统一在“通道”页配置。</p><button className="secondary-button" onClick={goChannels}>打开通道配置</button></details>}
         <div className="device-list">
@@ -727,28 +728,28 @@ function DevicesView({ snapshot, points, groups, rules, activeRules, errors, ala
             return <div className="device-line" key={`${node.parent}/${node.id}`}>
               <div className={`device-icon ${node.type}`} aria-hidden="true">{node.type === "group" ? "组" : node.type === "modbus" ? "总" : node.type === "modbusIo" ? "M" : "测"}</div>
               <div className="device-name"><strong>{nameOf(node)}</strong><span>{typeName}{node.type !== "group" && node.type !== "modbus" && ` · 当前 ${value ?? "—"}${units}`}{target !== undefined && ` · 目标 ${target}`}{errorCount > 0 && ` · 通信错误 ${errorCount}`}</span></div>
-              {manual && <span className="manual-label">人工接管</span>}
-              {disabled && <span className="read-only-label">已停用</span>}
-              {command && <span className={`command-status ${command}`}>{({ accepted: "已接受", confirmed: "已回读", unknown: "结果未知", failed: "失败" } as Record<string, string>)[command] || command}</span>}
-              {isAdmin && <button className="manage-button" onClick={() => setManagedNode(node)}>管理</button>}
-              {node.type === "modbusIo" && !writable(node) && <span className="read-only-label">只读</span>}
-              {(node.type === "variable" || writable(node)) && canOperate && !disabled && <div className="device-control"><input aria-label={`${nameOf(node)}操作值`} type="number" value={currentValue} onChange={(event) => setValues({ ...values, [node.id]: Number(event.target.value) })} />
-                {node.type === "variable" && <button disabled={busy} onClick={() => void run(() => request(token, `/nodes/${node.id}/value`, "POST", { value: currentValue, point_type: "value" }))}>更新当前值</button>}
-                <button disabled={busy} onClick={() => setConfirm({ kind: "setpoint", node, value: currentValue })}>下发目标值</button>
+              {manual && <StatusBadge tone="warning">人工接管</StatusBadge>}
+              {disabled && <StatusBadge tone="neutral">已停用</StatusBadge>}
+              {command && <StatusBadge tone={command === "confirmed" ? "success" : command === "failed" || command === "unknown" ? "danger" : "info"}>{({ accepted: "已接受", confirmed: "已回读", unknown: "结果未知", failed: "失败" } as Record<string, string>)[command] || command}</StatusBadge>}
+              {isAdmin && <EmsButton variant="quiet" size="small" onClick={() => setManagedNode(node)}>管理</EmsButton>}
+              {node.type === "modbusIo" && !writable(node) && <StatusBadge tone="neutral">只读</StatusBadge>}
+              {(node.type === "variable" || writable(node)) && canOperate && !disabled && <div className="device-control"><EmsInput aria-label={`${nameOf(node)}操作值`} type="number" value={currentValue} onIonInput={(event) => setValues({ ...values, [node.id]: Number(event.detail.value) })} />
+                {node.type === "variable" && <EmsButton variant="secondary" size="small" disabled={busy} onClick={() => void run(() => request(token, `/nodes/${node.id}/value`, "POST", { value: currentValue, point_type: "value" }))}>更新当前值</EmsButton>}
+                <EmsButton variant="secondary" size="small" disabled={busy} onClick={() => setConfirm({ kind: "setpoint", node, value: currentValue })}>下发目标值</EmsButton>
                 {manual
-                  ? <button disabled={busy} onClick={() => void run(() => request(token, `/nodes/${node.id}/manual`, "POST", { manual: false }))}>恢复自动</button>
-                  : <button disabled={busy} onClick={() => setConfirm({ kind: "manual", node })}>接管自动</button>}
+                  ? <EmsButton variant="secondary" size="small" disabled={busy} onClick={() => void run(() => request(token, `/nodes/${node.id}/manual`, "POST", { manual: false }))}>恢复自动</EmsButton>
+                  : <EmsButton variant="quiet" size="small" disabled={busy} onClick={() => setConfirm({ kind: "manual", node })}>接管自动</EmsButton>}
               </div>}
             </div>
           })}
-          {!snapshot.nodes.some((node) => isDomainNode(node.type) || node.type === "group" || node.type === "modbus" || node.type === "variable" || node.type === "modbusIo") && <div className="empty-state"><strong>设备树还是空的</strong><span>管理员可添加分组、测试变量；Modbus 端口与点位在“通道”页配置。</span></div>}
+          {!snapshot.nodes.some((node) => isDomainNode(node.type) || node.type === "group" || node.type === "modbus" || node.type === "variable" || node.type === "modbusIo") && <EmptyState title="设备树还是空的" description="管理员可添加分组、测试变量；Modbus 端口与点位在“通道”页配置。" />}
         </div>
-      </div>
+      </IonCardContent></EmsCard>
 
-      <div className="panel activity-panel"><div className="panel-heading"><div><span className="section-kicker">真实操作记录</span><h2>最近变化</h2></div></div>
+      <EmsCard><IonCardContent><EmsSectionHeader kicker="真实操作记录" title="最近变化" />
         <div className="activity-list">{activities.map(({ node, item }, index) => <div className="activity" key={`${node.id}/${item.type}/${item.time}/${index}`}><span className="activity-dot" /><div><strong>{nameOf(node)}</strong><span>{{ value: "当前值更新", valueSet: "目标值下发", applied: "规则发布", enabled: "自动运行切换", lastMatch: "规则命中" }[item.type]} · {activityDetail(item)}</span></div><time>{new Date(item.time).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}</time></div>)}
-          {activities.length === 0 && <div className="empty-state"><span>尚无设备或规则变化。</span></div>}</div>
-      </div>
+          {activities.length === 0 && <EmptyState title="尚无设备或规则变化" description="设备值更新、规则发布与人工操作会显示在这里。" />}</div>
+      </IonCardContent></EmsCard>
     </section>
     {managedNode && <NodeManager key={managedNode.id} token={token} node={snapshot.nodes.find((node) => node.id === managedNode.id) || managedNode} snapshot={snapshot} run={run} onClose={() => setManagedNode(null)} />}
     {confirm && <ConfirmDialog
@@ -838,15 +839,13 @@ function ChannelWorkspace({ token, channels, ioCounts, isAdmin, canOperate, node
       onError("通信报告导出失败：质量统计接口不可用")
     }
   }
-  return <section className="channel-workspace">
-    <div className="channel-workspace-tabs">
-      <div className="channel-workspace-switch" role="group" aria-label="通道">
-        <button className={tab === "status" ? "active" : ""} onClick={() => setTab("status")}>运行状态</button>
-        <button className={tab === "config" ? "active" : ""} onClick={() => setTab("config")}>端口配置</button>
-        <button className={tab === "tools" ? "active" : ""} onClick={() => setTab("tools")}>点表与模板</button>
+  return <section className="channel-workspace grid gap-4">
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <SegmentedTabs ariaLabel="通道" value={tab} onChange={setTab} options={[{ value: "status", label: "运行状态" }, { value: "config", label: "端口配置" }, { value: "tools", label: "点表与模板" }]} />
+      <div className="flex flex-wrap gap-2">
+        {tab === "status" && <EmsButton variant="secondary" onClick={() => void exportReport()}>通信报告</EmsButton>}
+        <EmsButton variant="secondary" onClick={goPoints}>点位表</EmsButton>
       </div>
-      {tab === "status" && <button className="secondary-button" onClick={() => void exportReport()}>通信报告</button>}
-      <button className="secondary-button" onClick={goPoints}>点位表</button>
     </div>
     {tab === "status" ? <ChannelsView channels={channels} ioCounts={ioCounts} isAdmin={isAdmin} canOperate={canOperate} quality={quality} goConfigure={() => setTab("config")} onFrames={setFrameChannel} onRestart={(id) => void run(() => request(token, `/ems/channels/${id}/restart`, "POST", {}))} /> :
       tab === "config" ? <CommunicationView token={token} nodes={nodes} roots={roots} groups={groups} canConfigure={isAdmin} canOperate={canOperate} run={run} onError={onError} goPoints={goPoints} /> :
@@ -862,12 +861,12 @@ function ChannelsView({ channels, ioCounts, isAdmin, canOperate, quality, goConf
   const online = rows.filter((row) => row.state.key === "online").length
   const degraded = rows.filter((row) => row.state.key === "degraded").length
   const offline = rows.filter((row) => row.state.key === "offline").length
-  return <section className="channel-page">
-    <div className="channel-summary">
-      <div><strong>{online}</strong><span>在线</span></div>
-      <div className={degraded ? "has-warning" : ""}><strong>{degraded}</strong><span>不稳定</span></div>
-      <div className={offline ? "has-error" : ""}><strong>{offline}</strong><span>离线</span></div>
-      <button onClick={goConfigure}><span>通信配置</span><strong>{isAdmin ? "端口、单元与点位" : "查看端口配置"}</strong><span aria-hidden="true">→</span></button>
+  return <section className="grid gap-4">
+    <div className="ems-metric-strip">
+      <div className="ems-metric ems-metric-success"><span className="ems-metric-label">在线</span><strong className="ems-metric-value">{online}</strong></div>
+      <div className={`ems-metric ${degraded ? "ems-metric-warning" : ""}`}><span className="ems-metric-label">不稳定</span><strong className="ems-metric-value">{degraded}</strong></div>
+      <div className={`ems-metric ${offline ? "ems-metric-danger" : ""}`}><span className="ems-metric-label">离线</span><strong className="ems-metric-value">{offline}</strong></div>
+      <div className="ems-metric"><span className="ems-metric-label">通信配置</span><EmsButton variant="quiet" size="small" onClick={goConfigure}>{isAdmin ? "端口、单元与点位" : "查看端口配置"} →</EmsButton></div>
     </div>
     <div className="channel-grid">
       {rows.map(({ node, state }) => {
@@ -875,24 +874,34 @@ function ChannelsView({ channels, ioCounts, isAdmin, canOperate, quality, goConf
         const path = protocol === "TCP" ? point(node, "uri")?.text : point(node, "port")?.text
         const poll = point(node, "pollPeriod")?.value
         const baud = point(node, "baud")?.text || (point(node, "baud")?.value ? String(point(node, "baud")?.value) : "")
-        return <article className={`panel channel-card ${state.key}`} key={node.id}>
-          <div className="channel-card-head">
-            <div><span className="channel-protocol">{protocol}</span><h2>{nameOf(node)}</h2></div>
-            <span className={`channel-state ${state.key}`}><i />{state.label}</span>
-          </div>
-          <p className="channel-path">{path || "未设置通信地址"}</p>
-          <div className="channel-stats">
-            <div><strong>{ioCounts.get(node.id) || 0}</strong><span>点位</span></div>
-            <div><strong>{poll ? `${poll} ms` : "—"}</strong><span>轮询周期</span></div>
-            <div><strong>{protocol === "RTU" ? (baud || "—") : "TCP"}</strong><span>{protocol === "RTU" ? "波特率" : "协议"}</span></div>
-          </div>
-          {(() => { const q = quality[node.id]; return <div className="channel-quality"><span>{q ? `${q.success_rate.toFixed(1)}% 成功率` : "— 成功率"}</span><span>{q && q.polls > 0 ? `${Math.round(q.avg_latency_ms)} ms 平均` : "— 延迟"}</span><span className={q && q.failures > 0 ? "warn" : ""}>{q ? `${q.failures} 错误` : "— 错误"}</span></div> })()}
-          <div className="channel-card-foot"><span>{state.detail}</span><div className="channel-card-actions">{isAdmin && <button className="manage-button" onClick={() => onRestart(node.id)}>重启</button>}{canOperate && <button className="manage-button" onClick={() => onFrames(node)}>报文</button>}<button className="manage-button" onClick={goConfigure}>{isAdmin ? "配置端口" : "查看端口"}</button></div></div>
-        </article>
+        const tone = state.key === "online" ? "success" : state.key === "degraded" ? "warning" : "danger"
+        return <EmsCard key={node.id}>
+          <IonCardContent className="grid gap-3">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div><StatusBadge tone="info" dot={false}>{protocol}</StatusBadge><h3 className="mb-0 mt-1 text-base font-semibold text-ems-ink">{nameOf(node)}</h3></div>
+              <StatusBadge tone={tone}>{state.label}</StatusBadge>
+            </div>
+            <p className="m-0 break-all text-xs text-ems-muted">{path || "未设置通信地址"}</p>
+            <div className="grid grid-cols-3 gap-2">
+              <div><span className="block text-xs text-ems-muted">点位</span><strong className="text-lg text-ems-ink">{ioCounts.get(node.id) || 0}</strong></div>
+              <div><span className="block text-xs text-ems-muted">轮询周期</span><strong className="text-lg text-ems-ink">{poll ? `${poll} ms` : "—"}</strong></div>
+              <div><span className="block text-xs text-ems-muted">{protocol === "RTU" ? "波特率" : "协议"}</span><strong className="text-lg text-ems-ink">{protocol === "RTU" ? (baud || "—") : "TCP"}</strong></div>
+            </div>
+            {(() => { const q = quality[node.id]; return <div className="flex flex-wrap gap-3 text-xs text-ems-muted"><span>{q ? `${q.success_rate.toFixed(1)}% 成功率` : "— 成功率"}</span><span>{q && q.polls > 0 ? `${Math.round(q.avg_latency_ms)} ms 平均` : "— 延迟"}</span><span className={q && q.failures > 0 ? "text-ems-amber" : ""}>{q ? `${q.failures} 错误` : "— 错误"}</span></div> })()}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-ems-line pt-2">
+              <span className="text-xs text-ems-muted">{state.detail}</span>
+              <div className="flex flex-wrap gap-1">
+                {isAdmin && <EmsButton variant="quiet" size="small" onClick={() => onRestart(node.id)}>重启</EmsButton>}
+                {canOperate && <EmsButton variant="quiet" size="small" onClick={() => onFrames(node)}>报文</EmsButton>}
+                <EmsButton variant="secondary" size="small" onClick={goConfigure}>{isAdmin ? "配置端口" : "查看端口"}</EmsButton>
+              </div>
+            </div>
+          </IonCardContent>
+        </EmsCard>
       })}
     </div>
-    {channels.length === 0 && <div className="panel empty-state large"><strong>还没有通信通道</strong><span>先新增一个 Modbus TCP 或 RTU 通道，接入第一台设备。</span><button className="primary-button" onClick={goConfigure}>+ 新增通道</button></div>}
-    <div className="panel channel-note"><strong>状态口径</strong><p>在线表示最近一次完整轮询仍在时效内；不稳定表示有通信错误但仍有成功轮询；离线表示超过时效或从未成功。端口参数、单元与点位在同一工作区的“端口配置”中维护。</p></div>
+    {channels.length === 0 && <EmsCard><IonCardContent><EmptyState title="还没有通信通道" description="先新增一个 Modbus TCP 或 RTU 通道，接入第一台设备。" action={<EmsButton onClick={goConfigure}>+ 新增通道</EmsButton>} /></IonCardContent></EmsCard>}
+    <InlineNotice tone="info"><strong>状态口径</strong>：在线表示最近一次完整轮询仍在时效内；不稳定表示有通信错误但仍有成功轮询；离线表示超过时效或从未成功。端口参数、单元与点位在同一工作区的“端口配置”中维护。</InlineNotice>
   </section>
 }
 
