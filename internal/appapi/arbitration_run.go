@@ -67,7 +67,7 @@ func (h *Handler) RunUnitArbitratedDispatch(energyUnitID string) error {
 		return nil
 	}
 	trace := dispatchTrace{ID: decision.NewDispatchID(), Source: best.Source}
-	dispatches, err := h.writeEnergyUnitPower(energyUnitID, best.RequestKW, trace)
+	dispatches, stage, err := h.writeEnergyUnitPower(energyUnitID, best.RequestKW, trace)
 	if err != nil {
 		return err
 	}
@@ -75,10 +75,7 @@ func (h *Handler) RunUnitArbitratedDispatch(energyUnitID string) error {
 	record.DispatchID = trace.ID
 	record.Source = best.Source
 	record.Priority = int(best.Priority)
-	record.Stage = "valueSet_written"
-	if h.commands() != nil {
-		record.Stage = "submitted"
-	}
+	record.Stage = stage
 	if err := appendDispatchRecord(h.nc, energyUnitID, record); err != nil {
 		fmt.Printf("easyems: append dispatch record %s: %v\n", energyUnitID, err)
 	}

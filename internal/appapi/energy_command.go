@@ -3,6 +3,7 @@ package appapi
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	siotclient "github.com/simpleiot/simpleiot/client"
@@ -52,10 +53,24 @@ func (h *Handler) submitPointCommand(trace dispatchTrace, ioNodeID string, setpo
 		return true, fmt.Errorf("power point %s is not a Modbus IO with a valid station", ioNodeID)
 	}
 	deviceID := node.Parent + "/" + strconv.Itoa(server)
-	_, err = manager.Submit(time.Now(), command.Request{
+	outcome, err := manager.Submit(time.Now(), command.Request{
 		ID: trace.ID + "-" + ioNodeID, DeviceID: deviceID, Point: ioNodeID,
 		Value: signal.Num(setpoint), NoReadback: true,
 		DispatchID: trace.ID, Source: trace.Source, Stage: "submitted", Actor: trace.Actor,
 	})
-	return true, err
+	if err != nil {
+		// 没有运行时通道（例如仅配置了点位而无实际总线）时退回设定值路径，
+		// 由调用方如实标注 stage=valueSet_written。
+		if strings.Contains(err.Error(), "unknown device") {
+			return false, nil
+		}
+		return true, err
+	}
+	if outcome.State == command.Failed {
+		if strings.Contains(outcome.Reason, "unknown device") {
+			return false, nil
+		}
+		return true, fmt.Errorf("command rejected: %s", outcome.Reason)
+	}
+	return true, nil
 }

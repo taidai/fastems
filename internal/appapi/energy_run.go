@@ -37,11 +37,12 @@ func (h *Handler) RunCapabilityDispatch(energyUnitID string) ([]decision.DeviceD
 			requestKW += action.RequestKW
 		}
 	}
-	dispatches, err := h.writeEnergyUnitPower(energyUnitID, requestKW, dispatchTrace{ID: decision.NewDispatchID(), Source: "schedule"})
+	dispatches, stage, err := h.writeEnergyUnitPower(energyUnitID, requestKW, dispatchTrace{ID: decision.NewDispatchID(), Source: "schedule"})
 	if err != nil {
 		return nil, err
 	}
 	record := decision.BuildRecord(energyUnitID, rule.ID, requestKW, values, LoadCabinetState(nodes[0]), dispatches)
+	record.Stage = stage
 	if err := appendDispatchRecord(h.nc, energyUnitID, record); err != nil {
 		fmt.Printf("easyems: append dispatch record %s: %v\n", energyUnitID, err)
 	}

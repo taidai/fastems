@@ -60,7 +60,7 @@ func (h *Handler) RunGroupDispatch(groupID string, requestKW float64) (decision.
 		if allocation.Excluded {
 			continue
 		}
-		if _, err := h.writeEnergyUnitPower(allocation.EnergyUnitID, allocation.SetpointKW, dispatchTrace{ID: decision.NewDispatchID(), Source: "group"}); err != nil {
+		if _, _, err := h.writeEnergyUnitPower(allocation.EnergyUnitID, allocation.SetpointKW, dispatchTrace{ID: decision.NewDispatchID(), Source: "group"}); err != nil {
 			return result, err
 		}
 	}
@@ -70,20 +70,20 @@ func (h *Handler) RunGroupDispatch(groupID string, requestKW float64) (decision.
 // writeEnergyUnitPower 把一个 EnergyUnit 的功率请求拆解到柜内 Device 并写
 // 设备（含爬坡限幅）。优先走共享命令管理器；没有命令运行时的单元测试
 // 回退到 valueSet 路径。返回拆解结果，供追溯记录使用。
-func (h *Handler) writeEnergyUnitPower(energyUnitID string, requestKW float64, trace dispatchTrace) ([]decision.DeviceDispatch, error) {
+func (h *Handler) writeEnergyUnitPower(energyUnitID string, requestKW float64, trace dispatchTrace) ([]decision.DeviceDispatch, string, error) {
 	unitNodes, err := siotclient.GetNodes(h.nc, "all", energyUnitID, "", false)
 	if err != nil || len(unitNodes) == 0 || unitNodes[0].Type != NodeTypeEnergyUnit {
-		return nil, fmt.Errorf("energy unit %s not found", energyUnitID)
+		return nil, "", fmt.Errorf("energy unit %s not found", energyUnitID)
 	}
 	unit := unitNodes[0]
 	if !AllowsEnergyUnitAutoDispatch(unit) {
-		return nil, fmt.Errorf("energy unit %s is interlocked or manually controlled", energyUnitID)
+		return nil, "", fmt.Errorf("energy unit %s is interlocked or manually controlled", energyUnitID)
 	}
 	if point, found := unit.Points.Find(PointTypeCapability, ""); found {
 		capability, err := DecodeCapability(point.Txt())
 		if err == nil {
 			if !capability.Allowed {
-				return nil, fmt.Errorf("energy unit %s has no available capability", energyUnitID)
+				return nil, "", fmt.Errorf("energy unit %s has no available capability", energyUnitID)
 			}
 			available := capability.PowerMaxKW
 			if requestKW >= 0 && capability.DischargeMaxKW > 0 {
@@ -93,7 +93,7 @@ func (h *Handler) writeEnergyUnitPower(energyUnitID string, requestKW float64, t
 				available = capability.ChargeMaxKW
 			}
 			if (requestKW >= 0 && capability.Direction == "charge") || (requestKW < 0 && capability.Direction == "discharge") || available <= 0 {
-				return nil, fmt.Errorf("energy unit %s capability direction is unavailable", energyUnitID)
+				return nil, "", fmt.Errorf("energy unit %s capability direction is unavailable", energyUnitID)
 			}
 			if requestKW > available {
 				requestKW = available
@@ -107,7 +107,7 @@ func (h *Handler) writeEnergyUnitPower(energyUnitID string, requestKW float64, t
 	ramp := inputs.rampParams()
 	devices, err := siotclient.GetNodes(h.nc, energyUnitID, "all", data.NodeTypeDevice, false)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	cabinet := make([]decision.DeviceCapability, 0, len(devices))
 	for _, device := range devices {
@@ -123,9 +123,10 @@ func (h *Handler) writeEnergyUnitPower(energyUnitID string, requestKW float64, t
 		}
 		cabinet = append(cabinet, decision.DeviceCapability{DeviceID: device.ID, RatedPowerKW: rated, AvailablePowerKW: available})
 	}
+	usedCommand := false
 	dispatches, err := decision.DispatchCabinet(requestKW, cabinet)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	for _, dispatch := range dispatches {
 		if dispatch.Excluded {
@@ -143,16 +144,21 @@ func (h *Handler) writeEnergyUnitPower(energyUnitID string, requestKW float64, t
 		}
 		handled, err := h.submitPointCommand(trace, targetID, setpoint)
 		if err != nil {
-			return dispatches, fmt.Errorf("command device %s: %w", dispatch.DeviceID, err)
+			return dispatches, "", fmt.Errorf("command device %s: %w", dispatch.DeviceID, err)
 		}
 		if handled {
+			usedCommand = true
 			continue
 		}
 		point := data.NewPointFloat(data.PointTypeValueSet, "", setpoint)
 		point.Origin = "easyems-" + trace.Source
 		if err := siotclient.SendNodePoint(h.nc, targetID, point, true); err != nil {
-			return dispatches, fmt.Errorf("write device %s: %w", dispatch.DeviceID, err)
+			return dispatches, "", fmt.Errorf("write device %s: %w", dispatch.DeviceID, err)
 		}
 	}
-	return dispatches, nil
+	stage := "valueSet_written"
+	if usedCommand {
+		stage = "submitted"
+	}
+	return dispatches, stage, nil
 }
