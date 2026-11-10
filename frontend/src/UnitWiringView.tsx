@@ -23,7 +23,7 @@ export default function UnitWiringView({ token, nodes, onError }: {
   const current = units.find((unit) => unit.id === selected)
 
   return <section className="grid gap-4">
-    <EmsSectionHeader kicker="接入建模" title="能源设备接线" description="把 PCS 挂到能源设备并映射功率设定点位；EMS 策略不再接触点位地址。"
+    <EmsSectionHeader kicker="设备映射" title="能源设备接线" description="把 PCS 挂到能源设备并映射功率设定点位；EMS 策略不再接触点位地址。"
       status={current ? <StatusBadge tone="info">{current.description || current.asset_code || current.id}</StatusBadge> : undefined}
       actions={current ? <EmsButton variant="secondary" onClick={() => setSelected("")}>返回能源设备列表</EmsButton> : undefined} />
 
