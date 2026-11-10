@@ -103,8 +103,10 @@ export function p0Steps({ page, snapshot, targetValue, waitTarget, addNode, evid
 
     drawer = await openManager("风机")
     page.once("dialog", (dialog) => dialog.accept())
+    const refusal = page.waitForResponse((response) => response.request().method() === "DELETE" && response.url().includes("/api/nodes/"))
     await drawer.locator(".danger-zone").getByRole("button", { name: "删除", exact: true }).click()
-    await page.locator(".global-error").getByText(/仍被规则引用/).waitFor()
+    const refused = await refusal
+    if (refused.status() !== 409) throw new Error(`Referenced node delete was not refused: ${refused.status()}`)
     await drawer.getByRole("button", { name: "关闭管理" }).click()
     const closeError = page.locator(".global-error").getByRole("button", { name: "关闭", exact: true })
     await closeError.click({ timeout: 1000 }).catch(() => {})
@@ -172,7 +174,8 @@ export function p0Steps({ page, snapshot, targetValue, waitTarget, addNode, evid
     await writeLine.waitFor()
     await writeLine.getByRole("spinbutton").fill("0")
     await writeLine.getByRole("button", { name: "下发目标值" }).click()
-    await writeLine.locator(".command-status.confirmed").waitFor()
+    await page.getByRole("button", { name: "确认下发" }).click()
+    await writeLine.getByText("已回读", { exact: true }).waitFor()
 
     let drawer = await openManager("Modbus 温度")
     await drawer.getByLabel("缩放", { exact: true }).fill("0.2")
