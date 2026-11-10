@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonInput, IonSelect, IonSelectOption } from "@ionic/react"
 import { fetchEnergyUnits, createEnergyUnit, fetchEnergyDevices, createEnergyDevice, saveEnergyRule, publishEnergyRule } from "./api"
 import type { EnergyUnitSummary, EnergyDevice, Node } from "./api"
 import { templates, buildFromTemplate } from "./strategyTemplates"
@@ -189,34 +190,45 @@ function DevicePanel({ token, unitId, nodes, onError }: {
     }
   }
 
-  return <div className="energy-rule-section">
-    <div className="panel-heading"><div><strong>柜内设备</strong><p className="form-note">设备映射功率设定点位后，调度才能把功率请求写到真实设备。</p></div>
-      <button className="secondary-button" onClick={() => setShowAdd(!showAdd)}>{showAdd ? "收起" : "+ 添加设备"}</button>
-    </div>
+  const inputClass = "h-10 rounded-lg border border-ems-line bg-white/95 px-3 text-sm text-ems-ink"
+  const fieldClass = "grid min-w-36 flex-1 gap-1 text-xs text-ems-muted"
 
-    {devices.length === 0 ? <p className="form-note">还没有设备。添加一台 PCS 并映射功率点位，调度才能下发。</p> : devices.map((device) => (
-      <div className="energy-rule-row" key={device.id}>
-        <strong>{device.description || device.asset_code}</strong>
-        <span className="set-label">额定 {device.rated_power_kw} kW</span>
-        <span className="set-label">功率点位 {device.power_setpoint_id || "未映射"}</span>
+  return <IonCard className="m-0 rounded-2xl border border-ems-line bg-white/85 shadow-sm backdrop-blur-xl">
+    <IonCardHeader className="pb-2">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div><IonCardTitle className="text-base">柜内设备</IonCardTitle><IonCardSubtitle>映射功率点位后，调度才能写到真实设备</IonCardSubtitle></div>
+        <IonButton size="small" fill="outline" onClick={() => setShowAdd(!showAdd)}>{showAdd ? "收起" : "+ 添加设备"}</IonButton>
       </div>
-    ))}
+    </IonCardHeader>
+    <IonCardContent>
+      {devices.length === 0 ? <p className="m-0 text-sm text-ems-muted">还没有设备。添加一台 PCS 并映射功率点位，调度才能下发。</p> : <div className="grid gap-2">
+        {devices.map((device) => <div key={device.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-ems-line px-3 py-2 text-sm">
+          <strong className="text-ems-ink">{device.description || device.asset_code}</strong>
+          <span className="text-ems-muted">额定 {device.rated_power_kw} kW</span>
+          <span className="break-all text-xs text-ems-muted">功率点位 {device.power_setpoint_id || "未映射"}</span>
+        </div>)}
+      </div>}
 
-    {showAdd && <div className="energy-unit-add">
-      <div className="energy-rule-row">
-        <input aria-label="设备名称" placeholder="例如：1 号 PCS" value={name} onChange={(event) => setName(event.target.value)} />
-        <span className="set-label">额定 kW</span>
-        <input aria-label="设备额定功率" type="number" inputMode="decimal" value={rated} onChange={(event) => setRated(Number(event.target.value))} />
-      </div>
-      <div className="energy-rule-row">
-        <span className="set-label">功率设定点位</span>
-        <select aria-label="功率设定点位" value={pointId} onChange={(event) => setPointId(event.target.value)}>
-          <option value="">选择 modbus 点位</option>
-          {powerPoints.map((node) => <option key={node.id} value={node.id}>{node.points.find((p) => p.type === "description")?.text || node.id}</option>)}
-        </select>
-        <button className="primary-button" disabled={busy} onClick={() => void add()}>{busy ? "添加中…" : "添加"}</button>
-      </div>
-      {powerPoints.length === 0 && <p className="form-note">还没有 modbus 点位，请先在"通道"页配置功率设定点位。</p>}
-    </div>}
-  </div>
+      {showAdd && <div className="mt-4 grid gap-3 border-t border-ems-line pt-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className={fieldClass}>设备名称
+            <IonInput className={inputClass} aria-label="设备名称" placeholder="例如：1 号 PCS" value={name} onIonInput={(event) => setName(event.detail.value || "")} />
+          </label>
+          <label className={fieldClass}>额定功率（kW）
+            <IonInput className={inputClass} aria-label="设备额定功率" type="number" value={rated} onIonInput={(event) => setRated(Number(event.detail.value))} />
+          </label>
+        </div>
+        <div className="flex flex-wrap items-end gap-3">
+          <label className={fieldClass}>功率设定点位
+            <IonSelect className={inputClass} aria-label="功率设定点位" value={pointId} onIonChange={(event) => setPointId(event.detail.value)}>
+              <IonSelectOption value="">选择 modbus 点位</IonSelectOption>
+              {powerPoints.map((node) => <IonSelectOption key={node.id} value={node.id}>{node.points.find((p) => p.type === "description")?.text || node.id}</IonSelectOption>)}
+            </IonSelect>
+          </label>
+          <IonButton disabled={busy} onClick={() => void add()}>{busy ? "添加中…" : "添加"}</IonButton>
+        </div>
+        {powerPoints.length === 0 && <p className="m-0 text-xs text-ems-amber">还没有 modbus 点位，请先在"通道"页配置功率设定点位。</p>}
+      </div>}
+    </IonCardContent>
+  </IonCard>
 }

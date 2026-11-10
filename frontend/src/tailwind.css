@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ems-ink: #1a2a33;
+  --color-ems-muted: #6b7c88;
+  --color-ems-line: #e4e9ee;
+  --color-ems-accent: #0e7c7b;
+  --color-ems-mint: #2d8f78;
+  --color-ems-amber: #b07a2a;
+  --color-ems-danger: #b14b53;
+}

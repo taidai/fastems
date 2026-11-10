@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { IonBadge, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonInput, IonSelect, IonSelectOption } from "@ionic/react"
 import { fetchEnergyRule, saveEnergyRule, publishEnergyRule, simulateEnergyRule } from "./api"
 import type { CapabilityRule, CapabilityCondition, CapabilityAction } from "./api"
 import { templates, buildFromTemplate } from "./strategyTemplates"
@@ -134,89 +135,104 @@ export default function EnergyRuleEditor({ token, energyUnitId, onError }: {
 
   const published = rule!.state === "published"
 
-  return <section className="energy-rule-editor">
-    <div className="panel-heading"><div><span className="section-kicker">能力级调度</span><h3>调度规则</h3><p>条件引用能源节点的能力字段，动作是对它请求功率；不认具体设备型号。</p></div>
-      <span className={"energy-rule-state" + (published ? " published" : "")}>{published ? "已发布" : "草稿"}</span>
-    </div>
-    {published && rule!.published_at && <p className="form-note">发布于 {rule!.published_at}。修改后需重新发布才会生效。</p>}
+  const fieldClass = "grid min-w-36 flex-1 gap-1 text-xs text-ems-muted"
+  const inputClass = "h-10 rounded-lg border border-ems-line bg-white/95 px-3 text-sm text-ems-ink"
 
-    <div className="energy-rule-section energy-template-section">
-      <strong>从模板创建</strong>
-      <div className="energy-section-body">
-      <div className="energy-rule-row">
-        <select aria-label="策略模板" value={templateKey} onChange={(event) => setTemplateKey(event.target.value)}>
-          {templates.map((t) => <option key={t.key} value={t.key}>{t.name}</option>)}
-        </select>
-        {templates.find((t) => t.key === templateKey)?.needKW && <>
-          <span className="set-label">功率 kW</span>
-          <input aria-label="模板功率" type="number" inputMode="decimal" value={templateKW} onChange={(event) => setTemplateKW(Number(event.target.value))} />
-        </>}
-        {templates.find((t) => t.key === templateKey)?.needSOC && <>
-          <span className="set-label">SOC 阈值 %</span>
-          <input aria-label="模板 SOC 阈值" type="number" inputMode="decimal" value={templateSOC} onChange={(event) => setTemplateSOC(Number(event.target.value))} />
-        </>}
-        <button className="secondary-button" onClick={applyTemplate}>应用模板</button>
-      </div>
-      <p className="form-note">{templates.find((t) => t.key === templateKey)?.desc}。应用后可微调，再发布生效。</p>
-      </div>
+  return <section className="grid gap-4">
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div><span className="section-kicker">能力级调度</span><h3 className="mb-1 text-xl font-semibold text-ems-ink">调度规则</h3><p className="m-0 text-sm text-ems-muted">按能源设备的实时能力自动调节，不认具体设备型号。</p></div>
+      <IonBadge color={published ? "success" : "medium"}>{published ? "已发布" : "草稿"}</IonBadge>
     </div>
+    {published && rule!.published_at && <p className="m-0 text-xs text-ems-amber">发布于 {rule!.published_at}，修改后需重新发布才会生效。</p>}
 
-    <details className="energy-advanced">
-      <summary>高级：手动编辑条件与动作</summary>
-    <div className="energy-rule-section">
-      <strong>条件（同时满足）</strong>
-      <div className="energy-section-body">
-      {rule!.conditions.map((condition, index) => (
-        <div className="energy-rule-row" key={index}>
-          <select aria-label="能力字段" value={condition.ref.field} onChange={(event) => setCondition(index, { ref: { ...condition.ref, field: event.target.value } })}>
-            {capabilityFields.map((field) => <option key={field.value} value={field.value}>{field.label}</option>)}
-          </select>
-          <select aria-label="比较逻辑" value={condition.operator} onChange={(event) => setCondition(index, { operator: event.target.value })}>
-            {operators.map((operator) => <option key={operator.value} value={operator.value}>{operator.label}</option>)}
-          </select>
-          <input aria-label="条件值" type="number" inputMode="decimal" value={condition.value} onChange={(event) => setCondition(index, { value: Number(event.target.value) })} />
-          <button className="icon-button" aria-label="删除条件" onClick={() => setRule({ ...rule!, conditions: rule!.conditions.filter((_, i) => i !== index) })}>×</button>
+    <IonCard className="m-0 rounded-2xl border border-ems-mint/40 bg-white/85 shadow-sm backdrop-blur-xl">
+      <IonCardHeader className="pb-2">
+        <IonCardTitle className="text-base">从模板创建</IonCardTitle>
+        <IonCardSubtitle>选策略、填参数即可，不需要懂规则语法</IonCardSubtitle>
+      </IonCardHeader>
+      <IonCardContent>
+        <div className="flex flex-wrap items-end gap-3">
+          <label className={fieldClass}>策略模板
+            <IonSelect className={inputClass} aria-label="策略模板" value={templateKey} onIonChange={(event) => setTemplateKey(event.detail.value)}>
+              {templates.map((t) => <IonSelectOption key={t.key} value={t.key}>{t.name}</IonSelectOption>)}
+            </IonSelect>
+          </label>
+          {templates.find((t) => t.key === templateKey)?.needKW && <label className={fieldClass}>功率（kW）
+            <IonInput className={inputClass} aria-label="模板功率" type="number" value={templateKW} onIonInput={(event) => setTemplateKW(Number(event.detail.value))} />
+          </label>}
+          {templates.find((t) => t.key === templateKey)?.needSOC && <label className={fieldClass}>SOC 阈值（%）
+            <IonInput className={inputClass} aria-label="模板 SOC 阈值" type="number" value={templateSOC} onIonInput={(event) => setTemplateSOC(Number(event.detail.value))} />
+          </label>}
+          <IonButton fill="outline" onClick={applyTemplate}>应用模板</IonButton>
         </div>
-      ))}
-      <button className="secondary-button" onClick={() => setRule({ ...rule!, conditions: [...rule!.conditions, { ref: { energy_unit_id: energyUnitId, field: "soc" }, operator: "gt", value: 0 }] })}>+ 条件</button>
-      </div>
-    </div>
+        <p className="mb-0 mt-3 text-xs text-ems-muted">{templates.find((t) => t.key === templateKey)?.desc}。应用后可微调，再发布生效。</p>
+      </IonCardContent>
+    </IonCard>
 
-    <div className="energy-rule-section">
-      <strong>执行动作</strong>
-      <div className="energy-section-body">
-      {rule!.actions.map((action, index) => (
-        <div className="energy-rule-row" key={index}>
-          <span className="set-label">请求功率</span>
-          <input aria-label="请求功率" type="number" inputMode="decimal" value={action.request_kw} onChange={(event) => setAction(index, { request_kw: Number(event.target.value) })} />
-          <span className="set-label">kW</span>
-          <button className="icon-button" aria-label="删除动作" onClick={() => setRule({ ...rule!, actions: rule!.actions.filter((_, i) => i !== index) })}>×</button>
+    <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(280px,1fr)]">
+      <details className="energy-advanced rounded-2xl border border-ems-line bg-white/80 p-4 backdrop-blur-xl">
+        <summary className="cursor-pointer text-sm font-medium text-ems-muted">高级：手动编辑条件与动作</summary>
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <section className="grid content-start gap-3 rounded-xl border border-ems-line p-3">
+            <strong className="text-sm text-ems-ink">条件（同时满足）</strong>
+            {rule!.conditions.map((condition, index) => (
+              <div className="flex flex-wrap items-end gap-2" key={index}>
+                <label className={fieldClass}>能力字段
+                  <IonSelect className={inputClass} aria-label="能力字段" value={condition.ref.field} onIonChange={(event) => setCondition(index, { ref: { ...condition.ref, field: event.detail.value } })}>
+                    {capabilityFields.map((field) => <IonSelectOption key={field.value} value={field.value}>{field.label}</IonSelectOption>)}
+                  </IonSelect>
+                </label>
+                <label className="grid w-20 gap-1 text-xs text-ems-muted">比较
+                  <IonSelect className={inputClass} aria-label="比较逻辑" value={condition.operator} onIonChange={(event) => setCondition(index, { operator: event.detail.value })}>
+                    {operators.map((operator) => <IonSelectOption key={operator.value} value={operator.value}>{operator.label}</IonSelectOption>)}
+                  </IonSelect>
+                </label>
+                <label className="grid w-24 gap-1 text-xs text-ems-muted">条件值
+                  <IonInput className={inputClass} aria-label="条件值" type="number" value={condition.value} onIonInput={(event) => setCondition(index, { value: Number(event.detail.value) })} />
+                </label>
+                <IonButton fill="clear" color="danger" aria-label="删除条件" onClick={() => setRule({ ...rule!, conditions: rule!.conditions.filter((_, i) => i !== index) })}>×</IonButton>
+              </div>
+            ))}
+            <IonButton size="small" fill="outline" onClick={() => setRule({ ...rule!, conditions: [...rule!.conditions, { ref: { energy_unit_id: energyUnitId, field: "soc" }, operator: "gt", value: 0 }] })}>+ 条件</IonButton>
+          </section>
+
+          <section className="grid content-start gap-3 rounded-xl border border-ems-line p-3">
+            <strong className="text-sm text-ems-ink">执行动作</strong>
+            {rule!.actions.map((action, index) => (
+              <div className="flex flex-wrap items-end gap-2" key={index}>
+                <label className={fieldClass}>请求功率（kW）
+                  <IonInput className={inputClass} aria-label="请求功率" type="number" value={action.request_kw} onIonInput={(event) => setAction(index, { request_kw: Number(event.detail.value) })} />
+                </label>
+                <IonButton fill="clear" color="danger" aria-label="删除动作" onClick={() => setRule({ ...rule!, actions: rule!.actions.filter((_, i) => i !== index) })}>×</IonButton>
+              </div>
+            ))}
+            <IonButton size="small" fill="outline" onClick={() => setRule({ ...rule!, actions: [...rule!.actions, { energy_unit_id: energyUnitId, request_kw: 0 }] })}>+ 动作</IonButton>
+          </section>
         </div>
-      ))}
-      <button className="secondary-button" onClick={() => setRule({ ...rule!, actions: [...rule!.actions, { energy_unit_id: energyUnitId, request_kw: 0 }] })}>+ 动作</button>
-      </div>
-    </div>
-    </details>
+      </details>
 
-    <div className="energy-rule-section">
-      <strong>模拟（不下发）</strong>
-      <div className="energy-section-body">
-      <div className="energy-rule-row">
-        <span className="set-label">SOC %</span>
-        <input aria-label="模拟 SOC" type="number" inputMode="decimal" value={simSoc} onChange={(event) => setSimSoc(Number(event.target.value))} />
-        <span className="set-label">可用功率 kW</span>
-        <input aria-label="模拟可用功率" type="number" inputMode="decimal" value={simPower} onChange={(event) => setSimPower(Number(event.target.value))} />
-        <button className="secondary-button" disabled={busy} onClick={() => void simulate()}>模拟</button>
-      </div>
-      {simResult && <p className="form-note">结果：{simResult}</p>}
-      </div>
+      <IonCard className="m-0 rounded-2xl border border-ems-line bg-white/80 shadow-sm backdrop-blur-xl">
+        <IonCardHeader className="pb-2"><IonCardTitle className="text-base">模拟</IonCardTitle><IonCardSubtitle>只求值，绝不下发设备</IonCardSubtitle></IonCardHeader>
+        <IonCardContent>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className={fieldClass}>SOC（%）
+              <IonInput className={inputClass} aria-label="模拟 SOC" type="number" value={simSoc} onIonInput={(event) => setSimSoc(Number(event.detail.value))} />
+            </label>
+            <label className={fieldClass}>可用功率（kW）
+              <IonInput className={inputClass} aria-label="模拟可用功率" type="number" value={simPower} onIonInput={(event) => setSimPower(Number(event.detail.value))} />
+            </label>
+          </div>
+          <IonButton className="mt-3" fill="outline" disabled={busy} onClick={() => void simulate()}>运行模拟</IonButton>
+          {simResult && <p className="mb-0 mt-3 rounded-lg bg-black/5 p-3 text-xs text-ems-ink">结果：{simResult}</p>}
+        </IonCardContent>
+      </IonCard>
     </div>
 
-    <div className="energy-rule-actions">
-      <button className="secondary-button" disabled={busy} onClick={() => void saveDraft()}>{busy ? "保存中…" : "保存草稿"}</button>
+    <div className="flex flex-wrap justify-end gap-2 border-t border-ems-line pt-4">
+      <IonButton fill="outline" disabled={busy} onClick={() => void saveDraft()}>{busy ? "保存中…" : "保存草稿"}</IonButton>
       {published
-        ? <button className="secondary-button" disabled={busy} onClick={() => void unpublish()}>{busy ? "停用中…" : "停用"}</button>
-        : <button className="primary-button" disabled={busy || rule!.conditions.length === 0 || rule!.actions.length === 0} onClick={() => setPublishConfirm(true)}>{busy ? "发布中…" : "发布"}</button>}
+        ? <IonButton fill="outline" disabled={busy} onClick={() => void unpublish()}>{busy ? "停用中…" : "停用"}</IonButton>
+        : <IonButton disabled={busy || rule!.conditions.length === 0 || rule!.actions.length === 0} onClick={() => setPublishConfirm(true)}>{busy ? "发布中…" : "发布"}</IonButton>}
     </div>
 
     {publishConfirm && <ConfirmDialog

@@ -162,6 +162,25 @@ func (h *Handler) simulateCapabilityRule(w http.ResponseWriter, r *http.Request,
 	if !decodeJSON(w, r, &input) {
 		return
 	}
+	// 用节点真实能力补足模拟输入（如额定功率），前端只覆盖要模拟的字段。
+	actualValues, err := LoadCapabilityValues(h.nc, []string{energyUnitID})
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "capability_load_failed")
+		return
+	}
+	if input.Values == nil {
+		input.Values = make(decision.CapabilityValues)
+	}
+	for id, fields := range actualValues {
+		if input.Values[id] == nil {
+			input.Values[id] = make(map[decision.CapabilityField]float64)
+		}
+		for field, value := range fields {
+			if _, supplied := input.Values[id][field]; !supplied {
+				input.Values[id][field] = value
+			}
+		}
+	}
 	actions := decision.EvaluateCapabilityRule(input.Rule, input.Values)
 	writeJSON(w, map[string]any{"actions": actions})
 }
