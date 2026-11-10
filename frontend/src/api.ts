@@ -394,6 +394,17 @@ export async function savePlantPCC(token: string, plantId: string, binding: PCCB
   return request<{ saved: boolean }>(token, `/plants/${plantId}/pcc`, "PUT", binding)
 }
 
+export type TariffPeriod = { StartMin: number; EndMin: number; Kind: string; Price: number }
+export type PlantStrategy = { peak_valley_power_kw: number; periods: TariffPeriod[] }
+
+export async function fetchPlantStrategy(token: string, plantId: string) {
+  return request<{ strategy: PlantStrategy; configured: boolean }>(token, `/plants/${plantId}/strategy`)
+}
+
+export async function savePlantStrategy(token: string, plantId: string, strategy: PlantStrategy) {
+  return request<{ saved: boolean }>(token, `/plants/${plantId}/strategy`, "PUT", strategy)
+}
+
 export async function saveEnergyRule(token: string, energyUnitId: string, rule: CapabilityRule) {
   return request<{ saved: boolean }>(token, `/energy-units/${energyUnitId}/rule`, "PUT", rule)
 }

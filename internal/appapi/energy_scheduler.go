@@ -16,7 +16,7 @@ import (
 type EnergyScheduler struct {
 	nc            *nats.Conn
 	dispatch      func(energyUnitID string) error
-	plantDispatch func(plantID string) error
+	plantDispatch func(plantID string) (bool, error)
 	stop          chan struct{}
 }
 
@@ -27,7 +27,7 @@ func NewEnergyScheduler(nc *nats.Conn, dispatch func(energyUnitID string) error)
 
 // SetPlantDispatch 注入站级策略（防逆流/需量）的执行函数，每周期对有 PCC
 // 绑定的 Plant 执行。
-func (s *EnergyScheduler) SetPlantDispatch(dispatch func(plantID string) error) {
+func (s *EnergyScheduler) SetPlantDispatch(dispatch func(plantID string) (bool, error)) {
 	s.plantDispatch = dispatch
 }
 
@@ -55,11 +55,37 @@ func (s *EnergyScheduler) Stop(error) {
 }
 
 func (s *EnergyScheduler) tick() {
+	controlled := map[string]bool{}
+
+	// 站级策略优先：防逆流 > 需量 > 削峰填谷；接管时该站单柜规则本轮让位。
+	if s.plantDispatch != nil {
+		plants, err := siotclient.GetNodes(s.nc, "all", "all", NodeTypePlant, false)
+		if err == nil {
+			for _, plant := range plants {
+				if _, ok := loadPCCFeedback(plant); !ok {
+					if _, hasStrategy := loadPlantStrategy(plant); !hasStrategy {
+						continue
+					}
+				}
+				acted, err := s.plantDispatch(plant.ID)
+				if err != nil {
+					log.Printf("plant strategy %s: %v", plant.ID, err)
+				}
+				if acted {
+					controlled[plant.ID] = true
+				}
+			}
+		}
+	}
+
 	nodes, err := siotclient.GetNodes(s.nc, "all", "all", NodeTypeEnergyUnit, false)
 	if err != nil {
 		return
 	}
 	for _, node := range nodes {
+		if controlled[node.Parent] {
+			continue
+		}
 		rule, ok := loadCapabilityRule(node)
 		if !ok || rule.State != decision.RulePublished {
 			continue
@@ -70,21 +96,6 @@ func (s *EnergyScheduler) tick() {
 		}
 		if err := s.dispatch(node.ID); err != nil {
 			log.Printf("energy dispatch %s: %v", node.ID, err)
-		}
-	}
-
-	// 站级策略：对配置了 PCC 反馈绑定的 Plant 执行防逆流/需量闭环。
-	if s.plantDispatch != nil {
-		plants, err := siotclient.GetNodes(s.nc, "all", "all", NodeTypePlant, false)
-		if err == nil {
-			for _, plant := range plants {
-				if _, ok := loadPCCFeedback(plant); !ok {
-					continue
-				}
-				if err := s.plantDispatch(plant.ID); err != nil {
-					log.Printf("plant strategy %s: %v", plant.ID, err)
-				}
-			}
 		}
 	}
 }

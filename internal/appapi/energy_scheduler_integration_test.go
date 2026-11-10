@@ -76,9 +76,9 @@ func TestSchedulerRunsPlantStrategy(t *testing.T) {
 	// 调度器 + mock plant dispatch 记录触发。
 	called := map[string]int{}
 	scheduler := NewEnergyScheduler(nc, func(string) error { return nil })
-	scheduler.SetPlantDispatch(func(plantID string) error {
+	scheduler.SetPlantDispatch(func(plantID string) (bool, error) {
 		called[plantID]++
-		return nil
+		return false, nil
 	})
 	scheduler.tick()
 	if called[plantID] == 0 {
