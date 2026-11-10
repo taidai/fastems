@@ -60,7 +60,7 @@ func (h *Handler) RunGroupDispatch(groupID string, requestKW float64) (decision.
 		if allocation.Excluded {
 			continue
 		}
-		if err := h.writeEnergyUnitPower(allocation.EnergyUnitID, allocation.SetpointKW); err != nil {
+		if _, err := h.writeEnergyUnitPower(allocation.EnergyUnitID, allocation.SetpointKW); err != nil {
 			return result, err
 		}
 	}
@@ -68,11 +68,11 @@ func (h *Handler) RunGroupDispatch(groupID string, requestKW float64) (decision.
 }
 
 // writeEnergyUnitPower 把一个 EnergyUnit 的功率请求拆解到柜内 Device 并写
-// valueSet（含爬坡限幅）。与 RunCapabilityDispatch 的写设备逻辑一致。
-func (h *Handler) writeEnergyUnitPower(energyUnitID string, requestKW float64) error {
+// valueSet（含爬坡限幅）。返回拆解结果，供追溯记录使用。
+func (h *Handler) writeEnergyUnitPower(energyUnitID string, requestKW float64) ([]decision.DeviceDispatch, error) {
 	devices, err := siotclient.GetNodes(h.nc, energyUnitID, "all", data.NodeTypeDevice, false)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	cabinet := make([]decision.DeviceCapability, 0, len(devices))
 	for _, device := range devices {
@@ -90,7 +90,7 @@ func (h *Handler) writeEnergyUnitPower(energyUnitID string, requestKW float64) e
 	}
 	dispatches, err := decision.DispatchCabinet(requestKW, cabinet)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	for _, dispatch := range dispatches {
 		if dispatch.Excluded {
@@ -109,8 +109,8 @@ func (h *Handler) writeEnergyUnitPower(energyUnitID string, requestKW float64) e
 		point := data.NewPointFloat(data.PointTypeValueSet, "", setpoint)
 		point.Origin = "group-dispatch"
 		if err := siotclient.SendNodePoint(h.nc, targetID, point, true); err != nil {
-			return fmt.Errorf("write device %s: %w", dispatch.DeviceID, err)
+			return dispatches, fmt.Errorf("write device %s: %w", dispatch.DeviceID, err)
 		}
 	}
-	return nil
+	return dispatches, nil
 }

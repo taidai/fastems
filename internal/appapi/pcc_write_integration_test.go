@@ -105,5 +105,14 @@ func TestPlantAntiReverseWritesDevice(t *testing.T) {
 	if set.Value.Num >= 0 {
 		t.Fatalf("防逆流应写充电负值，实测 %.1f", set.Value.Num)
 	}
-	t.Logf("防逆流写设备验证通过：充电 %.1f kW", set.Value.Num)
+	// 仲裁路径也必须留下同一笔写设备的追溯记录。
+	records := listDispatchRecords(nc, unitID)
+	if len(records) != 1 {
+		t.Fatalf("仲裁后应有 1 条追溯记录，实测 %d", len(records))
+	}
+	record := records[0]
+	if record.DispatchID == "" || record.RuleID != "r" || record.RequestKW >= 0 || record.DeliveredKW >= 0 || len(record.Dispatches) == 0 {
+		t.Fatalf("追溯记录不完整：%+v", record)
+	}
+	t.Logf("防逆流写设备验证通过：充电 %.1f kW，追溯 %s", set.Value.Num, record.DispatchID)
 }

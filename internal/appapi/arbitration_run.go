@@ -60,10 +60,18 @@ func (h *Handler) RunUnitArbitratedDispatch(energyUnitID string) error {
 		}
 	}
 
-	// 仲裁出唯一目标，统一写设备。
+	// 仲裁出唯一目标，统一写设备，并留下可复盘的追溯记录。
 	best, ok := decision.Arbitrate(goals)
 	if !ok {
 		return nil
 	}
-	return h.writeEnergyUnitPower(energyUnitID, best.RequestKW)
+	dispatches, err := h.writeEnergyUnitPower(energyUnitID, best.RequestKW)
+	if err != nil {
+		return err
+	}
+	record := decision.BuildRecord(energyUnitID, rule.ID, best.RequestKW, values, LoadCabinetState(node), dispatches)
+	if err := appendDispatchRecord(h.nc, energyUnitID, record); err != nil {
+		fmt.Printf("easyems: append dispatch record %s: %v\n", energyUnitID, err)
+	}
+	return nil
 }

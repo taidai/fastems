@@ -19,7 +19,7 @@ const plantStrategyPoint = "easyemsPlantStrategy"
 
 // PlantStrategy 是电站级的分时策略配置。
 type PlantStrategy struct {
-	PeakValleyPowerKW float64                `json:"peak_valley_power_kw"` // 谷充/峰放功率幅值
+	PeakValleyPowerKW float64                 `json:"peak_valley_power_kw"` // 谷充/峰放功率幅值
 	Periods           []decision.TariffPeriod `json:"periods"`
 }
 
@@ -110,7 +110,7 @@ func (h *Handler) applyAllocations(allocations []decision.EnergyAllocation) erro
 		if allocation.Excluded {
 			continue
 		}
-		if err := h.writeEnergyUnitPower(allocation.EnergyUnitID, allocation.SetpointKW); err != nil {
+		if _, err := h.writeEnergyUnitPower(allocation.EnergyUnitID, allocation.SetpointKW); err != nil {
 			return err
 		}
 	}
