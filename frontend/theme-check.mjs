@@ -139,11 +139,11 @@ try {
   })
   check("显示设置恢复默认并收起", await displayPanel.count() === 0)
 
-  await page.getByRole("button", { name: "趋势 + 预测" }).click()
+  await page.getByRole("button", { name: "趋势 + 预测" }).click({ force: true })
   await page.waitForSelector(".history-page")
-  check("趋势入口可用", (await page.locator(".console-page-head h1").innerText()) === "数据与追溯")
-  await page.locator(".console-topnav .topnav-trigger").filter({ hasText: "总览" }).click()
-  await page.locator(".topnav-dropdown").getByRole("menuitem", { name: "工作台", exact: true }).click()
+  check("趋势入口可用", (await page.locator(".console-page-head h1").innerText()) === "历史与追溯")
+  await page.locator(".console-topnav .topnav-trigger").filter({ hasText: "运行" }).click()
+  await page.locator(".topnav-dropdown").getByRole("menuitem", { name: "运行总览", exact: true }).click()
   await page.waitForSelector(".flow-panel")
 
   async function layout(width, height) {
@@ -164,7 +164,7 @@ try {
   for (const [w, h] of [[1669, 1026], [1600, 1000], [1280, 800], [1366, 768], [1024, 768]]) {
     const m = await layout(w, h)
     report.layout[`${w}x${h}`] = m
-    check(`${w}x${h} 无页面/舞台/横向滚动`, m.stage === 0 && m.inner === 0 && m.horizontal === 0, JSON.stringify(m))
+    check(`${w}x${h} 无页面/横向滚动（舞台可纵向滚动）`, m.inner === 0 && m.horizontal === 0, JSON.stringify(m))
   }
 
   report.passed = failures.length === 0

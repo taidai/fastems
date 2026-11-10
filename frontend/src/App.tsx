@@ -444,7 +444,7 @@ export default function App() {
     deploy: { title: "部署与验收", subtitle: "扫描、点表、运行状态与验收报告" },
     allocators: { title: "功率分配器", subtitle: "一个总目标，按每台 PCS 当前能力分配" },
     alarms: { title: "报警与事件", subtitle: "该处理的排在前面" },
-    history: { title: "数据与追溯", subtitle: "趋势、历史与统一时间轴" },
+    history: { title: "历史与追溯", subtitle: "趋势、历史与统一时间轴" },
     query: { title: "设备数据查询", subtitle: "按站点查概览、实时值、告警、趋势与报表" },
     rules: { title: "决策表", subtitle: "有序规则、模拟、发布与运行记录" },
     users: { title: "账号与权限", subtitle: "按人员分配可见与可操作范围" },
@@ -458,18 +458,18 @@ export default function App() {
   }
   const stationName = labelForRoot(view.roots[0])
   const tabs = [
-    { key: "devices", label: "总览", icon: "home" as IconName, pages: ["devices", "screen"] },
-    { key: "channels", label: "设备", icon: "devices" as IconName, pages: ["ledger", "points", "channels", "aggregate"] },
-    { key: "rules", label: "调度", icon: "sliders" as IconName, pages: ["rules", "allocators", "energyUnits"] },
-    { key: "history", label: "数据", icon: "report" as IconName, pages: ["alarms", "history"] },
-    { key: "deploy", label: "配置", icon: "gear" as IconName, pages: ["deploy", "users", "audit"] },
+    { key: "run", label: "运行", icon: "home" as IconName, pages: ["devices", "screen", "alarms", "history"] },
+    { key: "ems", label: "EMS 业务", icon: "sliders" as IconName, pages: ["energyUnits", "allocators", "rules"] },
+    { key: "build", label: "接入建模", icon: "devices" as IconName, pages: ["ledger", "points", "channels", "aggregate"] },
+    { key: "ops", label: "系统运维", icon: "gear" as IconName, pages: ["deploy", "users", "audit"] },
   ]
   const activeTab = tabs.find((tab) => tab.pages.includes(page))?.key
   const directory: { key: Page; label: string; adminOnly?: boolean; configOnly?: boolean }[] = [
-    { key: "devices", label: "工作台" }, { key: "screen", label: "运行画面" }, { key: "ledger", label: "设备台账" },
-    { key: "points", label: "点位表" }, { key: "channels", label: "通道" }, { key: "aggregate", label: "虚拟聚合" },
-    { key: "rules", label: "决策表" }, { key: "allocators", label: "功率分配器", configOnly: true }, { key: "energyUnits", label: "能源设备", configOnly: true },
-    { key: "alarms", label: "报警与事件" }, { key: "history", label: "数据与追溯" },
+    { key: "devices", label: "运行总览" }, { key: "screen", label: "运行画面" },
+    { key: "alarms", label: "报警与事件" }, { key: "history", label: "历史与追溯" },
+    { key: "energyUnits", label: "能源设备", configOnly: true }, { key: "allocators", label: "功率分配器", configOnly: true },
+    { key: "rules", label: "决策表" },
+    { key: "ledger", label: "设备台账" }, { key: "channels", label: "通道" }, { key: "points", label: "点位表" }, { key: "aggregate", label: "虚拟聚合" },
     { key: "deploy", label: "部署与验收", configOnly: true },
     { key: "users", label: "账号与权限", adminOnly: true }, { key: "audit", label: "审计日志", adminOnly: true },
   ]

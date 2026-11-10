@@ -13,13 +13,12 @@ try { browser = await chromium.launch({ channel: "chrome", headless: true }) }
 catch { browser = await chromium.launch({ channel: "msedge", headless: true }) }
 const errors = []
 const overflows = []
-const pages = ["工作台", "设备台账", "点位表", "通道", "虚拟聚合", "决策表", "报警与事件", "数据与追溯", "部署与验收", "功率分配器", "能源设备", "账号与权限", "审计日志", "运行画面"]
+const pages = ["运行总览", "设备台账", "点位表", "通道", "虚拟聚合", "决策表", "报警与事件", "历史与追溯", "部署与验收", "功率分配器", "能源设备", "账号与权限", "审计日志", "运行画面"]
 const navGroups = {
-  "工作台": "总览", "运行画面": "总览",
-  "设备台账": "设备", "点位表": "设备", "通道": "设备", "虚拟聚合": "设备",
-  "决策表": "调度", "功率分配器": "调度", "能源设备": "调度",
-  "报警与事件": "数据", "数据与追溯": "数据",
-  "部署与验收": "配置", "账号与权限": "配置", "审计日志": "配置",
+  "运行总览": "运行", "运行画面": "运行", "报警与事件": "运行", "历史与追溯": "运行",
+  "设备台账": "接入建模", "点位表": "接入建模", "通道": "接入建模", "虚拟聚合": "接入建模",
+  "决策表": "EMS 业务", "功率分配器": "EMS 业务", "能源设备": "EMS 业务",
+  "部署与验收": "系统运维", "账号与权限": "系统运维", "审计日志": "系统运维",
 }
 const sizes = [
   { width: 1920, height: 1080 },
@@ -108,7 +107,7 @@ try {
       await go(label)
       results[key][label] = await measure()
       checkHorizontal(key, label, results[key][label])
-      if (size.width === 1600 && label === "工作台") {
+      if (size.width === 1600 && label === "运行总览") {
         await page.screenshot({ path: path.join(evidenceDir, `layout-overview-1600.png`) })
       }
     }
@@ -136,7 +135,7 @@ try {
   }
 
   await page.setViewportSize({ width: 1600, height: 1000 })
-  await go("工作台")
+  await go("运行总览")
   await page.waitForTimeout(500)
   await page.locator(".flow-tools button").filter({ hasText: "俯视" }).click()
   const cameraTop = await page.locator(".flow-canvas").evaluate((el) => el.className)
@@ -170,7 +169,7 @@ try {
 
   await page.setViewportSize({ width: 1024, height: 768 })
   await page.waitForTimeout(350)
-  await go("工作台")
+  await go("运行总览")
   await page.locator(".assistant-fab").click()
   await page.waitForTimeout(250)
   const smallBox = await page.locator(".assistant-panel").boundingBox()

@@ -109,8 +109,11 @@
   .console-main .panel:not(.flow-panel) h3 { font-size: 14px; }
   /* 能流标签按百分比定位，窄高比视口下会略超出 canvas 下沿；允许在面板内溢出显示，避免被裁掉。 */
   .console-main .flow-canvas { overflow: visible; }
-  /* 旧"一屏复刻"规则在桌面把设备状态与最近变化整块隐藏；作为操作台这两块必须有。 */
+  /* 旧"一屏复刻"规则在桌面把设备状态与最近变化整块隐藏；作为操作台这两块必须有。
+     恢复后舞台改为可滚动，能流给固定高度，避免被下方内容挤扁。 */
   .console-main .content-grid { display: grid; }
+  .console-main .console-stage { overflow-y: auto; overflow-x: hidden; }
+  .console-main .flow-panel { flex: 0 0 auto; height: clamp(300px, 42vh, 620px); }
 
   /* 窄屏：主导航可横向滑动，不撑破外壳；触摸目标保持 40px。 */
   @media (max-width: 767px) {

@@ -79,7 +79,7 @@ export function p0Steps({ page, snapshot, targetValue, waitTarget, addNode, evid
   }
 
   async function resources() {
-    await go("工作台")
+    await go("运行总览")
     let drawer = await openManager("风机")
     await drawer.getByLabel("名称", { exact: true }).fill("风机 P0")
     await drawer.getByRole("button", { name: "保存修改" }).click()
@@ -169,7 +169,7 @@ export function p0Steps({ page, snapshot, targetValue, waitTarget, addNode, evid
     await addPoint("Modbus 可写", 0)
     await waitHealthy("Modbus 可写")
 
-    await go("工作台")
+    await go("运行总览")
     const writeLine = page.locator(".device-line").filter({ hasText: "Modbus 可写" })
     await writeLine.waitFor()
     await writeLine.getByRole("spinbutton").fill("0")

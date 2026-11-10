@@ -69,7 +69,7 @@ async function addNode(type, name, value, parent) {
   await page.waitForTimeout(150)
 }
 
-const navGroups = { "工作台": "总览", "决策表": "调度", "通道": "设备", "部署与验收": "配置" }
+const navGroups = { "运行总览": "运行", "决策表": "EMS 业务", "通道": "接入建模", "部署与验收": "系统运维" }
 async function go(label) {
   await page.locator(".console-topnav .topnav-trigger").filter({ hasText: navGroups[label] }).click()
   await page.locator(".topnav-dropdown").getByRole("menuitem", { name: label, exact: true }).click()
@@ -170,7 +170,7 @@ try {
     throw new Error("Published rule did not write both ordered outputs")
   }
   await page.screenshot({ path: path.join(evidence, "easyems-decision-table.png"), fullPage: true })
-  await go("工作台")
+  await go("运行总览")
   await page.locator(".device-list .device-name strong").filter({ hasText: "风机" }).waitFor()
   await page.screenshot({ path: path.join(evidence, "easyems-workbench.png"), fullPage: true })
   const fanLine = page.locator(".device-line").filter({ has: page.locator(".device-name strong").filter({ hasText: "风机" }) })
