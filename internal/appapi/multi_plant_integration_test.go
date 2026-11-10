@@ -23,8 +23,8 @@ import (
 func TestMultiPlantIndependentPCC(t *testing.T) {
 	dataDir := filepath.Join(t.TempDir(), "data")
 	options := server.Options{
-		ID: "easyems-multi-pcc", DataDir: dataDir, HTTPPort: "9740",
-		NatsPort: 9741, NatsServer: "nats://127.0.0.1:9741", AuthToken: data.NewID(),
+		ID: "easyems-multi-pcc", DataDir: dataDir, HTTPPort: "9750",
+		NatsPort: 9751, NatsServer: "nats://127.0.0.1:9751", AuthToken: data.NewID(),
 		DeviceAuth: server.DeviceAuthRequired, CustomUIFS: fstest.MapFS{"index.html": {Data: []byte("easyems")}},
 		AppOnly: true, NatsLoopback: true, ProvisioningDisable: true,
 		AppHandlerFactory: func(nc *nats.Conn, users api.UserAuthority) http.Handler {

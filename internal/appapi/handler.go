@@ -396,8 +396,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.createEnergyDevice(w, r, identity, parts[1])
 	case len(parts) == 3 && parts[0] == "energy-units" && parts[2] == "capability-inputs" && (r.Method == http.MethodGet || r.Method == http.MethodPut):
 		h.capabilityInputs(w, r, identity, parts[1])
+	case len(parts) == 3 && parts[0] == "energy-units" && parts[2] == "dispatch-records" && r.Method == http.MethodGet:
+		h.dispatchRecords(w, identity, parts[1])
 	case path == "resource-groups" && r.Method == http.MethodPost:
 		h.createResourceGroup(w, r, identity)
+	case path == "resource-groups" && r.Method == http.MethodGet:
+		h.listResourceGroups(w, identity)
 	case len(parts) == 3 && parts[0] == "resource-groups" && parts[2] == "dispatch" && r.Method == http.MethodPost:
 		h.dispatchResourceGroup(w, r, identity, parts[1])
 	case path == "plants" && r.Method == http.MethodGet:

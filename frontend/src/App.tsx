@@ -18,6 +18,8 @@ import CommunicationView from "./CommunicationView"
 import ModbusTools from "./ModbusTools"
 import DeviceLedgerView from "./DeviceLedgerView"
 import EnergyUnitsView from "./EnergyUnitsView"
+import ResourceGroupsView from "./ResourceGroupsView"
+import DispatchTraceView from "./DispatchTraceView"
 import UnitWiringView from "./UnitWiringView"
 import EnergyUnitsStatus from "./EnergyUnitsStatus"
 import ConfirmDialog from "./ConfirmDialog"
@@ -52,7 +54,7 @@ import {
 
 const emptyDocument: Document = { table: { rows: [] }, bindings: { points: {}, actions: {} } }
 const roleNames: Record<string, string> = { admin: "管理员", implementer: "实施", operator: "操作员", viewer: "查看者" }
-type Page = "devices" | "screen" | "ledger" | "points" | "channels" | "aggregate" | "deploy" | "allocators" | "energyUnits" | "unitWiring" | "alarms" | "history" | "rules" | "users" | "audit" | "delivery"
+type Page = "devices" | "screen" | "dispatchTrace" | "ledger" | "points" | "channels" | "aggregate" | "deploy" | "allocators" | "energyUnits" | "unitWiring" | "resourceGroups" | "alarms" | "history" | "rules" | "users" | "audit" | "delivery"
 type DisplaySettings = { background: number; glass: number }
 const defaultDisplay: DisplaySettings = { background: 78, glass: 62 }
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
@@ -445,6 +447,8 @@ export default function App() {
     deploy: { title: "部署与验收", subtitle: "扫描、点表、运行状态与验收报告" },
     allocators: { title: "功率分配器", subtitle: "一个总目标，按每台 PCS 当前能力分配" },
     unitWiring: { title: "能源设备接线", subtitle: "为能源设备挂 PCS 并映射功率设定点位（点位只在此层出现）" },
+    resourceGroups: { title: "资源集群", subtitle: "一组能源设备共享馈线或功率上限，分配先受组上限约束" },
+    dispatchTrace: { title: "调度追溯", subtitle: "每次调度的请求、能力、分配与设备设定，按 dispatchID 复盘" },
     alarms: { title: "报警与事件", subtitle: "该处理的排在前面" },
     history: { title: "历史与追溯", subtitle: "趋势、历史与统一时间轴" },
     query: { title: "设备数据查询", subtitle: "按站点查概览、实时值、告警、趋势与报表" },
@@ -460,16 +464,16 @@ export default function App() {
   }
   const stationName = labelForRoot(view.roots[0])
   const tabs = [
-    { key: "run", label: "运行", icon: "home" as IconName, pages: ["devices", "screen", "alarms", "history"] },
-    { key: "ems", label: "EMS 业务", icon: "sliders" as IconName, pages: ["energyUnits", "allocators", "rules"] },
+    { key: "run", label: "运行", icon: "home" as IconName, pages: ["devices", "screen", "alarms", "history", "dispatchTrace"] },
+    { key: "ems", label: "EMS 业务", icon: "sliders" as IconName, pages: ["energyUnits", "resourceGroups", "allocators", "rules"] },
     { key: "build", label: "接入建模", icon: "devices" as IconName, pages: ["ledger", "unitWiring", "channels", "points", "aggregate"] },
     { key: "ops", label: "系统运维", icon: "gear" as IconName, pages: ["deploy", "users", "audit"] },
   ]
   const activeTab = tabs.find((tab) => tab.pages.includes(page))?.key
   const directory: { key: Page; label: string; adminOnly?: boolean; configOnly?: boolean }[] = [
     { key: "devices", label: "运行总览" }, { key: "screen", label: "运行画面" },
-    { key: "alarms", label: "报警与事件" }, { key: "history", label: "历史与追溯" },
-    { key: "energyUnits", label: "能源设备", configOnly: true }, { key: "allocators", label: "功率分配器", configOnly: true },
+    { key: "alarms", label: "报警与事件" }, { key: "history", label: "历史与追溯" }, { key: "dispatchTrace", label: "调度追溯" },
+    { key: "energyUnits", label: "能源设备", configOnly: true }, { key: "resourceGroups", label: "资源集群", configOnly: true }, { key: "allocators", label: "功率分配器", configOnly: true },
     { key: "rules", label: "决策表" },
     { key: "ledger", label: "设备台账" }, { key: "unitWiring", label: "能源设备接线", configOnly: true }, { key: "channels", label: "通道" }, { key: "points", label: "点位表" }, { key: "aggregate", label: "虚拟聚合" },
     { key: "deploy", label: "部署与验收", configOnly: true },
@@ -598,6 +602,8 @@ export default function App() {
       />}
 
       {page === "energyUnits" && canConfigure && <EnergyUnitsView token={token} nodes={view.nodes} onError={setError} />}
+      {page === "resourceGroups" && canConfigure && <ResourceGroupsView token={token} onError={setError} />}
+      {page === "dispatchTrace" && <DispatchTraceView token={token} onError={setError} />}
       {page === "unitWiring" && canConfigure && <UnitWiringView token={token} nodes={view.nodes} onError={setError} />}
 
       {page === "alarms" && <AlarmsView token={token} rootID={view.roots[0]} nodes={view.nodes} canOperate={canOperate} canConfigure={canConfigure} onError={setError} openHistory={(id) => { setHistoryPoint(id); setPage("history") }} />}

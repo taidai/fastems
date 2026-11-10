@@ -2,6 +2,7 @@ package appapi
 
 import (
 	"encoding/json"
+	"net/http"
 
 	"github.com/nats-io/nats.go"
 	siotclient "github.com/simpleiot/simpleiot/client"
@@ -57,4 +58,18 @@ func GetDispatchRecord(nc *nats.Conn, energyUnitID, dispatchID string) (decision
 		}
 	}
 	return decision.DispatchRecord{}, false
+}
+
+// dispatchRecords 列出某个能源设备的调度追溯记录（最新在前）。
+func (h *Handler) dispatchRecords(w http.ResponseWriter, identity Identity, energyUnitID string) {
+	nodes, err := siotclient.GetNodes(h.nc, "all", energyUnitID, "", false)
+	if err != nil || len(nodes) == 0 {
+		writeError(w, http.StatusNotFound, "energy_unit_not_found")
+		return
+	}
+	records := listDispatchRecords(h.nc, energyUnitID)
+	for left, right := 0, len(records)-1; left < right; left, right = left+1, right-1 {
+		records[left], records[right] = records[right], records[left]
+	}
+	writeJSON(w, map[string]any{"records": records})
 }

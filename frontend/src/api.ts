@@ -435,6 +435,44 @@ export async function saveCapabilityInputs(token: string, energyUnitId: string, 
   return request<{ saved: boolean }>(token, `/energy-units/${energyUnitId}/capability-inputs`, "PUT", inputs)
 }
 
+export type ResourceGroup = { id: string; description: string; shared_limit_kw: number; members: string[] }
+
+export async function fetchResourceGroups(token: string) {
+  return request<{ groups: ResourceGroup[] }>(token, `/resource-groups`)
+}
+
+export async function createResourceGroup(token: string, input: { description: string; shared_limit_kw: number; members: string[] }) {
+  return request<{ id: string }>(token, `/resource-groups`, "POST", input)
+}
+
+export type GroupDispatchResult = {
+  allocations: { energy_unit_id: string; setpoint_kw: number; excluded: boolean; reason?: string }[]
+  delivered_kw: number
+  shortfall_kw: number
+  limited_by?: string
+}
+
+export async function dispatchResourceGroup(token: string, groupId: string, requestKW: number) {
+  return request<GroupDispatchResult>(token, `/resource-groups/${groupId}/dispatch`, "POST", { request_kw: requestKW })
+}
+
+export type DispatchRecord = {
+  dispatch_id: string
+  energy_unit_id: string
+  at: string
+  cabinet_state: string
+  rule_id: string
+  request_kw: number
+  delivered_kw: number
+  shortfall_kw: number
+  capability: Record<string, Record<string, number>>
+  dispatches: { device_id: string; setpoint_kw: number; excluded: boolean; reason?: string }[]
+}
+
+export async function fetchDispatchRecords(token: string, energyUnitId: string) {
+  return request<{ records: DispatchRecord[] }>(token, `/energy-units/${energyUnitId}/dispatch-records`)
+}
+
 export type AllocShare = {
   member_id: string
   capacity: number
