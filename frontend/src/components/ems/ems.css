@@ -89,4 +89,43 @@
   @media (prefers-reduced-motion: reduce) {
     .ems-card, .ems-overlay, .ems-segment { transition: none; }
   }
+
+  /* 过渡兼容层：仅作用于尚未完成组件迁移的页面外壳（部署、通讯配置弹层），
+     让它们与 EMS 卡片/按钮视觉一致；页面迁移完成后删除对应作用域。 */
+  .deploy-page, .comm-modal, .assistant-panel {
+    color: var(--color-ems-ink);
+    font-size: 13px;
+  }
+  .deploy-page .panel,
+  .comm-modal .panel {
+    border: 1px solid var(--color-ems-line);
+    border-radius: 16px;
+    background: rgb(255 255 255 / 86%);
+    box-shadow: 0 10px 30px rgb(31 46 58 / 8%);
+    backdrop-filter: blur(20px) saturate(1.08);
+  }
+  .deploy-page .panel h2, .comm-modal .panel h2 { font-size: 17px; letter-spacing: 0; }
+  .deploy-page .panel h3, .comm-modal .panel h3 { font-size: 14px; }
+  .deploy-page .primary-button,
+  .deploy-page .secondary-button,
+  .comm-modal .primary-button,
+  .comm-modal .secondary-button {
+    min-height: 38px; padding: 7px 14px; border-radius: 10px; font-size: 13px; font-weight: 550;
+  }
+  .deploy-page .primary-button, .comm-modal .primary-button { background: var(--color-ems-accent); border-color: var(--color-ems-accent); color: #fff; }
+  .deploy-page .secondary-button, .comm-modal .secondary-button {
+    border: 1px solid var(--color-ems-line); background: rgb(255 255 255 / 82%); color: var(--color-ems-ink);
+  }
+  .deploy-page select, .deploy-page input,
+  .comm-modal select, .comm-modal input {
+    min-height: 38px; border: 1px solid var(--color-ems-line); border-radius: 10px; background: #fff; font-size: 13px;
+  }
+  .deploy-page .section-kicker, .comm-modal .section-kicker { color: var(--color-ems-accent); letter-spacing: 0.08em; }
+  .deploy-page .deploy-card-head { align-items: flex-start; gap: 12px; }
+  .deploy-page .deploy-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  @media (max-width: 767px) {
+    .deploy-page .deploy-card-head { flex-direction: column; align-items: stretch; }
+    .deploy-page .deploy-actions > * { flex: 1 1 auto; }
+    .deploy-page .scan-form { grid-template-columns: 1fr; }
+  }
 }

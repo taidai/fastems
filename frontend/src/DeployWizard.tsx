@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { createPortal } from "react-dom"
+import { EmsButton, EmsOverlay, InlineNotice } from "./components/ems"
 import { ApiError, request } from "./api"
 import type { StateValue, UnitModel, UnitModelConfig } from "./deviceTypes"
 
@@ -218,22 +218,13 @@ export default function DeployWizard({ token, channels, onClose }: {
     return !value || value.quality !== "good"
   }).length
 
-  return createPortal(<>
-    <div className="comm-modal-backdrop" onClick={onClose} />
-    <section className="comm-modal deploy-wizard" role="dialog" aria-label="接入向导">
-      <div className="comm-modal-head">
-        <div>
-          <span className="section-kicker">引导式接入 · 每步复用现有接口</span>
-          <h2>接入向导</h2>
-        </div>
-        <button className="icon-button" aria-label="关闭向导" onClick={onClose}>×</button>
-      </div>
+  return <EmsOverlay open title="接入向导" busy={busy} onClose={onClose}>
       <ol className="wizard-steps">
         {stepTitles.map((title, index) => <li key={title} className={done || step > index + 1 ? "done" : step === index + 1 ? "active" : ""}>
           <span>{index + 1}</span>{title}
         </li>)}
       </ol>
-      {error && <div className="inline-error" role="alert">{error}</div>}
+      {error && <InlineNotice tone="danger">{error}</InlineNotice>}
 
       {!done && step === 1 && <div className="wizard-body">
         <p className="comm-modal-note">选择要接入的通道和站号。通道运行中无法扫描；已在轮询的设备直接从列表选择。</p>
@@ -344,15 +335,14 @@ export default function DeployWizard({ token, channels, onClose }: {
         <p className="inline-note">后续可在设备台账打开该设备复核，或在本页运行验收生成报告。模拟器或当前实例的检查不替代真机签收。</p>
       </div>}
 
-      <div className="comm-modal-actions">
-        {!done && step > 1 && <button className="secondary-button" disabled={busy} onClick={() => setStep(step - 1)}>上一步</button>}
-        {!done && step === 1 && <button className="primary-button" disabled={busy || !channelID} onClick={() => void loadModel()}>{busy ? "读取中…" : "下一步"}</button>}
-        {!done && step === 2 && <button className="primary-button" disabled={busy || !profileID} onClick={() => void saveModel(3)}>{busy ? "保存中…" : "保存绑定，下一步"}</button>}
-        {!done && step === 3 && <button className="primary-button" disabled={busy} onClick={() => void saveModel(4)}>{busy ? "保存中…" : "保存映射，下一步"}</button>}
-        {!done && step === 4 && <button className="primary-button" disabled={busy} onClick={() => setStep(5)}>核对完成，下一步</button>}
-        {!done && step === 5 && <button className="primary-button" disabled={busy} onClick={() => void saveModel(5, true)}>{busy ? "保存中…" : "保存验证记录"}</button>}
-        {done && <button className="primary-button" onClick={onClose}>完成</button>}
+      <div className="flex flex-wrap justify-end gap-2 border-t border-ems-line pt-4">
+        {!done && step > 1 && <EmsButton variant="secondary" disabled={busy} onClick={() => setStep(step - 1)}>上一步</EmsButton>}
+        {!done && step === 1 && <EmsButton busy={busy} busyLabel="读取中…" disabled={!channelID} onClick={() => void loadModel()}>下一步</EmsButton>}
+        {!done && step === 2 && <EmsButton busy={busy} busyLabel="保存中…" disabled={!profileID} onClick={() => void saveModel(3)}>保存绑定，下一步</EmsButton>}
+        {!done && step === 3 && <EmsButton busy={busy} busyLabel="保存中…" onClick={() => void saveModel(4)}>保存映射，下一步</EmsButton>}
+        {!done && step === 4 && <EmsButton disabled={busy} onClick={() => setStep(5)}>核对完成，下一步</EmsButton>}
+        {!done && step === 5 && <EmsButton busy={busy} busyLabel="保存中…" onClick={() => void saveModel(5, true)}>保存验证记录</EmsButton>}
+        {done && <EmsButton onClick={onClose}>完成</EmsButton>}
       </div>
-    </section>
-  </>, document.body)
+  </EmsOverlay>
 }

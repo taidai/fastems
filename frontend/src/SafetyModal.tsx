@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { createPortal } from "react-dom"
+import { EmsButton, EmsInput, EmsOverlay, EmsSelect, EmsSelectOption, InlineNotice } from "./components/ems"
 import { nameOf, Node, point, request } from "./api"
 
 type Kind = "number" | "bool" | "enum"
@@ -104,62 +104,62 @@ export default function SafetyModal({ token, node, nodes, onClose, onSaved }: {
     }
   }
 
-  return createPortal(<>
-    <div className="safety-backdrop" onClick={onClose} />
-    <section className="safety-modal" role="dialog" aria-label="安全约束">
-      <div className="safety-head"><div><span className="section-kicker">普通规则输出统一拦截</span><h2>{nameOf(node)} 安全约束</h2></div><button className="icon-button" aria-label="关闭安全约束" onClick={onClose}>×</button></div>
-      <p className="safety-intro">配置后，规则请求先经过这里的范围、充放电上限和允许条件；条件不满足会阻止下发，超出范围会夹到安全值，原因写入最近一次求值。</p>
+  return <EmsOverlay open variant="drawer" title={`${nameOf(node)} 安全约束`} busy={busy} onClose={onClose}
+    actions={<>
+      <EmsButton variant="secondary" disabled={busy} onClick={onClose}>取消</EmsButton>
+      <EmsButton busy={busy} busyLabel="保存中…" onClick={() => void save()}>保存安全约束</EmsButton>
+    </>}>
+    <div className="grid gap-4">
+      <InlineNotice tone="info">配置后，规则请求先经过这里的范围、充放电上限和允许条件；条件不满足会阻止下发，超出范围会夹到安全值，原因写入最近一次求值。</InlineNotice>
 
-      <div className="safety-section">
-        <label className="safety-toggle"><input type="checkbox" checked={rangeOn} onChange={(event) => setRangeOn(event.target.checked)} /> 数值范围</label>
-        {rangeOn && <div className="safety-row"><label>最小值<input type="number" step="any" value={min} onChange={(event) => setMin(event.target.value)} /></label><label>最大值<input type="number" step="any" value={max} onChange={(event) => setMax(event.target.value)} /></label></div>}
+      <div className="grid gap-3 rounded-xl border border-ems-line p-3">
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-ems-accent" checked={rangeOn} onChange={(event) => setRangeOn(event.target.checked)} /> 数值范围</label>
+        {rangeOn && <div className="grid gap-3 sm:grid-cols-2"><EmsInput label="最小值" type="number" value={min} onIonInput={(event) => setMin(event.detail.value || "")} /><EmsInput label="最大值" type="number" value={max} onIonInput={(event) => setMax(event.detail.value || "")} /></div>}
       </div>
 
-      <div className="safety-section">
-        <label className="safety-toggle"><input type="checkbox" checked={dischargeOn} onChange={(event) => setDischargeOn(event.target.checked)} /> 放电功率上限</label>
-        {dischargeOn && <div className="safety-row"><label>上限（正值）<input type="number" min="0" step="any" value={discharge} onChange={(event) => setDischarge(event.target.value)} /></label></div>}
+      <div className="grid gap-3 rounded-xl border border-ems-line p-3">
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-ems-accent" checked={dischargeOn} onChange={(event) => setDischargeOn(event.target.checked)} /> 放电功率上限</label>
+        {dischargeOn && <EmsInput label="上限（正值）" type="number" value={discharge} onIonInput={(event) => setDischarge(event.detail.value || "")} />}
       </div>
 
-      <div className="safety-section">
-        <label className="safety-toggle"><input type="checkbox" checked={chargeOn} onChange={(event) => setChargeOn(event.target.checked)} /> 充电功率上限</label>
-        {chargeOn && <div className="safety-row"><label>上限（正值，内部按负功率处理）<input type="number" min="0" step="any" value={charge} onChange={(event) => setCharge(event.target.value)} /></label></div>}
+      <div className="grid gap-3 rounded-xl border border-ems-line p-3">
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-ems-accent" checked={chargeOn} onChange={(event) => setChargeOn(event.target.checked)} /> 充电功率上限</label>
+        {chargeOn && <EmsInput label="上限（正值，内部按负功率处理）" type="number" value={charge} onIonInput={(event) => setCharge(event.detail.value || "")} />}
       </div>
 
-      <div className="safety-section">
-        <label className="safety-toggle"><input type="checkbox" checked={rampOn} onChange={(event) => setRampOn(event.target.checked)} /> 爬坡限制</label>
-        {rampOn && <div className="safety-row"><label>每秒最大变化（单位/秒）<input type="number" min="0" step="any" value={ramp} onChange={(event) => setRamp(event.target.value)} /></label></div>}
-        <small>按每秒最多变化该值逐步接近目标；仅对数值输出生效，0 或未启用表示直接下发。</small>
+      <div className="grid gap-3 rounded-xl border border-ems-line p-3">
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-ems-accent" checked={rampOn} onChange={(event) => setRampOn(event.target.checked)} /> 爬坡限制</label>
+        {rampOn && <EmsInput label="每秒最大变化（单位/秒）" type="number" value={ramp} onIonInput={(event) => setRamp(event.detail.value || "")} hint="按每秒最多变化该值逐步接近目标；仅对数值输出生效，0 或未启用表示直接下发。" />}
       </div>
 
-      <div className="safety-section">
-        <div className="safety-conditions-head"><strong>允许条件</strong><button className="secondary-button" disabled={!points.length} onClick={addCondition}>+ 添加条件</button></div>
-        <small>例如 SOC ≥ 10、温度 ≤ 45、PCS 状态 = 运行、BMS 允许功率 &gt; 0。点位无值或过期即视为不满足。</small>
+      <div className="grid gap-3 rounded-xl border border-ems-line p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-sm">允许条件</strong><EmsButton variant="secondary" size="small" disabled={!points.length} onClick={addCondition}>+ 添加条件</EmsButton></div>
+        <p className="m-0 text-xs text-ems-muted">例如 SOC ≥ 10、温度 ≤ 45、PCS 状态 = 运行、BMS 允许功率 &gt; 0。点位无值或过期即视为不满足。</p>
         {conditions.map((condition, index) => {
           const kind = condition.kind || "number"
-          return <div className="safety-condition" key={index}>
-            <select aria-label="安全条件点位" value={condition.point_id} onChange={(event) => updateCondition(index, { point_id: event.target.value })}>
-              {points.map((item) => <option key={item.id} value={item.id}>{nameOf(item)}</option>)}
-            </select>
-            <select aria-label="安全条件类型" value={kind} onChange={(event) => {
-              const next = event.target.value as Kind
+          return <div className="flex flex-wrap items-end gap-2" key={index}>
+            <EmsSelect label="点位" aria-label="安全条件点位" value={condition.point_id} onIonChange={(event) => updateCondition(index, { point_id: event.detail.value })}>
+              {points.map((item) => <EmsSelectOption key={item.id} value={item.id}>{nameOf(item)}</EmsSelectOption>)}
+            </EmsSelect>
+            <EmsSelect label="类型" aria-label="安全条件类型" value={kind} onIonChange={(event) => {
+              const next = event.detail.value as Kind
               updateCondition(index, { kind: next, operator: next === "number" ? condition.operator : "eq", value: next === "bool" ? 0 : condition.value, text: next === "enum" ? (condition.text || "") : "" })
-            }}><option value="number">数值</option><option value="bool">开关</option><option value="enum">枚举</option></select>
-            <select aria-label="安全条件比较" value={condition.operator} onChange={(event) => updateCondition(index, { operator: event.target.value })}>
-              {operatorsFor(kind).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
+            }}><EmsSelectOption value="number">数值</EmsSelectOption><EmsSelectOption value="bool">开关</EmsSelectOption><EmsSelectOption value="enum">枚举</EmsSelectOption></EmsSelect>
+            <EmsSelect label="比较" aria-label="安全条件比较" value={condition.operator} onIonChange={(event) => updateCondition(index, { operator: event.detail.value })}>
+              {operatorsFor(kind).map(([value, label]) => <EmsSelectOption key={value} value={value}>{label}</EmsSelectOption>)}
+            </EmsSelect>
             {kind === "bool"
-              ? <select aria-label="安全条件值" value={condition.value ? 1 : 0} onChange={(event) => updateCondition(index, { value: Number(event.target.value) })}><option value={1}>是</option><option value={0}>否</option></select>
+              ? <EmsSelect label="值" aria-label="安全条件值" value={String(condition.value ? 1 : 0)} onIonChange={(event) => updateCondition(index, { value: Number(event.detail.value) })}><EmsSelectOption value="1">是</EmsSelectOption><EmsSelectOption value="0">否</EmsSelectOption></EmsSelect>
               : kind === "enum"
-                ? <input aria-label="安全枚举值" value={condition.text || ""} placeholder="如 running" onChange={(event) => updateCondition(index, { text: event.target.value })} />
-                : <input aria-label="安全条件值" type="number" step="any" value={condition.value} onChange={(event) => updateCondition(index, { value: Number(event.target.value) })} />}
-            <button className="icon-button" aria-label="删除安全条件" onClick={() => setConditions((current) => current.filter((_, i) => i !== index))}>×</button>
+                ? <EmsInput label="枚举值" aria-label="安全枚举值" value={condition.text || ""} placeholder="如 running" onIonInput={(event) => updateCondition(index, { text: event.detail.value || "" })} />
+                : <EmsInput label="值" aria-label="安全条件值" type="number" value={String(condition.value)} onIonInput={(event) => updateCondition(index, { value: Number(event.detail.value) })} />}
+            <EmsButton variant="quiet" aria-label="删除安全条件" onClick={() => setConditions((current) => current.filter((_, i) => i !== index))}>×</EmsButton>
           </div>
         })}
-        {conditions.length === 0 && <div className="safety-empty">未配置允许条件；只应用范围/功率上限。</div>}
+        {conditions.length === 0 && <p className="m-0 text-xs text-ems-muted">未配置允许条件；只应用范围/功率上限。</p>}
       </div>
 
-      {error && <div className="inline-error">{error}</div>}
-      <div className="safety-actions"><button className="secondary-button" onClick={onClose}>取消</button><button className="primary-button" disabled={busy} onClick={() => void save()}>{busy ? "保存中…" : "保存安全约束"}</button></div>
-    </section>
-  </>, document.body)
+      {error && <InlineNotice tone="danger">{error}</InlineNotice>}
+    </div>
+  </EmsOverlay>
 }

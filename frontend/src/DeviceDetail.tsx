@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { createPortal } from "react-dom"
+import { EmsButton, EmsOverlay, InlineNotice } from "./components/ems"
 import { ackAlarm, closeAlarm, downloadCSV, EmsAlarm, HistoryResponse, request } from "./api"
 import AckDialog from "./AckDialog"
 import type { CommandOutcome, LedgerDevice, StateValue, UnitCommand, UnitModel } from "./deviceTypes"
@@ -465,14 +466,15 @@ export default function DeviceDetail({ token, device, canConfigure, canOperate, 
       }}
     />}
 
-    {pending && <div className="device-confirm-backdrop" onClick={() => setPending(null)}><section className="device-confirm" role="dialog" aria-label="执行确认" onClick={(event) => event.stopPropagation()}>
-      <span className="section-kicker">受控操作</span>
-      <h3>确认执行「{pending.command.name}」</h3>
-      <p>{displayName} · {device.channel_name} / 站号 {device.server_id}</p>
-      <div className="device-target-list">{commandTargets(pending.command).map((target) => <div key={target.pointID}><strong>{target.name}</strong><span>写入 {formatNumber(target.value)}</span><small>当前 {formatValue(values[target.pointID])}</small></div>)}</div>
-      <p className="device-warning">命令会直接写入设备并等待回读；失败不会自动重试，结果未知时需要现场核对。</p>
-      <div className="device-confirm-actions"><button className="secondary-button" onClick={() => setPending(null)}>取消</button><button className="primary-button" disabled={busy} onClick={() => void execute(pending.command, pending.params)}>{busy ? "执行中…" : "确认执行"}</button></div>
-    </section></div>}
+    {pending && <EmsOverlay open title={`确认执行「${pending.command.name}」`} busy={busy} onClose={() => setPending(null)}
+      actions={<>
+        <EmsButton variant="secondary" disabled={busy} onClick={() => setPending(null)}>取消</EmsButton>
+        <EmsButton busy={busy} busyLabel="执行中…" onClick={() => void execute(pending.command, pending.params)}>确认执行</EmsButton>
+      </>}>
+      <p className="m-0 text-sm">{displayName} · {device.channel_name} / 站号 {device.server_id}</p>
+      <div className="mt-3 grid gap-2">{commandTargets(pending.command).map((target) => <div key={target.pointID} className="flex items-center justify-between gap-3 rounded-lg border border-ems-line px-3 py-2 text-sm"><strong>{target.name}</strong><span>写入 {formatNumber(target.value)}</span><small className="text-ems-muted">当前 {formatValue(values[target.pointID])}</small></div>)}</div>
+      <InlineNotice tone="warning">命令会直接写入设备并等待回读；失败不会自动重试，结果未知时需要现场核对。</InlineNotice>
+    </EmsOverlay>}
   </>, document.body)
 }
 
