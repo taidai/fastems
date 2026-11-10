@@ -18,6 +18,7 @@ import CommunicationView from "./CommunicationView"
 import ModbusTools from "./ModbusTools"
 import DeviceLedgerView from "./DeviceLedgerView"
 import EnergyUnitsView from "./EnergyUnitsView"
+import UnitWiringView from "./UnitWiringView"
 import EnergyUnitsStatus from "./EnergyUnitsStatus"
 import ConfirmDialog from "./ConfirmDialog"
 import FrameDrawer from "./FrameDrawer"
@@ -51,7 +52,7 @@ import {
 
 const emptyDocument: Document = { table: { rows: [] }, bindings: { points: {}, actions: {} } }
 const roleNames: Record<string, string> = { admin: "管理员", implementer: "实施", operator: "操作员", viewer: "查看者" }
-type Page = "devices" | "screen" | "ledger" | "points" | "channels" | "aggregate" | "deploy" | "allocators" | "energyUnits" | "alarms" | "history" | "rules" | "users" | "audit" | "delivery"
+type Page = "devices" | "screen" | "ledger" | "points" | "channels" | "aggregate" | "deploy" | "allocators" | "energyUnits" | "unitWiring" | "alarms" | "history" | "rules" | "users" | "audit" | "delivery"
 type DisplaySettings = { background: number; glass: number }
 const defaultDisplay: DisplaySettings = { background: 78, glass: 62 }
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
@@ -443,6 +444,7 @@ export default function App() {
     aggregate: { title: "虚拟聚合", subtitle: "只读虚拟设备：求和、平均、最值、计数与质量传播" },
     deploy: { title: "部署与验收", subtitle: "扫描、点表、运行状态与验收报告" },
     allocators: { title: "功率分配器", subtitle: "一个总目标，按每台 PCS 当前能力分配" },
+    unitWiring: { title: "能源设备接线", subtitle: "为能源设备挂 PCS 并映射功率设定点位（点位只在此层出现）" },
     alarms: { title: "报警与事件", subtitle: "该处理的排在前面" },
     history: { title: "历史与追溯", subtitle: "趋势、历史与统一时间轴" },
     query: { title: "设备数据查询", subtitle: "按站点查概览、实时值、告警、趋势与报表" },
@@ -460,7 +462,7 @@ export default function App() {
   const tabs = [
     { key: "run", label: "运行", icon: "home" as IconName, pages: ["devices", "screen", "alarms", "history"] },
     { key: "ems", label: "EMS 业务", icon: "sliders" as IconName, pages: ["energyUnits", "allocators", "rules"] },
-    { key: "build", label: "接入建模", icon: "devices" as IconName, pages: ["ledger", "points", "channels", "aggregate"] },
+    { key: "build", label: "接入建模", icon: "devices" as IconName, pages: ["ledger", "unitWiring", "channels", "points", "aggregate"] },
     { key: "ops", label: "系统运维", icon: "gear" as IconName, pages: ["deploy", "users", "audit"] },
   ]
   const activeTab = tabs.find((tab) => tab.pages.includes(page))?.key
@@ -469,7 +471,7 @@ export default function App() {
     { key: "alarms", label: "报警与事件" }, { key: "history", label: "历史与追溯" },
     { key: "energyUnits", label: "能源设备", configOnly: true }, { key: "allocators", label: "功率分配器", configOnly: true },
     { key: "rules", label: "决策表" },
-    { key: "ledger", label: "设备台账" }, { key: "channels", label: "通道" }, { key: "points", label: "点位表" }, { key: "aggregate", label: "虚拟聚合" },
+    { key: "ledger", label: "设备台账" }, { key: "unitWiring", label: "能源设备接线", configOnly: true }, { key: "channels", label: "通道" }, { key: "points", label: "点位表" }, { key: "aggregate", label: "虚拟聚合" },
     { key: "deploy", label: "部署与验收", configOnly: true },
     { key: "users", label: "账号与权限", adminOnly: true }, { key: "audit", label: "审计日志", adminOnly: true },
   ]
@@ -596,6 +598,7 @@ export default function App() {
       />}
 
       {page === "energyUnits" && canConfigure && <EnergyUnitsView token={token} nodes={view.nodes} onError={setError} />}
+      {page === "unitWiring" && canConfigure && <UnitWiringView token={token} nodes={view.nodes} onError={setError} />}
 
       {page === "alarms" && <AlarmsView token={token} rootID={view.roots[0]} nodes={view.nodes} canOperate={canOperate} canConfigure={canConfigure} onError={setError} openHistory={(id) => { setHistoryPoint(id); setPage("history") }} />}
 
