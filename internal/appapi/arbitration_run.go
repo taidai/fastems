@@ -76,6 +76,17 @@ func (h *Handler) RunUnitArbitratedDispatch(energyUnitID string) error {
 	record.Source = best.Source
 	record.Priority = int(best.Priority)
 	record.Stage = stage
+	// 目标、下发、缺口、来源与阶段都未变化的 tick 不重复写追溯，避免
+	// 稳定运行时把有意义的时间线淹没在每秒重复记录里。
+	records := listDispatchRecords(h.nc, energyUnitID)
+	if last := len(records) - 1; last >= 0 {
+		previous := records[last]
+		if previous.RequestKW == record.RequestKW && previous.DeliveredKW == record.DeliveredKW &&
+			previous.ShortfallKW == record.ShortfallKW && previous.Source == record.Source &&
+			previous.Stage == record.Stage && previous.CabinetState == record.CabinetState {
+			return nil
+		}
+	}
 	if err := appendDispatchRecord(h.nc, energyUnitID, record); err != nil {
 		fmt.Printf("easyems: append dispatch record %s: %v\n", energyUnitID, err)
 	}

@@ -447,6 +447,7 @@ export default function App() {
     aggregate: { title: "虚拟聚合", subtitle: "只读虚拟设备：求和、平均、最值、计数与质量传播" },
     deploy: { title: "部署与验收", subtitle: "扫描、点表、运行状态与验收报告" },
     allocators: { title: "功率分配器", subtitle: "一个总目标，按每台 PCS 当前能力分配" },
+    energyUnits: { title: "能源设备", subtitle: "能力级规则、站级策略、资源集群与调度追溯" },
     unitWiring: { title: "能源设备接线", subtitle: "为能源设备挂 PCS 并映射功率设定点位（点位只在此层出现）" },
     resourceGroups: { title: "资源集群", subtitle: "一组能源设备共享馈线或功率上限，分配先受组上限约束" },
     dispatchTrace: { title: "调度追溯", subtitle: "每次调度的请求、能力、分配与设备设定，按 dispatchID 复盘" },
@@ -457,6 +458,7 @@ export default function App() {
     users: { title: "账号与权限", subtitle: "按人员分配可见与可操作范围" },
     audit: { title: "审计日志", subtitle: "登录、配置、控制与报警操作留痕" },
     delivery: { title: "交付检查", subtitle: "异常、备份与验收边界" },
+    opcua: { title: "OPC-UA", subtitle: "端点连接、NodeID 测点与在线状态" },
   }
   const currentInfo = pageInfo[page] || pageInfo.devices
   const labelForRoot = (root: string) => {

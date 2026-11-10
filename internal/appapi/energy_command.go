@@ -53,6 +53,10 @@ func (h *Handler) submitPointCommand(trace dispatchTrace, ioNodeID string, setpo
 		return true, fmt.Errorf("power point %s is not a Modbus IO with a valid station", ioNodeID)
 	}
 	deviceID := node.Parent + "/" + strconv.Itoa(server)
+	// 没有真实运行通道时不提交命令，避免制造失败告警；由调用方走设定值路径。
+	if h.ems == nil || h.ems.Service == nil || !h.ems.Service.HasDevice(deviceID) {
+		return false, nil
+	}
 	outcome, err := manager.Submit(time.Now(), command.Request{
 		ID: trace.ID + "-" + ioNodeID, DeviceID: deviceID, Point: ioNodeID,
 		Value: signal.Num(setpoint), NoReadback: true,

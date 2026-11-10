@@ -86,6 +86,22 @@ func (s *Service) RegisterDispatcher(deviceID string, dispatcher command.Dispatc
 	s.extra[deviceID] = dispatcher
 }
 
+// HasDevice reports whether a runtime device can be written by a channel or a
+// registered protocol adapter.
+func (s *Service) HasDevice(deviceID string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.extra[deviceID] != nil {
+		return true
+	}
+	for _, ch := range s.channels {
+		if _, ok := ch.Device(deviceID); ok {
+			return true
+		}
+	}
+	return false
+}
+
 // UnregisterDispatcher removes a protocol adapter.
 func (s *Service) UnregisterDispatcher(deviceID string) {
 	s.mu.Lock()
