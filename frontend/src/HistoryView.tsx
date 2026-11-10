@@ -312,7 +312,7 @@ export default function HistoryView({ token, points, initialPoint, onError, isAd
   }
 
   return <section className="history-page min-w-0">
-    <EmsCard className="history-toolbar !block !p-0"><IonCardContent className="grid min-w-0 gap-4">
+    <EmsCard className="!block !p-0"><IonCardContent className="grid min-w-0 gap-4">
       <div className="flex min-w-0 flex-wrap items-end gap-3">
         <div className="w-full min-w-0 sm:w-56"><EmsSelect label="对比点位" aria-label="添加对比点位" value="" onIonChange={(event) => addPoint(event.detail.value)}>
           <EmsSelectOption value="">＋ 添加点位…</EmsSelectOption>

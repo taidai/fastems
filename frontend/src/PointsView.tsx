@@ -577,10 +577,11 @@ export default function PointsView({ token, nodes, isAdmin, canOperate, busy, ru
     ]} />
 
     <EmsCard><IonCardContent className="grid gap-4">
-      <FilterToolbar trailing={<>
+      <div className="min-w-0 [&>div>div:last-child]:basis-full lg:[&>div>div:last-child]:basis-auto [&_.ems-field:first-child]:basis-full lg:[&_.ems-field:first-child]:basis-auto">
+      <FilterToolbar trailing={<div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
         <EmsButton variant="secondary" onClick={goChannels}>通道视图</EmsButton>
         {isAdmin && <EmsButton disabled={!buses.length || busy} title={!buses.length ? "先接入 Modbus 通道" : undefined} onClick={openCreate}>+ 批量新增</EmsButton>}
-      </>}>
+      </div>}>
         <EmsInput className="min-w-[220px] flex-[2_1_240px]" label="搜索点位" aria-label="搜索点位" placeholder="搜索名称、通道、地址或单位" value={query} onIonInput={(event) => setQuery(event.detail.value || "")} />
         <EmsSelect label="通道" aria-label="过滤通道" value={busFilter} onIonChange={(event) => setBusFilter(event.detail.value)}>
           <EmsSelectOption value="">全部通道</EmsSelectOption>
@@ -614,6 +615,7 @@ export default function PointsView({ token, nodes, isAdmin, canOperate, busy, ru
           }
         }}>{matchedView ? "删视图" : "存视图"}</EmsButton>
       </FilterToolbar>
+      </div>
 
       <div className="[&_.ems-batch-bar]:flex-wrap">
         <BatchActionBar count={selected.size} trailing={<>
@@ -624,7 +626,7 @@ export default function PointsView({ token, nodes, isAdmin, canOperate, busy, ru
           {canOperate && <EmsButton size="small" disabled={!writableSelected.length || busy} title={!writableSelected.length ? "先勾选表格左侧选择框，至少选一个可写点位" : undefined} onClick={openBatchWrite}>批量下发</EmsButton>}
           {isAdmin && <EmsButton variant="danger" size="small" disabled={!selected.size || busy} onClick={batchDelete}>批量删除</EmsButton>}
         </>}>
-          <label className="flex items-center gap-2 text-xs text-ems-muted"><input className="h-4 w-4 accent-ems-accent" type="checkbox" aria-label="全选当前筛选" checked={allVisible} onChange={toggleVisible} /> 当前筛选全选</label>
+          <label className="!flex !items-center !gap-2 text-xs text-ems-muted"><input className="!h-4 !w-4 !min-h-0 !p-0 accent-ems-accent" type="checkbox" aria-label="全选当前筛选" checked={allVisible} onChange={toggleVisible} /> 当前筛选全选</label>
           <span className="text-xs text-ems-muted">筛选 {visible.length} / 全部 {rows.length}</span>
           {batchNotice && <span className="text-xs font-medium text-ems-mint">{batchNotice}</span>}
         </BatchActionBar>
@@ -634,7 +636,7 @@ export default function PointsView({ token, nodes, isAdmin, canOperate, busy, ru
         <EmsRecordList rows={visible} keyOf={(row) => row.node.id} onRowClick={showDetail}
           empty={<EmptyState title={rows.length ? "没有匹配的点位" : "还没有 Modbus 点位"} description={rows.length ? "调整筛选条件后再试。" : "到通道视图接入设备，或在部署页预检并导入点表。"} />}
           columns={[
-            { key: "select", label: "选择", className: "w-10 text-center", render: (row) => <input className="h-4 w-4 accent-ems-accent" type="checkbox" aria-label={`选择 ${row.name}`} checked={selected.has(row.node.id)} onClick={(event) => event.stopPropagation()} onChange={() => toggle(row.node.id)} /> },
+            { key: "select", label: "选择", className: "w-10 text-center", render: (row) => <input className="!h-4 !w-4 !min-h-0 !p-0 accent-ems-accent" type="checkbox" aria-label={`选择 ${row.name}`} checked={selected.has(row.node.id)} onClick={(event) => event.stopPropagation()} onChange={() => toggle(row.node.id)} /> },
             { key: "name", label: "点位名称", render: (row) => <div className="grid gap-1"><strong>{row.name}</strong><div className="flex flex-wrap gap-1">{row.readOnly && <StatusBadge dot={false}>只读</StatusBadge>}{row.disabled && <StatusBadge tone="warning" dot={false}>停用</StatusBadge>}</div></div> },
             { key: "role", label: "角色", render: (row) => <StatusBadge tone="info" dot={false}>{roleLabel(row.role)}</StatusBadge> },
             { key: "bus", label: "通道", render: (row) => <><span>{row.busName}</span><small className="block max-w-44 break-all text-ems-muted">{row.busAddress || "—"}</small></> },
@@ -651,7 +653,7 @@ export default function PointsView({ token, nodes, isAdmin, canOperate, busy, ru
           mobileCard={(row) => <div className="grid min-w-0 gap-3">
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-start gap-2">
-                <input className="mt-1 h-4 w-4 shrink-0 accent-ems-accent" type="checkbox" aria-label={`选择 ${row.name}`} checked={selected.has(row.node.id)} onClick={(event) => event.stopPropagation()} onChange={() => toggle(row.node.id)} />
+                <input className="!mt-1 !h-4 !w-4 !min-h-0 !p-0 shrink-0 accent-ems-accent" type="checkbox" aria-label={`选择 ${row.name}`} checked={selected.has(row.node.id)} onClick={(event) => event.stopPropagation()} onChange={() => toggle(row.node.id)} />
                 <div className="min-w-0"><strong className="break-words text-sm text-ems-ink">{row.name}</strong><div className="mt-1 flex flex-wrap gap-1">{row.readOnly && <StatusBadge dot={false}>只读</StatusBadge>}{row.disabled && <StatusBadge tone="warning" dot={false}>停用</StatusBadge>}</div></div>
               </div>
               <div className="shrink-0 text-right"><span className="block text-[10px] text-ems-muted">当前值</span><strong className={`text-lg tabular-nums ${qualityValueColors[row.quality]}`}>{displayValue(row)}</strong></div>
@@ -704,8 +706,8 @@ export default function PointsView({ token, nodes, isAdmin, canOperate, busy, ru
           <EmsInput label="单位" value={createUnits} onIonInput={(event) => setCreateUnits(event.detail.value || "")} />
         </div>
         <div className="flex flex-wrap items-center gap-4 text-xs text-ems-muted">
-          <label className="flex items-center gap-2"><input className="h-4 w-4 accent-ems-accent" type="checkbox" checked={createReadOnly} disabled={createType === "modbusInputRegister" || createType === "modbusDiscreteInput"} onChange={(event) => setCreateReadOnly(event.target.checked)} /> 只读</label>
-          <label className="flex items-center gap-2"><input className="h-4 w-4 accent-ems-accent" type="checkbox" checked={createDisabled} onChange={(event) => setCreateDisabled(event.target.checked)} /> 停用</label>
+          <label className="!flex !items-center !gap-2"><input className="!h-4 !w-4 !min-h-0 !p-0 accent-ems-accent" type="checkbox" checked={createReadOnly} disabled={createType === "modbusInputRegister" || createType === "modbusDiscreteInput"} onChange={(event) => setCreateReadOnly(event.target.checked)} /> 只读</label>
+          <label className="!flex !items-center !gap-2"><input className="!h-4 !w-4 !min-h-0 !p-0 accent-ems-accent" type="checkbox" checked={createDisabled} onChange={(event) => setCreateDisabled(event.target.checked)} /> 停用</label>
           <span>当前通道 {createPointsInChannel} 个点位</span>
         </div>
         <div className="grid gap-2 rounded-xl border border-ems-line bg-white/60 p-3 text-xs">
@@ -754,8 +756,8 @@ export default function PointsView({ token, nodes, isAdmin, canOperate, busy, ru
           </div>
           <EmsInput label="单位" value={draft.units} onIonInput={(event) => setDraft({ ...draft, units: event.detail.value || "" })} />
           <div className="flex flex-wrap gap-4 text-xs text-ems-muted">
-            <label className="flex items-center gap-2"><input className="h-4 w-4 accent-ems-accent" type="checkbox" checked={draft.readOnly} onChange={(event) => setDraft({ ...draft, readOnly: event.target.checked })} /> 只读</label>
-            <label className="flex items-center gap-2"><input className="h-4 w-4 accent-ems-accent" type="checkbox" checked={draft.disabled} onChange={(event) => setDraft({ ...draft, disabled: event.target.checked })} /> 停用</label>
+            <label className="!flex !items-center !gap-2"><input className="!h-4 !w-4 !min-h-0 !p-0 accent-ems-accent" type="checkbox" checked={draft.readOnly} onChange={(event) => setDraft({ ...draft, readOnly: event.target.checked })} /> 只读</label>
+            <label className="!flex !items-center !gap-2"><input className="!h-4 !w-4 !min-h-0 !p-0 accent-ems-accent" type="checkbox" checked={draft.disabled} onChange={(event) => setDraft({ ...draft, disabled: event.target.checked })} /> 停用</label>
           </div>
           <div className="flex justify-end gap-2"><EmsButton variant="secondary" onClick={() => { setEditing(false); setDraft(null) }}>取消</EmsButton><EmsButton busy={busy} onClick={saveEdit}>保存点位</EmsButton></div>
         </div> : <dl className="grid gap-3">

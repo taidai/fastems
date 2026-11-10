@@ -47,15 +47,23 @@ async function waitTarget(name, value) {
   }
   throw new Error(`Target ${name} did not become ${value}`)
 }
+async function chooseIonOption(select, label) {
+  await select.click()
+  const alert = page.locator("ion-alert")
+  await alert.waitFor()
+  await alert.locator("button").filter({ hasText: new RegExp(`^${label}$`) }).click()
+  await alert.getByRole("button", { name: /^(OK|确定)$/ }).click()
+  await alert.waitFor({ state: "detached" })
+}
 async function addNode(type, name, value, parent) {
   const existing = page.locator(".device-list .device-name strong").filter({ hasText: name })
   if (await existing.count()) return
   await page.getByRole("button", { name: "+ 添加", exact: true }).click()
   const form = page.locator(".add-node-form")
-  await form.locator("select").nth(0).selectOption(type)
-  await form.getByLabel("名称", { exact: true }).fill(name)
-  if (parent) await form.locator("select").nth(1).selectOption({ label: parent })
-  if (type === "variable") await form.getByLabel("初始值", { exact: true }).fill(String(value))
+  await chooseIonOption(form.locator("ion-select").nth(0), type === "group" ? "分组" : "测试变量")
+  await form.locator("ion-input").nth(0).locator("input").fill(name)
+  if (parent) await chooseIonOption(form.locator("ion-select").nth(1), parent)
+  if (type === "variable") await form.locator("ion-input").nth(1).locator("input").fill(String(value))
   await page.getByRole("button", { name: "添加到设备树" }).click()
   await page.locator(".device-list .device-name strong").filter({ hasText: name }).waitFor()
   await page.waitForTimeout(150)
