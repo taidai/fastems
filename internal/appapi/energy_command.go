@@ -1,0 +1,61 @@
+package appapi
+
+import (
+	"fmt"
+	"strconv"
+	"time"
+
+	siotclient "github.com/simpleiot/simpleiot/client"
+	"github.com/simpleiot/simpleiot/data"
+
+	"easyems/internal/ems/command"
+	"easyems/internal/ems/signal"
+)
+
+// 功率命令执行：Modbus 点位写入统一交给共享 command.Manager（与命名命令同一
+// 生命周期），并把请求与 dispatchID 关联。没有运行时可用的设备回读时，
+// 结果停留在 submitted，绝不冒充设备已确认。
+
+// dispatchTrace 是一次写设备的关联信息。
+type dispatchTrace struct {
+	ID     string
+	Source string
+	Actor  string
+}
+
+// commands 返回共享命令管理器；未接入运行时（纯节点测试）时返回 nil。
+func (h *Handler) commands() *command.Manager {
+	if h.ems == nil || h.ems.Service == nil {
+		return nil
+	}
+	return h.ems.Service.Commands()
+}
+
+// submitPointCommand 通过统一命令管理器写一个点位。返回 false 表示当前
+// 实例没有命令运行时，调用方应回退到 valueSet 路径。
+// 设备 ID 规则与 bridge 一致：<通道节点>/<站号>，点位 ID 就是 IO 节点 ID。
+func (h *Handler) submitPointCommand(trace dispatchTrace, ioNodeID string, setpoint float64) (bool, error) {
+	manager := h.commands()
+	if manager == nil {
+		return false, nil
+	}
+	nodes, err := siotclient.GetNodes(h.nc, "all", ioNodeID, "", false)
+	if err != nil || len(nodes) == 0 {
+		return true, fmt.Errorf("power point %s not found", ioNodeID)
+	}
+	node := nodes[0]
+	server := 0
+	if point, found := node.Points.Find(data.PointTypeID, ""); found {
+		server = int(pointFloat(point))
+	}
+	if node.Parent == "" || server < 1 || server > 247 {
+		return true, fmt.Errorf("power point %s is not a Modbus IO with a valid station", ioNodeID)
+	}
+	deviceID := node.Parent + "/" + strconv.Itoa(server)
+	_, err = manager.Submit(time.Now(), command.Request{
+		ID: trace.ID + "-" + ioNodeID, DeviceID: deviceID, Point: ioNodeID,
+		Value: signal.Num(setpoint), NoReadback: true,
+		DispatchID: trace.ID, Source: trace.Source, Stage: "submitted", Actor: trace.Actor,
+	})
+	return true, err
+}

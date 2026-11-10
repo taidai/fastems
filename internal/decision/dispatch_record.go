@@ -17,11 +17,15 @@ type DispatchRecord struct {
 	At           time.Time        `json:"at"`
 	CabinetState CabinetState     `json:"cabinet_state"`
 	RuleID       string           `json:"rule_id"`
-	RequestKW    float64          `json:"request_kw"`   // 规则请求的功率
-	Capability   CapabilityValues `json:"capability"`   // 当时能力快照
-	Dispatches   []DeviceDispatch `json:"dispatches"`   // 每台设备设定/剔除原因
-	DeliveredKW  float64          `json:"delivered_kw"` // 实际下发合计（未剔除）
-	ShortfallKW  float64          `json:"shortfall_kw"` // 请求与下发差额（能力不足）
+	Source       string           `json:"source,omitempty"` // 胜出来源（anti_reverse/demand/peak_valley/schedule/group/manual）
+	Priority     int              `json:"priority"`         // 胜出优先级（越小越硬）
+	Actor        string           `json:"actor,omitempty"`  // 人工操作者；自动调度为空
+	Stage        string           `json:"stage,omitempty"`  // submitted / valueSet_written
+	RequestKW    float64          `json:"request_kw"`       // 规则请求的功率
+	Capability   CapabilityValues `json:"capability"`       // 当时能力快照
+	Dispatches   []DeviceDispatch `json:"dispatches"`       // 每台设备设定/剔除原因
+	DeliveredKW  float64          `json:"delivered_kw"`     // 实际下发合计（未剔除）
+	ShortfallKW  float64          `json:"shortfall_kw"`     // 请求与下发差额（能力不足）
 }
 
 // NewDispatchID 生成一个调度关联 ID（复用 SimpleIoT 的 ID 生成）。

@@ -45,44 +45,48 @@ func savePlantStrategy(nc *nats.Conn, plantID string, strategy PlantStrategy) er
 	return siotclient.SendNodePoint(nc, plantID, point, true)
 }
 
-// PlantStrategyActive 按硬优先级执行站级策略：防逆流 > 需量 > 削峰填谷。
-// 返回是否已接管该电站的功率分配；接管时单柜规则本轮不执行。
-func (h *Handler) RunPlantStrategy(plantID string) (bool, error) {
-	if allocations, err := h.RunPlantAntiReverse(plantID); err != nil {
-		// 无 PCC 绑定或数据过期：继续尝试分时策略
-	} else if len(allocations) > 0 {
-		if err := h.applyAllocations(allocations); err != nil {
-			return true, err
-		}
-		return true, nil
-	}
+// PlantUnitGoals 只计算站级策略给各 EnergyUnit 的目标，不写设备。
+// 硬优先级：防逆流 > 需量 > 削峰填谷。返回按 unitID 索引的目标列表，
+// 供统一仲裁入口合并后一次性写设备。
+func (h *Handler) PlantUnitGoals(plantID string) map[string][]decision.Goal {
+	goals := map[string][]decision.Goal{}
+	now := time.Now()
 
-	if allocations, err := h.RunPlantPeakShaving(plantID); err != nil {
-		// 同上
-	} else if len(allocations) > 0 {
-		if err := h.applyAllocations(allocations); err != nil {
-			return true, err
+	if allocations, err := h.RunPlantAntiReverse(plantID); err == nil {
+		for _, allocation := range allocations {
+			if allocation.Excluded {
+				continue
+			}
+			goals[allocation.EnergyUnitID] = append(goals[allocation.EnergyUnitID],
+				decision.Goal{Priority: decision.GoalAntiReverse, RequestKW: allocation.SetpointKW, Source: "anti_reverse"})
 		}
-		return true, nil
+	}
+	if allocations, err := h.RunPlantPeakShaving(plantID); err == nil {
+		for _, allocation := range allocations {
+			if allocation.Excluded {
+				continue
+			}
+			goals[allocation.EnergyUnitID] = append(goals[allocation.EnergyUnitID],
+				decision.Goal{Priority: decision.GoalPeakShaving, RequestKW: allocation.SetpointKW, Source: "demand"})
+		}
 	}
 
 	nodes, err := siotclient.GetNodes(h.nc, "all", plantID, "", false)
 	if err != nil || len(nodes) == 0 {
-		return false, nil
+		return goals
 	}
 	strategy, ok := loadPlantStrategy(nodes[0])
 	if !ok || strategy.PeakValleyPowerKW <= 0 || len(strategy.Periods) == 0 {
-		return false, nil
+		return goals
 	}
-	now := time.Now()
 	minute := now.Hour()*60 + now.Minute()
 	request := decision.PeakValleyAction(strategy.Periods, minute, strategy.PeakValleyPowerKW)
 	if request == 0 {
-		return false, nil
+		return goals
 	}
 	units, err := siotclient.GetNodes(h.nc, plantID, "all", NodeTypeEnergyUnit, false)
 	if err != nil {
-		return false, err
+		return goals
 	}
 	members := make([]decision.EnergyMember, 0, len(units))
 	ids := make([]string, 0, len(units))
@@ -92,29 +96,36 @@ func (h *Handler) RunPlantStrategy(plantID string) (bool, error) {
 	}
 	caps, err := LoadCapabilityValues(h.nc, ids)
 	if err != nil {
-		return false, err
+		return goals
 	}
 	allocations, err := decision.AllocateEnergy(request, members, caps)
 	if err != nil {
-		return false, err
+		return goals
 	}
-	if err := h.applyAllocations(allocations); err != nil {
-		return true, err
-	}
-	return true, nil
-}
-
-// applyAllocations 把站级分配写进各能源设备的柜内设备。
-func (h *Handler) applyAllocations(allocations []decision.EnergyAllocation) error {
 	for _, allocation := range allocations {
 		if allocation.Excluded {
 			continue
 		}
-		if _, err := h.writeEnergyUnitPower(allocation.EnergyUnitID, allocation.SetpointKW); err != nil {
-			return err
+		goals[allocation.EnergyUnitID] = append(goals[allocation.EnergyUnitID],
+			decision.Goal{Priority: decision.GoalPrice, RequestKW: allocation.SetpointKW, Source: "peak_valley"})
+	}
+	return goals
+}
+
+// RunPlantStrategy 让站内每个受控单元走一次统一仲裁入口（人工触发/测试用）。
+// 它不再直接写设备；实际写入由 RunUnitArbitratedDispatch 统一完成。
+func (h *Handler) RunPlantStrategy(plantID string) (bool, error) {
+	plantGoals := h.PlantUnitGoals(plantID)
+	if len(plantGoals) == 0 {
+		return false, nil
+	}
+	var firstErr error
+	for unitID := range plantGoals {
+		if err := h.RunUnitArbitratedDispatch(unitID); err != nil && firstErr == nil {
+			firstErr = err
 		}
 	}
-	return nil
+	return true, firstErr
 }
 
 // plantStrategy 读写电站分时策略（削峰填谷）。

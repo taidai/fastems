@@ -13,6 +13,7 @@ export default function ResourceGroupsView({ token, onError }: { token: string; 
   const [members, setMembers] = useState<string[]>([])
   const [request, setRequest] = useState(0)
   const [busy, setBusy] = useState(false)
+  const [confirming, setConfirming] = useState<string | null>(null)
   const [result, setResult] = useState<{ groupId: string; data: GroupDispatchResult } | null>(null)
 
   function refresh() {
@@ -80,11 +81,15 @@ export default function ResourceGroupsView({ token, onError }: { token: string; 
         <div className="flex flex-wrap gap-2 text-xs text-ems-muted">{group.members.map((id) => <span key={id} className="rounded-md bg-black/5 px-2 py-1">{unitName(id)}</span>)}</div>
         <div className="flex flex-wrap items-end gap-3 border-t border-ems-line pt-3">
           <EmsInput label="请求功率（kW，负=充电）" aria-label="请求功率" type="number" value={request} onIonInput={(event) => setRequest(Number(event.detail.value))} />
-          <EmsButton busy={busy} busyLabel="分配中…" onClick={() => void dispatch(group.id)}>试分配</EmsButton>
+          {confirming === group.id
+            ? <EmsButton busy={busy} busyLabel="执行中…" onClick={() => { setConfirming(null); void dispatch(group.id) }}>确认执行 {request} kW</EmsButton>
+            : <EmsButton variant="secondary" onClick={() => setConfirming(group.id)}>执行调度</EmsButton>}
+          {confirming === group.id && <EmsButton variant="quiet" size="small" onClick={() => setConfirming(null)}>取消</EmsButton>}
         </div>
+        {confirming === group.id && <InlineNotice tone="warning">执行会立即向成员设备下发功率设定，并记录 dispatchID 与审计；成员处于检修、停机或人工接管时会被剔除。</InlineNotice>}
         {result?.groupId === group.id && <div className="grid gap-2">
           <InlineNotice tone={result.data.shortfall_kw > 0 ? "warning" : "success"}>
-            合计下发 {result.data.delivered_kw} kW，缺口 {result.data.shortfall_kw} kW{result.data.limited_by ? `（受集团上限限制）` : ""}
+            合计提交 {result.data.delivered_kw} kW，缺口 {result.data.shortfall_kw} kW{result.data.limited_by ? `（受集团上限限制）` : ""}；设备回读在调度追溯中核对
           </InlineNotice>
           <div className="grid gap-1">{result.data.allocations.map((item) => <div key={item.energy_unit_id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ems-line px-3 py-2 text-xs">
             <strong>{unitName(item.energy_unit_id)}</strong>

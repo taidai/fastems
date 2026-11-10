@@ -37,7 +37,7 @@ func (h *Handler) RunCapabilityDispatch(energyUnitID string) ([]decision.DeviceD
 			requestKW += action.RequestKW
 		}
 	}
-	dispatches, err := h.writeEnergyUnitPower(energyUnitID, requestKW)
+	dispatches, err := h.writeEnergyUnitPower(energyUnitID, requestKW, dispatchTrace{ID: decision.NewDispatchID(), Source: "schedule"})
 	if err != nil {
 		return nil, err
 	}

@@ -60,7 +60,7 @@ func (h *Handler) RunGroupDispatch(groupID string, requestKW float64) (decision.
 		if allocation.Excluded {
 			continue
 		}
-		if _, err := h.writeEnergyUnitPower(allocation.EnergyUnitID, allocation.SetpointKW); err != nil {
+		if _, err := h.writeEnergyUnitPower(allocation.EnergyUnitID, allocation.SetpointKW, dispatchTrace{ID: decision.NewDispatchID(), Source: "group"}); err != nil {
 			return result, err
 		}
 	}
@@ -68,8 +68,9 @@ func (h *Handler) RunGroupDispatch(groupID string, requestKW float64) (decision.
 }
 
 // writeEnergyUnitPower 把一个 EnergyUnit 的功率请求拆解到柜内 Device 并写
-// valueSet（含爬坡限幅）。返回拆解结果，供追溯记录使用。
-func (h *Handler) writeEnergyUnitPower(energyUnitID string, requestKW float64) ([]decision.DeviceDispatch, error) {
+// 设备（含爬坡限幅）。优先走共享命令管理器；没有命令运行时的单元测试
+// 回退到 valueSet 路径。返回拆解结果，供追溯记录使用。
+func (h *Handler) writeEnergyUnitPower(energyUnitID string, requestKW float64, trace dispatchTrace) ([]decision.DeviceDispatch, error) {
 	unitNodes, err := siotclient.GetNodes(h.nc, "all", energyUnitID, "", false)
 	if err != nil || len(unitNodes) == 0 || unitNodes[0].Type != NodeTypeEnergyUnit {
 		return nil, fmt.Errorf("energy unit %s not found", energyUnitID)
@@ -140,8 +141,15 @@ func (h *Handler) writeEnergyUnitPower(energyUnitID string, requestKW float64) (
 		if current, ok := readCurrentSetpoint(h.nc, targetID); ok {
 			setpoint = decision.RampLimit(current, dispatch.SetpointKW, ramp)
 		}
+		handled, err := h.submitPointCommand(trace, targetID, setpoint)
+		if err != nil {
+			return dispatches, fmt.Errorf("command device %s: %w", dispatch.DeviceID, err)
+		}
+		if handled {
+			continue
+		}
 		point := data.NewPointFloat(data.PointTypeValueSet, "", setpoint)
-		point.Origin = "group-dispatch"
+		point.Origin = "easyems-" + trace.Source
 		if err := siotclient.SendNodePoint(h.nc, targetID, point, true); err != nil {
 			return dispatches, fmt.Errorf("write device %s: %w", dispatch.DeviceID, err)
 		}

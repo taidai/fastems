@@ -3,8 +3,15 @@ import { IonCardContent } from "@ionic/react"
 import { EmsButton, EmsCard, EmsRecordList, EmsSectionHeader, EmsSelect, EmsSelectOption, EmptyState, MetricStrip, StatusBadge } from "./components/ems"
 import { fetchDispatchRecords, fetchEnergyUnits, type DispatchRecord, type EnergyUnitSummary } from "./api"
 
-// 调度追溯（运行层）：按设备查看每次调度的 dispatchID、请求/下发/缺口与设备拆解，
-// 回答“当时发生了什么、为什么没做到”。
+const sourceLabel: Record<string, string> = {
+  anti_reverse: "防逆流", demand: "需量", peak_valley: "削峰填谷", schedule: "单柜规则", group: "资源集群", manual: "人工", site: "站级计划",
+}
+const stageLabel: Record<string, string> = {
+  submitted: "已提交指令", valueSet_written: "已写设定", fallback: "安全回退",
+}
+
+// 调度追溯（运行层）：按设备查看每次调度的 dispatchID、来源、请求/下发/缺口与设备拆解，
+// 回答“当时谁赢了、为什么没做到”。
 export default function DispatchTraceView({ token, onError }: { token: string; onError: (message: string) => void }) {
   const [units, setUnits] = useState<EnergyUnitSummary[]>([])
   const [unitId, setUnitId] = useState("")
@@ -43,6 +50,7 @@ export default function DispatchTraceView({ token, onError }: { token: string; o
         { key: "at", label: "时间", render: (record) => new Date(record.at).toLocaleString("zh-CN", { hour12: false }) },
         { key: "id", label: "dispatchID", render: (record) => <code className="break-all text-xs">{record.dispatch_id}</code> },
         { key: "state", label: "柜体状态", render: (record) => <StatusBadge tone={record.cabinet_state === "running" ? "success" : "warning"}>{record.cabinet_state}</StatusBadge> },
+        { key: "source", label: "来源", render: (record) => sourceLabel[record.source || ""] || record.source || "—" },
         { key: "request", label: "请求", render: (record) => `${record.request_kw} kW` },
         { key: "delivered", label: "下发", render: (record) => `${record.delivered_kw} kW` },
         { key: "shortfall", label: "缺口", render: (record) => record.shortfall_kw > 0 ? <span className="text-ems-amber">{record.shortfall_kw} kW</span> : "0" },
@@ -55,7 +63,9 @@ export default function DispatchTraceView({ token, onError }: { token: string; o
 
     {selected && <EmsCard><IonCardContent className="grid gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-sm text-ems-ink">{selected.dispatch_id}</strong><EmsButton variant="secondary" size="small" onClick={() => setSelected(null)}>关闭</EmsButton></div>
-      <p className="m-0 text-xs text-ems-muted">{new Date(selected.at).toLocaleString("zh-CN", { hour12: false })} · 规则 {selected.rule_id} · 柜体 {selected.cabinet_state}</p>
+      <p className="m-0 text-xs text-ems-muted">{new Date(selected.at).toLocaleString("zh-CN", { hour12: false })} · 来源 {sourceLabel[selected.source || ""] || selected.source || "—"}
+        {selected.priority !== undefined ? `（优先级 ${selected.priority}）` : ""} · 规则 {selected.rule_id || "—"} · 柜体 {selected.cabinet_state}
+        {selected.stage ? ` · ${stageLabel[selected.stage] || selected.stage}` : ""}{selected.actor ? ` · 操作者 ${selected.actor}` : ""}</p>
       <div className="grid gap-2">{(selected.dispatches || []).map((item) => <div key={item.device_id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ems-line px-3 py-2 text-xs">
         <strong>{item.device_id}</strong><span>{item.excluded ? `未下发：${item.reason || "能力不足"}` : `${item.setpoint_kw} kW`}</span>
       </div>)}</div>

@@ -182,6 +182,14 @@ func Check(profile Profile, commandID string, samples map[string]signal.Sample, 
 // CheckReadback checks an already resolved readback set (including dynamic
 // parameter values).
 func CheckReadback(readback []Readback, samples map[string]signal.Sample, now time.Time, maxAge time.Duration) (bool, string) {
+	return CheckReadbackSince(readback, samples, now, maxAge, time.Time{})
+}
+
+// CheckReadbackSince additionally requires each usable sample to be observed
+// after notBefore. A value that already matched before the command was
+// submitted must not confirm it. SourceTime is preferred; ReceivedTime is the
+// fallback because some adapters only stamp arrival.
+func CheckReadbackSince(readback []Readback, samples map[string]signal.Sample, now time.Time, maxAge time.Duration, notBefore time.Time) (bool, string) {
 	if len(readback) == 0 {
 		return false, "command has no readback"
 	}
@@ -192,6 +200,15 @@ func CheckReadback(readback []Readback, samples map[string]signal.Sample, now ti
 		}
 		if usable, why := sample.Usable(now, maxAge); !usable {
 			return false, "readback input " + condition.Point + " is not usable: " + why
+		}
+		if !notBefore.IsZero() {
+			observed := sample.SourceTime
+			if observed.IsZero() {
+				observed = sample.ReceivedTime
+			}
+			if !observed.After(notBefore) {
+				return false, "readback input " + condition.Point + " predates submission"
+			}
 		}
 		matched, err := sample.Value.Compare(condition.Op, condition.Value)
 		if err != nil {

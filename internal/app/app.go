@@ -121,7 +121,6 @@ func Start(ctx context.Context, cfg Config) (*App, error) {
 	}
 	handlerRef := new(atomic.Value)
 	var energyDispatch func(string) error
-	var plantDispatch func(string) (bool, error)
 	options := server.Options{
 		ID:           "easyems",
 		DataDir:      cfg.DataDir,
@@ -143,9 +142,6 @@ func Start(ctx context.Context, cfg Config) (*App, error) {
 			handler.SetEMS(emsHandler)
 			energyDispatch = func(id string) error {
 				return handler.RunUnitArbitratedDispatch(id)
-			}
-			plantDispatch = func(id string) (bool, error) {
-				return handler.RunPlantStrategy(id)
 			}
 			fullHandler := api.NewAppHandler(api.ServerArgs{
 				AppOnly:      true,
@@ -191,12 +187,6 @@ func Start(ctx context.Context, cfg Config) (*App, error) {
 			return nil
 		}
 		return energyDispatch(energyUnitID)
-	})
-	energyScheduler.SetPlantDispatch(func(plantID string) (bool, error) {
-		if plantDispatch == nil {
-			return false, nil
-		}
-		return plantDispatch(plantID)
 	})
 	group.Add(energyScheduler.Run, energyScheduler.Stop)
 

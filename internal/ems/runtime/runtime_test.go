@@ -114,7 +114,8 @@ func TestCommandWriteIsQueuedThenConfirmedByReadback(t *testing.T) {
 	for _, result := range results {
 		samples[result.PointID] = signal.Sample{
 			Input: result.PointID, Value: result.Value, Quality: result.Quality,
-			SourceTime: result.SourceTime, ReceivedTime: result.SourceTime,
+			// 回读必须来自提交之后的新读取，同一时刻的样本不算确认。
+			SourceTime: result.SourceTime.Add(100 * time.Millisecond), ReceivedTime: result.SourceTime.Add(100 * time.Millisecond),
 		}
 	}
 
@@ -143,11 +144,13 @@ func TestEngineConfirmsCommandWithinOneCycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	engine.Cycle(context.Background(), t0)
+	// 提交后必须有一轮新的读取才能确认；同一时刻的读回不算数。
+	engine.Cycle(context.Background(), t0.Add(time.Second))
 	final, _ := engine.Commands.Get("req-1")
 	if final.State != command.Confirmed {
 		t.Fatalf("state = %s, want confirmed", final.State)
 	}
-	value, ok := engine.State.Get(t0, "pcs1", "run", 5*time.Second)
+	value, ok := engine.State.Get(t0.Add(time.Second), "pcs1", "run", 5*time.Second)
 	if !ok || !value.Value.Bool || value.Quality != signal.Good {
 		t.Fatalf("state value = %+v ok=%v", value, ok)
 	}

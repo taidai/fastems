@@ -474,6 +474,10 @@ export type DispatchRecord = {
   at: string
   cabinet_state: string
   rule_id: string
+  source?: string
+  priority?: number
+  actor?: string
+  stage?: string
   request_kw: number
   delivered_kw: number
   shortfall_kw: number

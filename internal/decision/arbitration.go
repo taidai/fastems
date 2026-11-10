@@ -15,10 +15,12 @@ const (
 	GoalPrice       GoalPriority = 4 // 电价套利
 )
 
-// Goal 是一个调度目标的一次请求。
+// Goal 是一个调度目标的一次请求。Source 用于追溯胜出来源。
 type Goal struct {
 	Priority  GoalPriority `json:"priority"`
 	RequestKW float64      `json:"request_kw"`
+	Source    string       `json:"source,omitempty"`  // anti_reverse / demand / peak_valley / schedule / site
+	RuleID    string       `json:"rule_id,omitempty"` // 单柜规则来源
 }
 
 // Arbitrate 硬优先级仲裁：返回优先级最高（数值最小）的目标请求。

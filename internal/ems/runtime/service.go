@@ -32,7 +32,10 @@ type Service struct {
 	channels map[string]*channel.Channel
 	cancels  map[string]context.CancelFunc
 	commands *command.Manager
-	closed   bool
+	// extra maps runtime device IDs of non-Modbus adapters (OPC-UA, MQTT) to
+	// their dispatcher. It is consulted before channel routing.
+	extra  map[string]command.Dispatcher
+	closed bool
 }
 
 // NewService builds an empty service. profiles resolves device capabilities for
@@ -45,6 +48,7 @@ func NewService(profiles func(string) (device.Profile, bool), maxAge, commandTim
 		MaxAge:   maxAge,
 		channels: make(map[string]*channel.Channel),
 		cancels:  make(map[string]context.CancelFunc),
+		extra:    make(map[string]command.Dispatcher),
 	}
 	if profiles == nil {
 		profiles = func(string) (device.Profile, bool) { return device.Profile{}, false }
@@ -69,6 +73,38 @@ func (s *Service) SetHistoryLimit(limit int) {
 
 // Commands exposes command submission and tracking.
 func (s *Service) Commands() *command.Manager { return s.commands }
+
+// RegisterDispatcher routes writes for one runtime device ID to a protocol
+// adapter (OPC-UA, MQTT). It takes precedence over Modbus channel routing and
+// uses the same command.Manager.
+func (s *Service) RegisterDispatcher(deviceID string, dispatcher command.Dispatcher) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.extra == nil {
+		s.extra = make(map[string]command.Dispatcher)
+	}
+	s.extra[deviceID] = dispatcher
+}
+
+// UnregisterDispatcher removes a protocol adapter.
+func (s *Service) UnregisterDispatcher(deviceID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.extra, deviceID)
+}
+
+// Observe feeds real protocol observations (OPC-UA/MQTT) into the shared
+// state, history and OnResults path, so command readback can confirm them.
+func (s *Service) Observe(now time.Time, results []channel.Result) {
+	if len(results) == 0 {
+		return
+	}
+	s.State.Apply(now, results)
+	s.History.Record(toHistory(results))
+	if s.OnResults != nil {
+		s.OnResults("", results)
+	}
+}
 
 // AddChannel validates and starts one channel runner.
 func (s *Service) AddChannel(id string, bus channel.Bus, devices []channel.Device, period time.Duration) error {
@@ -232,11 +268,15 @@ type serviceDispatcher struct{ service *Service }
 
 func (d serviceDispatcher) Write(deviceID, requestID string, writes []device.Write) error {
 	d.service.mu.Lock()
+	extra := d.service.extra[deviceID]
 	channels := make([]*channel.Channel, 0, len(d.service.channels))
 	for _, ch := range d.service.channels {
 		channels = append(channels, ch)
 	}
 	d.service.mu.Unlock()
+	if extra != nil {
+		return extra.Write(deviceID, requestID, writes)
+	}
 	for _, ch := range channels {
 		if _, ok := ch.Device(deviceID); !ok {
 			continue

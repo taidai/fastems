@@ -18,14 +18,19 @@ const (
 // commandLogRecord is the persisted form of a command outcome: the audit-facing
 // fields only, never write payloads beyond state and reason.
 type commandLogRecord struct {
-	RequestID string    `json:"request_id"`
-	DeviceID  string    `json:"device_id"`
-	CommandID string    `json:"command_id"`
-	Actor     string    `json:"actor,omitempty"`
-	State     string    `json:"state"`
-	Reason    string    `json:"reason,omitempty"`
-	StartedAt time.Time `json:"started_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	RequestID   string    `json:"request_id"`
+	DeviceID    string    `json:"device_id"`
+	CommandID   string    `json:"command_id,omitempty"`
+	Actor       string    `json:"actor,omitempty"`
+	State       string    `json:"state"`
+	Reason      string    `json:"reason,omitempty"`
+	StartedAt   time.Time `json:"started_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	DispatchID  string    `json:"dispatch_id,omitempty"`
+	Source      string    `json:"source,omitempty"`
+	Stage       string    `json:"stage,omitempty"`
+	FallbackOf  string    `json:"fallback_of,omitempty"`
+	Fingerprint string    `json:"fingerprint,omitempty"`
 }
 
 // WireCommandHistory replays persisted command outcomes into the manager and
@@ -48,15 +53,24 @@ func WireCommandHistory(dataDir string, manager *command.Manager) {
 			RequestID: record.RequestID, DeviceID: record.DeviceID, CommandID: record.CommandID,
 			Actor: record.Actor, State: command.State(record.State), Reason: record.Reason,
 			StartedAt: record.StartedAt, UpdatedAt: record.UpdatedAt,
+			DispatchID: record.DispatchID, Source: record.Source, Stage: record.Stage,
+			FallbackOf: record.FallbackOf, Fingerprint: record.Fingerprint,
 		})
 	}
 	manager.Preload(outcomes)
 	rewriteCommandLog(path, records, order)
 	manager.Persist = func(outcome command.Outcome) {
+		// 自动功率调度每秒一次，明细已进入调度追溯；这里只持久化人工/命名
+		// 命令，避免命令历史被自动写入淹没。
+		if outcome.Actor == "" && outcome.CommandID == "" && outcome.Source != "manual" {
+			return
+		}
 		appendCommandLog(path, commandLogRecord{
 			RequestID: outcome.RequestID, DeviceID: outcome.DeviceID, CommandID: outcome.CommandID,
 			Actor: outcome.Actor, State: string(outcome.State), Reason: outcome.Reason,
 			StartedAt: outcome.StartedAt, UpdatedAt: outcome.UpdatedAt,
+			DispatchID: outcome.DispatchID, Source: outcome.Source, Stage: outcome.Stage,
+			FallbackOf: outcome.FallbackOf, Fingerprint: outcome.Fingerprint,
 		})
 	}
 }

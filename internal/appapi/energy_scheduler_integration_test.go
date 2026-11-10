@@ -13,13 +13,11 @@ import (
 	siotclient "github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 	"github.com/simpleiot/simpleiot/server"
-
-	"easyems/internal/decision"
 )
 
-// TestSchedulerRunsPlantStrategy 验证站级策略进入周期调度：有 PCC 绑定的
-// Plant 会被 EnergyScheduler 每周期触发防逆流。
-func TestSchedulerRunsPlantStrategy(t *testing.T) {
+// TestSchedulerDispatchesEveryUnit 验证调度器对每个 EnergyUnit 调用一次
+// 统一仲裁入口（站级目标由入口按所属 Plant 收集），不再单独跑站级写入。
+func TestSchedulerDispatchesEveryUnit(t *testing.T) {
 	dataDir := filepath.Join(t.TempDir(), "data")
 	options := server.Options{
 		ID: "easyems-plant-sched", DataDir: dataDir, HTTPPort: "9736",
@@ -57,31 +55,33 @@ func TestSchedulerRunsPlantStrategy(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 主表 + Plant + PCC 绑定（反送 -40kW）。
-	meterID, err := CreateDomainNode(nc, root.ID, "variable", map[string]string{"description": "PCC 主表"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := siotclient.SendNodePoint(nc, meterID, data.NewPointFloat(data.PointTypeValue, "", -40), true); err != nil {
-		t.Fatal(err)
-	}
 	plantID, err := CreateDomainNode(nc, root.ID, NodeTypePlant, map[string]string{PointTypeAssetCode: "P1"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := savePCCFeedback(nc, plantID, decision.PCCFeedback{MeterPointID: meterID, Sign: 1, MaxAgeMS: 15000}); err != nil {
+	unitID, err := CreateDomainNode(nc, plantID, NodeTypeEnergyUnit, map[string]string{PointTypeAssetCode: "EU1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 停机的单元不应被自动调度。
+	stoppedID, err := CreateDomainNode(nc, plantID, NodeTypeEnergyUnit, map[string]string{PointTypeAssetCode: "EU2"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := SetCabinetState(nc, stoppedID, "stopped"); err != nil {
 		t.Fatal(err)
 	}
 
-	// 调度器 + mock plant dispatch 记录触发。
 	called := map[string]int{}
-	scheduler := NewEnergyScheduler(nc, func(string) error { return nil })
-	scheduler.SetPlantDispatch(func(plantID string) (bool, error) {
-		called[plantID]++
-		return false, nil
+	scheduler := NewEnergyScheduler(nc, func(id string) error {
+		called[id]++
+		return nil
 	})
 	scheduler.tick()
-	if called[plantID] == 0 {
-		t.Fatal("有 PCC 绑定的 Plant 应被周期调度触发")
+	if called[unitID] != 1 {
+		t.Fatalf("运行态单元应被调用一次，实测 %d", called[unitID])
+	}
+	if called[stoppedID] != 0 {
+		t.Fatalf("停机单元不应被自动调度，实测 %d", called[stoppedID])
 	}
 }
