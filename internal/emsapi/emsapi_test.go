@@ -12,6 +12,7 @@ import (
 	"easyems/internal/ems/alarm"
 	"easyems/internal/ems/bridge"
 	"easyems/internal/ems/channel"
+	"easyems/internal/ems/history"
 	"easyems/internal/ems/runtime"
 	"easyems/internal/ems/signal"
 )
@@ -337,5 +338,168 @@ func TestAllocationPreview(t *testing.T) {
 	}
 	if payload.Result.Delivered != 550 || payload.Result.Shortfall != 250 {
 		t.Fatalf("delivered/shortfall = %v/%v", payload.Result.Delivered, payload.Result.Shortfall)
+	}
+}
+
+func TestTreeScopeFiltersProxyReads(t *testing.T) {
+	service := runtime.NewService(nil, 5*time.Second, time.Second, 100)
+	defer service.Close()
+	for _, id := range []string{"c1", "c2"} {
+		device := tempDevice()
+		device.ID = id + "/1"
+		device.Points[0].ID = map[string]string{"c1": "p1", "c2": "p2"}[id]
+		if err := service.AddChannel(id, &fakeBus{holding: map[uint16]uint16{10: 10}}, []channel.Device{device}, time.Hour); err != nil {
+			t.Fatal(err)
+		}
+	}
+	now := time.Now()
+	service.State.Apply(now, []channel.Result{
+		{DeviceID: "c1/1", PointID: "p1", Value: signal.Num(1), Quality: signal.Good, SourceTime: now},
+		{DeviceID: "c2/1", PointID: "p2", Value: signal.Num(2), Quality: signal.Good, SourceTime: now},
+	})
+	service.History.Record([]history.Sample{
+		{DeviceID: "c1/1", PointID: "p1", Value: signal.Num(1), Quality: signal.Good, SourceTime: now},
+		{DeviceID: "c2/1", PointID: "p2", Value: signal.Num(2), Quality: signal.Good, SourceTime: now},
+	})
+	handler := New(service, 5*time.Second)
+	scoped := Access{AllowNode: func(id string) bool { return id == "c1" || id == "p1" }}
+
+	var state struct {
+		Values []struct {
+			PointID string `json:"point_id"`
+		} `json:"values"`
+	}
+	response := call(t, handler, Access{}, http.MethodGet, "/api/ems/state", "")
+	if err := json.Unmarshal(response.Body.Bytes(), &state); err != nil {
+		t.Fatal(err)
+	}
+	if len(state.Values) != 2 {
+		t.Fatalf("unscoped state = %+v", state.Values)
+	}
+	response = call(t, handler, scoped, http.MethodGet, "/api/ems/state", "")
+	if err := json.Unmarshal(response.Body.Bytes(), &state); err != nil {
+		t.Fatal(err)
+	}
+	if len(state.Values) != 1 || state.Values[0].PointID != "p1" {
+		t.Fatalf("scoped state = %+v", state.Values)
+	}
+
+	var channels struct {
+		Channels []struct {
+			ID string `json:"id"`
+		} `json:"channels"`
+	}
+	response = call(t, handler, Access{}, http.MethodGet, "/api/ems/channels", "")
+	if err := json.Unmarshal(response.Body.Bytes(), &channels); err != nil {
+		t.Fatal(err)
+	}
+	if len(channels.Channels) != 2 {
+		t.Fatalf("unscoped channels = %+v", channels.Channels)
+	}
+	response = call(t, handler, scoped, http.MethodGet, "/api/ems/channels", "")
+	if err := json.Unmarshal(response.Body.Bytes(), &channels); err != nil {
+		t.Fatal(err)
+	}
+	if len(channels.Channels) != 1 || channels.Channels[0].ID != "c1" {
+		t.Fatalf("scoped channels = %+v", channels.Channels)
+	}
+
+	var quality struct {
+		Channels []struct {
+			ChannelID string `json:"channel_id"`
+		} `json:"channels"`
+		Devices []struct {
+			ChannelID string `json:"channel_id"`
+		} `json:"devices"`
+	}
+	response = call(t, handler, Access{}, http.MethodGet, "/api/ems/quality", "")
+	if err := json.Unmarshal(response.Body.Bytes(), &quality); err != nil {
+		t.Fatal(err)
+	}
+	if len(quality.Channels) != 2 || len(quality.Devices) != 2 {
+		t.Fatalf("unscoped quality = %+v", quality)
+	}
+	response = call(t, handler, scoped, http.MethodGet, "/api/ems/quality", "")
+	if err := json.Unmarshal(response.Body.Bytes(), &quality); err != nil {
+		t.Fatal(err)
+	}
+	if len(quality.Channels) != 1 || quality.Channels[0].ChannelID != "c1" ||
+		len(quality.Devices) != 1 || quality.Devices[0].ChannelID != "c1" {
+		t.Fatalf("scoped quality = %+v", quality)
+	}
+
+	response = call(t, handler, scoped, http.MethodGet, "/api/ems/runtime", "")
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"channels":1`) {
+		t.Fatalf("scoped runtime = %d %s", response.Code, response.Body.String())
+	}
+	allowed := call(t, handler, scoped, http.MethodGet, "/api/ems/history?device_id=c1/1&point_id=p1", "")
+	if allowed.Code != http.StatusOK || !strings.Contains(allowed.Body.String(), `"samples":[{`) {
+		t.Fatalf("allowed history = %d %s", allowed.Code, allowed.Body.String())
+	}
+	for _, path := range []string{
+		"/api/ems/history?device_id=c2/1&point_id=p2",
+		"/api/ems/history/export?device_id=c2/1&point_id=p2",
+	} {
+		response = call(t, handler, scoped, http.MethodGet, path, "")
+		if response.Code != http.StatusForbidden {
+			t.Fatalf("denied history %s = %d %s", path, response.Code, response.Body.String())
+		}
+	}
+}
+
+func TestTreeScopeGuardsChannelMutations(t *testing.T) {
+	service := runtime.NewService(nil, 5*time.Second, time.Second, 100)
+	defer service.Close()
+	for _, id := range []string{"c1", "c2"} {
+		device := tempDevice()
+		device.ID = id + "/1"
+		if err := service.AddChannel(id, &fakeBus{holding: map[uint16]uint16{}}, []channel.Device{device}, time.Hour); err != nil {
+			t.Fatal(err)
+		}
+	}
+	handler := New(service, 5*time.Second)
+	configurator := &fakeConfigurator{}
+	handler.Configure = configurator
+	restarted := 0
+	handler.RestartChannel = func(string) error {
+		restarted++
+		return nil
+	}
+	access := Access{Admin: true, AllowNode: func(id string) bool { return id == "root" || id == "c1" }}
+	body := `{"id":"c9","parent":"root","protocol":"tcp","address":"127.0.0.1:502","devices":[{"id":"d9","server_id":1,"points":[{"id":"temp","function":"holdingRegister","address":10,"format":"uint16","kind":"number"}]}]}`
+
+	response := call(t, handler, access, http.MethodPost, "/api/ems/channels", strings.Replace(body, `"parent":"root"`, `"parent":"other"`, 1))
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("denied create = %d %s", response.Code, response.Body.String())
+	}
+	response = call(t, handler, access, http.MethodDelete, "/api/ems/channels/c2", "")
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("denied delete = %d %s", response.Code, response.Body.String())
+	}
+	response = call(t, handler, access, http.MethodPost, "/api/ems/channels/c2/restart", "")
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("denied restart = %d %s", response.Code, response.Body.String())
+	}
+	if configurator.created != 0 || configurator.deleted != 0 || restarted != 0 || len(service.Channels()) != 2 {
+		t.Fatalf("denied mutations had side effects: config=%+v restarted=%d channels=%d",
+			configurator, restarted, len(service.Channels()))
+	}
+
+	response = call(t, handler, access, http.MethodPost, "/api/ems/channels", body)
+	if response.Code != http.StatusOK {
+		t.Fatalf("allowed create = %d %s", response.Code, response.Body.String())
+	}
+	response = call(t, handler, access, http.MethodPost, "/api/ems/channels/c1/restart", "")
+	if response.Code != http.StatusOK {
+		t.Fatalf("allowed restart = %d %s", response.Code, response.Body.String())
+	}
+	response = call(t, handler, access, http.MethodDelete, "/api/ems/channels/c1", "")
+	if response.Code != http.StatusOK {
+		t.Fatalf("allowed delete = %d %s", response.Code, response.Body.String())
+	}
+	channels := service.Channels()
+	if configurator.created != 1 || configurator.deleted != 1 || restarted != 1 ||
+		len(channels) != 1 || channels[0].ID != "c2" {
+		t.Fatalf("allowed mutations: config=%+v restarted=%d channels=%+v", configurator, restarted, channels)
 	}
 }

@@ -46,6 +46,7 @@ docker run -d --name "$CONTAINER" \
   -p "$PORT:8080" \
   -v "$VOLUME":/data \
   -e EASYEMS_DATA=/data \
+  -e EASYEMS_SEED_DEMO=1 \
   --env-file "$ENV_FILE" \
   "$IMAGE" >/dev/null
 

@@ -37,9 +37,16 @@ type Access struct {
 	AlarmAck      bool
 	AlarmMaintain bool
 	Delete        bool
+	// AllowNode restricts this request to visible product tree nodes. Nil keeps
+	// the trusted internal behavior used by direct callers and tests.
+	AllowNode func(string) bool
 }
 
 func (a Access) can(flag bool) bool { return a.Admin || flag }
+
+func (a Access) allows(id string) bool {
+	return a.AllowNode == nil || a.AllowNode(id)
+}
 
 func (a Access) actor() string {
 	if a.Actor != "" {
@@ -107,15 +114,15 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request, access Acces
 	parts := strings.Split(path, "/")
 	switch {
 	case path == "quality" && r.Method == http.MethodGet:
-		h.quality(w)
+		h.quality(w, access)
 	case path == "frames" && r.Method == http.MethodGet:
 		h.frames(w, r, access)
 	case path == "frames" && r.Method == http.MethodDelete:
 		h.clearFrames(w, access)
 	case path == "state" && r.Method == http.MethodGet:
-		h.state(w)
+		h.state(w, access)
 	case path == "channels" && r.Method == http.MethodGet:
-		h.channels(w)
+		h.channels(w, access)
 	case path == "channels" && r.Method == http.MethodPost:
 		h.createChannel(w, r, access)
 	case len(parts) == 2 && parts[0] == "channels" && r.Method == http.MethodDelete:
@@ -133,11 +140,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request, access Acces
 	case len(parts) == 3 && parts[0] == "alarms" && parts[2] == "maintenance" && r.Method == http.MethodDelete:
 		h.releaseAlarm(w, access, parts[1])
 	case path == "history" && r.Method == http.MethodGet:
-		h.history(w, r, false)
+		h.history(w, r, access, false)
 	case path == "history/export" && r.Method == http.MethodGet:
-		h.history(w, r, true)
+		h.history(w, r, access, true)
 	case path == "runtime" && r.Method == http.MethodGet:
-		h.runtimeStatus(w)
+		h.runtimeStatus(w, access)
 	case path == "scan" && r.Method == http.MethodPost:
 		h.scan(w, r, access)
 	case path == "identify" && r.Method == http.MethodPost:
@@ -192,7 +199,7 @@ func kindName(kind signal.Kind) string {
 	}
 }
 
-func (h *Handler) state(w http.ResponseWriter) {
+func (h *Handler) state(w http.ResponseWriter, access Access) {
 	values := h.Service.Snapshot()
 	type entry struct {
 		DeviceID     string    `json:"device_id"`
@@ -204,6 +211,9 @@ func (h *Handler) state(w http.ResponseWriter) {
 	}
 	entries := make([]entry, 0, len(values))
 	for _, value := range values {
+		if !access.allows(value.PointID) {
+			continue
+		}
 		entries = append(entries, entry{
 			DeviceID: value.DeviceID, PointID: value.PointID,
 			Value: toDTO(value.Value), Quality: value.Quality.String(),
@@ -242,7 +252,7 @@ type channelView struct {
 	Devices   []deviceView `json:"devices"`
 }
 
-func (h *Handler) channels(w http.ResponseWriter) {
+func (h *Handler) channels(w http.ResponseWriter, access Access) {
 	now := time.Now()
 	running := make(map[string]*channel.Channel)
 	for _, ch := range h.Service.Channels() {
@@ -254,6 +264,9 @@ func (h *Handler) channels(w http.ResponseWriter) {
 	if h.Buses != nil {
 		if configs, err := h.Buses(); err == nil {
 			for _, config := range configs {
+				if !access.allows(config.ChannelID) {
+					continue
+				}
 				view := channelView{
 					ID: config.ChannelID, NodeID: config.ChannelID, Persisted: true,
 					Protocol: strings.ToUpper(config.Protocol), Address: config.Address,
@@ -282,7 +295,7 @@ func (h *Handler) channels(w http.ResponseWriter) {
 	}
 
 	for id, ch := range running {
-		if seen[id] {
+		if seen[id] || !access.allows(id) {
 			continue
 		}
 		view := channelView{ID: id, NodeID: id, Persisted: false, Protocol: "TCP"}
@@ -313,6 +326,10 @@ func (h *Handler) restartChannel(w http.ResponseWriter, access Access, id string
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}
+	if !access.allows(id) {
+		writeError(w, http.StatusForbidden, "forbidden")
+		return
+	}
 	if h.RestartChannel == nil {
 		writeError(w, http.StatusNotImplemented, "restart_unavailable")
 		return
@@ -324,18 +341,23 @@ func (h *Handler) restartChannel(w http.ResponseWriter, access Access, id string
 	writeJSON(w, map[string]any{"restarted": true, "channel_id": id})
 }
 
-func (h *Handler) runtimeStatus(w http.ResponseWriter) {
+func (h *Handler) runtimeStatus(w http.ResponseWriter, access Access) {
 	channels := h.Service.Channels()
 	devices := 0
 	points := 0
+	visibleChannels := 0
 	for _, ch := range channels {
+		if !access.allows(ch.ID) {
+			continue
+		}
+		visibleChannels++
 		devices += len(ch.Devices)
 		for _, device := range ch.Devices {
 			points += len(device.Points)
 		}
 	}
 	writeJSON(w, map[string]any{
-		"source": "nodes", "channels": len(channels),
+		"source": "nodes", "channels": visibleChannels,
 		"devices": devices, "points": points,
 	})
 }
@@ -383,6 +405,10 @@ func (h *Handler) createChannel(w http.ResponseWriter, r *http.Request, access A
 		writeError(w, http.StatusBadRequest, "invalid_channel")
 		return
 	}
+	if !access.allows(input.Parent) {
+		writeError(w, http.StatusForbidden, "forbidden")
+		return
+	}
 	if h.Configure == nil {
 		writeError(w, http.StatusNotImplemented, "not_implemented")
 		return
@@ -424,6 +450,10 @@ func convertPoint(input PointInput) (channel.Point, error) {
 func (h *Handler) deleteChannel(w http.ResponseWriter, access Access, id string) {
 	if !access.can(access.Delete) {
 		writeError(w, http.StatusForbidden, "admin_required")
+		return
+	}
+	if !access.allows(id) {
+		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
 	if h.Configure == nil {
@@ -781,11 +811,15 @@ func (h *Handler) closeAlarm(w http.ResponseWriter, access Access, id string) {
 	writeJSON(w, alarm)
 }
 
-func (h *Handler) history(w http.ResponseWriter, r *http.Request, export bool) {
+func (h *Handler) history(w http.ResponseWriter, r *http.Request, access Access, export bool) {
 	deviceID := r.URL.Query().Get("device_id")
 	pointID := r.URL.Query().Get("point_id")
 	if deviceID == "" || pointID == "" {
 		writeError(w, http.StatusBadRequest, "device_id_and_point_id_required")
+		return
+	}
+	if !access.allows(pointID) {
+		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
 	start, err := parseTime(r.URL.Query().Get("start"))
@@ -894,9 +928,21 @@ func (h *Handler) clearFrames(w http.ResponseWriter, access Access) {
 	writeJSON(w, map[string]bool{"cleared": true})
 }
 
-func (h *Handler) quality(w http.ResponseWriter) {
+func (h *Handler) quality(w http.ResponseWriter, access Access) {
 	channelStats, deviceStats := h.QualityReport()
-	writeJSON(w, map[string]any{"channels": channelStats, "devices": deviceStats})
+	visibleChannels := make([]contract.QualityStats, 0, len(channelStats))
+	for _, stats := range channelStats {
+		if access.allows(stats.ChannelID) {
+			visibleChannels = append(visibleChannels, stats)
+		}
+	}
+	visibleDevices := make([]contract.QualityStats, 0, len(deviceStats))
+	for _, stats := range deviceStats {
+		if access.allows(stats.ChannelID) {
+			visibleDevices = append(visibleDevices, stats)
+		}
+	}
+	writeJSON(w, map[string]any{"channels": visibleChannels, "devices": visibleDevices})
 }
 
 // QualityReport returns the rolling per-channel and per-device communication

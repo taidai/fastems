@@ -268,6 +268,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			AlarmAck:      actions[ActionAlarmAck],
 			AlarmMaintain: actions[ActionAlarmMaintain],
 			Delete:        actions[ActionDelete],
+			AllowNode:     func(id string) bool { return h.allows(identity, id) },
 		})
 		return
 	}
@@ -560,7 +561,7 @@ func (h *Handler) visibleNodes(identity Identity) ([]data.NodeEdge, error) {
 		data.NodeTypeModbus: true, data.NodeTypeModbusIO: true,
 		"decisionTable": true, "deviceTemplate": true,
 		// 领域模型三层节点：不在白名单会被剪断整棵子树，前端看不到。
-		NodeTypeSite: true, NodeTypePlant: true, NodeTypeEnergyUnit: true,
+		NodeTypeSite: true, NodeTypePlant: true, NodeTypeEnergyUnit: true, NodeTypeResourceGroup: true,
 	}
 	nodes := []data.NodeEdge{}
 	seen := map[string]bool{}

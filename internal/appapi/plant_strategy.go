@@ -119,19 +119,18 @@ func (h *Handler) applyAllocations(allocations []decision.EnergyAllocation) erro
 
 // plantStrategy 读写电站分时策略（削峰填谷）。
 func (h *Handler) plantStrategy(w http.ResponseWriter, r *http.Request, identity Identity, plantID string) {
-	nodes, err := siotclient.GetNodes(h.nc, "all", plantID, "", false)
-	if err != nil || len(nodes) == 0 {
-		writeError(w, http.StatusNotFound, "plant_not_found")
+	node, ok := h.node(w, identity, plantID)
+	if !ok {
 		return
 	}
-	if nodes[0].Type != NodeTypePlant {
+	if node.Type != NodeTypePlant {
 		writeError(w, http.StatusBadRequest, "requires_plant")
 		return
 	}
 	switch r.Method {
 	case http.MethodGet:
-		strategy, ok := loadPlantStrategy(nodes[0])
-		writeJSON(w, map[string]any{"strategy": strategy, "configured": ok})
+		strategy, configured := loadPlantStrategy(node)
+		writeJSON(w, map[string]any{"strategy": strategy, "configured": configured})
 	case http.MethodPut:
 		if !canAction(identity, ActionConfigure) {
 			writeError(w, http.StatusForbidden, "admin_required")

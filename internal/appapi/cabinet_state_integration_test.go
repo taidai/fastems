@@ -107,4 +107,17 @@ func TestFaultInterlocksDispatch(t *testing.T) {
 	if _, err := handler.RunCapabilityDispatch(energyUnitID); err == nil {
 		t.Fatal("standby after fault-clear must NOT auto-dispatch")
 	}
+
+	// 人工接管同样阻断单柜执行；恢复自动后才允许重新调度。
+	if err := SetCabinetState(nc, energyUnitID, decision.CabinetRunning); err != nil {
+		t.Fatal(err)
+	}
+	_ = siotclient.SendNodePoint(nc, energyUnitID, data.NewPointFloat(manualModePoint, "", 1), true)
+	if _, err := handler.RunCapabilityDispatch(energyUnitID); err == nil {
+		t.Fatal("manual mode must block automatic capability dispatch")
+	}
+	_ = siotclient.SendNodePoint(nc, energyUnitID, data.NewPointFloat(manualModePoint, "", 0), true)
+	if _, err := handler.RunCapabilityDispatch(energyUnitID); err != nil {
+		t.Fatalf("resuming automatic mode must allow dispatch: %v", err)
+	}
 }

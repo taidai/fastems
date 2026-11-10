@@ -54,6 +54,9 @@ func (h *Handler) listEnergyUnits(w http.ResponseWriter, identity Identity) {
 	}
 	units := make([]map[string]string, 0, len(nodes))
 	for _, node := range nodes {
+		if !h.allows(identity, node.ID) {
+			continue
+		}
 		assetCode := ""
 		if point, ok := node.Points.Find(PointTypeAssetCode, ""); ok {
 			assetCode = point.Txt()
@@ -155,6 +158,14 @@ func (h *Handler) publishCapabilityRule(w http.ResponseWriter, r *http.Request, 
 // simulateCapabilityRule 求值一个能力级规则（草稿或已发布），返回命中的
 // 动作。纯函数求值，绝不写设备——这是"模拟测试语义独立"的边界。
 func (h *Handler) simulateCapabilityRule(w http.ResponseWriter, r *http.Request, identity Identity, energyUnitID string) {
+	node, ok := h.node(w, identity, energyUnitID)
+	if !ok {
+		return
+	}
+	if node.Type != NodeTypeEnergyUnit {
+		writeError(w, http.StatusBadRequest, "requires_energy_unit")
+		return
+	}
 	var input struct {
 		Rule   decision.CapabilityRule   `json:"rule"`
 		Values decision.CapabilityValues `json:"values"`

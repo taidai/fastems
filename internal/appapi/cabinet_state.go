@@ -21,6 +21,20 @@ func LoadCabinetState(node data.NodeEdge) decision.CabinetState {
 	return decision.CabinetState(point.Txt())
 }
 
+const manualModePoint = "easyemsManual"
+
+// AllowsEnergyUnitAutoDispatch 统一判断柜体状态与人工接管。所有自动来源都
+// 必须经过这个闸门，不能只在单柜调度循环检查。
+func AllowsEnergyUnitAutoDispatch(node data.NodeEdge) bool {
+	if !decision.AllowsAutoDispatch(LoadCabinetState(node)) {
+		return false
+	}
+	if point, found := node.Points.Find(manualModePoint, ""); found && point.Tombstone%2 == 0 && pointFloat(point) != 0 {
+		return false
+	}
+	return true
+}
+
 // SetCabinetState 写 EnergyUnit 的运行状态。
 func SetCabinetState(nc *nats.Conn, energyUnitID string, state decision.CabinetState) error {
 	point := data.NewPointString(PointTypeCabinetState, "", string(state))

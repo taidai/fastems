@@ -56,10 +56,17 @@ func LoadCapabilityValues(nc *nats.Conn, energyUnitIDs []string) (decision.Capab
 			capability, err := DecodeCapability(point.Txt())
 			if err == nil {
 				fields[decision.FieldAvailablePower] = capability.PowerMaxKW
+				if capability.ChargeMaxKW > 0 || capability.DischargeMaxKW > 0 {
+					fields[decision.FieldAvailableCharge] = capability.ChargeMaxKW
+					fields[decision.FieldAvailableDischarge] = capability.DischargeMaxKW
+				}
 				if capability.Allowed {
 					fields[decision.FieldStatus] = 1
 				}
 			}
+		}
+		if !AllowsEnergyUnitAutoDispatch(node) {
+			fields[decision.FieldStatus] = 0
 		}
 		// 通用与光伏/充电专属能力字段（通用型能力模型的丰富度）。
 		capFields := map[string]decision.CapabilityField{

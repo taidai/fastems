@@ -20,26 +20,33 @@ type EnergyAllocation struct {
 	Reason       string  `json:"reason,omitempty"`
 }
 
-// AllocateEnergy 把请求功率按能力分配到 EnergyUnit。能力值来自 caps：
-// FieldAvailablePower 是当前可用能力，FieldRatedPower 是额定上限。复用
-// alloc.Allocate 的水填充算法，只做能力值 → alloc.Member 的适配。
+// AllocateEnergy 把请求功率按能力分配到 EnergyUnit。优先使用充/放分方向
+// 能力；旧数据只有 FieldAvailablePower 时保留原来的双向回退语义。
 func AllocateEnergy(requestKW float64, members []EnergyMember, caps CapabilityValues) ([]EnergyAllocation, error) {
 	allocMembers := make([]alloc.Member, 0, len(members))
 	for _, m := range members {
 		fields := caps[m.EnergyUnitID]
 		rated := fields[FieldRatedPower]
-		available := fields[FieldAvailablePower]
+		availableCharge, hasCharge := fields[FieldAvailableCharge]
+		availableDischarge, hasDischarge := fields[FieldAvailableDischarge]
+		if !hasCharge && !hasDischarge {
+			availableCharge = fields[FieldAvailablePower]
+			availableDischarge = fields[FieldAvailablePower]
+		}
 		// 方向约束：光伏只放电、充电桩只充电、储能双向。
-		availableCharge, availableDischarge := available, available
 		switch int(fields[FieldEnergyType]) {
 		case EnergyPVDischarge:
 			availableCharge = 0
 		case EnergyEVCharge:
 			availableDischarge = 0
 		}
+		online := true
+		if status, found := fields[FieldStatus]; found {
+			online = status != 0
+		}
 		allocMembers = append(allocMembers, alloc.Member{
 			ID:                 m.EnergyUnitID,
-			Online:             true,
+			Online:             online,
 			MinPower:           m.MinPower,
 			MaxCharge:          rated,
 			MaxDischarge:       rated,

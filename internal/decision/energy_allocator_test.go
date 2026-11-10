@@ -54,3 +54,26 @@ func TestAllocateEnergy(t *testing.T) {
 		}
 	})
 }
+
+func TestAllocateEnergyDirectionalCapabilityAndStatus(t *testing.T) {
+	caps := CapabilityValues{
+		"eu": {
+			FieldRatedPower: 100, FieldAvailableCharge: 30, FieldAvailableDischarge: 80,
+			FieldStatus: 1, FieldEnergyType: EnergyStorageBidir,
+		},
+	}
+	members := []EnergyMember{{EnergyUnitID: "eu"}}
+	discharge, err := AllocateEnergy(100, members, caps)
+	if err != nil || len(discharge) != 1 || discharge[0].SetpointKW != 80 {
+		t.Fatalf("放电应受 80 kW 上限约束：%+v err=%v", discharge, err)
+	}
+	charge, err := AllocateEnergy(-100, members, caps)
+	if err != nil || len(charge) != 1 || charge[0].SetpointKW != -30 {
+		t.Fatalf("充电应受 30 kW 上限约束：%+v err=%v", charge, err)
+	}
+	caps["eu"][FieldStatus] = 0
+	offline, err := AllocateEnergy(50, members, caps)
+	if err != nil || len(offline) != 1 || !offline[0].Excluded {
+		t.Fatalf("离线/互锁成员必须剔除：%+v err=%v", offline, err)
+	}
+}

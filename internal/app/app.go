@@ -249,9 +249,8 @@ func Start(ctx context.Context, cfg Config) (*App, error) {
 		log.Printf("easyems %s ready", cfg.Version)
 		readyOnce.Do(func() { close(readyCh) })
 
-		// 预置演示站点：延迟到 store 完全就绪后异步执行，失败仅记录，
-		// 不阻塞启动（在 store 早期创建节点会扰动 replica boundary）。
-		if os.Getenv("EASYEMS_SEED_DEMO") != "0" {
+		// 演示站点只在测试/本地显式启用，生产新实例默认不生成模拟资产。
+		if os.Getenv("EASYEMS_SEED_DEMO") == "1" {
 			go func() {
 				time.Sleep(3 * time.Second)
 				if err := appapi.SeedDemoSite(nc); err != nil {

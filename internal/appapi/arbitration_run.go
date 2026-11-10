@@ -22,8 +22,8 @@ func (h *Handler) RunUnitArbitratedDispatch(energyUnitID string) error {
 	if !ok || rule.State != decision.RulePublished {
 		return fmt.Errorf("no published rule on %s", energyUnitID)
 	}
-	if !decision.AllowsAutoDispatch(LoadCabinetState(node)) {
-		return fmt.Errorf("energy unit %s interlocked", energyUnitID)
+	if !AllowsEnergyUnitAutoDispatch(node) {
+		return fmt.Errorf("energy unit %s interlocked or manually controlled", energyUnitID)
 	}
 	values, err := LoadCapabilityValues(h.nc, []string{energyUnitID})
 	if err != nil {

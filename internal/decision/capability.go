@@ -10,11 +10,13 @@ package decision
 type CapabilityField string
 
 const (
-	FieldSOC            CapabilityField = "soc"             // SOC %
-	FieldAvailablePower CapabilityField = "available_power" // 可用功率 kW（动态能力）
-	FieldRatedPower     CapabilityField = "rated_power"     // 额定功率 kW
-	FieldStatus         CapabilityField = "status"          // 状态
-	FieldEnergyType     CapabilityField = "energy_type"     // 能源类型（方向约束）
+	FieldSOC                CapabilityField = "soc"                 // SOC %
+	FieldAvailablePower     CapabilityField = "available_power"     // 可用功率 kW（旧版双向合并值）
+	FieldAvailableCharge    CapabilityField = "available_charge"    // 可用充电功率 kW
+	FieldAvailableDischarge CapabilityField = "available_discharge" // 可用放电功率 kW
+	FieldRatedPower         CapabilityField = "rated_power"         // 额定功率 kW
+	FieldStatus             CapabilityField = "status"              // 状态
+	FieldEnergyType         CapabilityField = "energy_type"         // 能源类型（方向约束）
 
 	// 通用能力：当前实测功率（发电/负载，按类型语义）。
 	FieldActualPower CapabilityField = "actual_power"
@@ -23,9 +25,9 @@ const (
 	FieldPVLimitKW     CapabilityField = "pv_limit_kw"
 	FieldPVForecastKW  CapabilityField = "pv_forecast_kw"
 	// 充电桩专属：最大负载、可削减功率、在线率。
-	FieldEVMaxLoadKW      CapabilityField = "ev_max_load_kw"
-	FieldEVCurtailableKW  CapabilityField = "ev_curtailable_kw"
-	FieldEVOnlineRatio    CapabilityField = "ev_online_ratio"
+	FieldEVMaxLoadKW     CapabilityField = "ev_max_load_kw"
+	FieldEVCurtailableKW CapabilityField = "ev_curtailable_kw"
+	FieldEVOnlineRatio   CapabilityField = "ev_online_ratio"
 )
 
 // 能源类型编码（FieldEnergyType 的取值）：决定节点的可调方向。
@@ -38,7 +40,7 @@ const (
 
 // CapabilityRef 引用一个 EnergyUnit 的测点/能力字段。
 type CapabilityRef struct {
-	EnergyUnitID string         `json:"energy_unit_id"`
+	EnergyUnitID string          `json:"energy_unit_id"`
 	Field        CapabilityField `json:"field"`
 }
 

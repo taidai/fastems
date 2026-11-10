@@ -18,12 +18,11 @@ func (h *Handler) savePlantPCC(w http.ResponseWriter, r *http.Request, identity 
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}
-	nodes, err := siotclient.GetNodes(h.nc, "all", plantID, "", false)
-	if err != nil || len(nodes) == 0 {
-		writeError(w, http.StatusNotFound, "plant_not_found")
+	node, ok := h.node(w, identity, plantID)
+	if !ok {
 		return
 	}
-	if nodes[0].Type != NodeTypePlant {
+	if node.Type != NodeTypePlant {
 		writeError(w, http.StatusBadRequest, "requires_plant")
 		return
 	}
@@ -44,13 +43,16 @@ func (h *Handler) savePlantPCC(w http.ResponseWriter, r *http.Request, identity 
 
 // getPlantPCC 处理 GET /plants/{id}/pcc。
 func (h *Handler) getPlantPCC(w http.ResponseWriter, identity Identity, plantID string) {
-	nodes, err := siotclient.GetNodes(h.nc, "all", plantID, "", false)
-	if err != nil || len(nodes) == 0 {
-		writeError(w, http.StatusNotFound, "plant_not_found")
+	node, ok := h.node(w, identity, plantID)
+	if !ok {
 		return
 	}
-	binding, ok := loadPCCFeedback(nodes[0])
-	writeJSON(w, map[string]any{"binding": binding, "configured": ok})
+	if node.Type != NodeTypePlant {
+		writeError(w, http.StatusBadRequest, "requires_plant")
+		return
+	}
+	binding, configured := loadPCCFeedback(node)
+	writeJSON(w, map[string]any{"binding": binding, "configured": configured})
 }
 
 // listPlants 列出电站（供站级策略配置选择）。
@@ -62,6 +64,9 @@ func (h *Handler) listPlants(w http.ResponseWriter, identity Identity) {
 	}
 	plants := make([]map[string]string, 0, len(nodes))
 	for _, node := range nodes {
+		if !h.allows(identity, node.ID) {
+			continue
+		}
 		assetCode, _ := node.Points.Find(PointTypeAssetCode, "")
 		description, _ := node.Points.Find(data.PointTypeDescription, "")
 		plants = append(plants, map[string]string{"id": node.ID, "asset_code": assetCode.Txt(), "description": description.Txt()})

@@ -70,6 +70,40 @@ func (h *Handler) RunGroupDispatch(groupID string, requestKW float64) (decision.
 // writeEnergyUnitPower 把一个 EnergyUnit 的功率请求拆解到柜内 Device 并写
 // valueSet（含爬坡限幅）。返回拆解结果，供追溯记录使用。
 func (h *Handler) writeEnergyUnitPower(energyUnitID string, requestKW float64) ([]decision.DeviceDispatch, error) {
+	unitNodes, err := siotclient.GetNodes(h.nc, "all", energyUnitID, "", false)
+	if err != nil || len(unitNodes) == 0 || unitNodes[0].Type != NodeTypeEnergyUnit {
+		return nil, fmt.Errorf("energy unit %s not found", energyUnitID)
+	}
+	unit := unitNodes[0]
+	if !AllowsEnergyUnitAutoDispatch(unit) {
+		return nil, fmt.Errorf("energy unit %s is interlocked or manually controlled", energyUnitID)
+	}
+	if point, found := unit.Points.Find(PointTypeCapability, ""); found {
+		capability, err := DecodeCapability(point.Txt())
+		if err == nil {
+			if !capability.Allowed {
+				return nil, fmt.Errorf("energy unit %s has no available capability", energyUnitID)
+			}
+			available := capability.PowerMaxKW
+			if requestKW >= 0 && capability.DischargeMaxKW > 0 {
+				available = capability.DischargeMaxKW
+			}
+			if requestKW < 0 && capability.ChargeMaxKW > 0 {
+				available = capability.ChargeMaxKW
+			}
+			if (requestKW >= 0 && capability.Direction == "charge") || (requestKW < 0 && capability.Direction == "discharge") || available <= 0 {
+				return nil, fmt.Errorf("energy unit %s capability direction is unavailable", energyUnitID)
+			}
+			if requestKW > available {
+				requestKW = available
+			}
+			if requestKW < -available {
+				requestKW = -available
+			}
+		}
+	}
+	inputs, _ := loadCapabilityInputs(unit)
+	ramp := inputs.rampParams()
 	devices, err := siotclient.GetNodes(h.nc, energyUnitID, "all", data.NodeTypeDevice, false)
 	if err != nil {
 		return nil, err
@@ -104,7 +138,7 @@ func (h *Handler) writeEnergyUnitPower(energyUnitID string, requestKW float64) (
 		}
 		setpoint := dispatch.SetpointKW
 		if current, ok := readCurrentSetpoint(h.nc, targetID); ok {
-			setpoint = decision.RampLimit(current, dispatch.SetpointKW, decision.DefaultRampParams())
+			setpoint = decision.RampLimit(current, dispatch.SetpointKW, ramp)
 		}
 		point := data.NewPointFloat(data.PointTypeValueSet, "", setpoint)
 		point.Origin = "group-dispatch"

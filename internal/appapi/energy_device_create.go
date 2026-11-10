@@ -1,23 +1,12 @@
 package appapi
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 
-	"github.com/nats-io/nats.go"
 	siotclient "github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 )
-
-// energyUnitNode 取一个 EnergyUnit 节点（用于创建前的存在性校验）。
-func energyUnitNode(nc *nats.Conn, id string) (data.NodeEdge, error) {
-	nodes, err := siotclient.GetNodes(nc, "all", id, "", false)
-	if err != nil || len(nodes) == 0 {
-		return data.NodeEdge{}, fmt.Errorf("energy unit %s not found", id)
-	}
-	return nodes[0], nil
-}
 
 // 能源节点关联设备：给 EnergyUnit 挂一台 Device（如 PCS），并映射其功率
 // 设定点位（powerSetpoint → modbusIo 节点）。挂上后，能力级调度才能把
@@ -29,9 +18,8 @@ func (h *Handler) createEnergyDevice(w http.ResponseWriter, r *http.Request, ide
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}
-	node, err := energyUnitNode(h.nc, energyUnitID)
-	if err != nil {
-		writeError(w, http.StatusNotFound, "energy_unit_not_found")
+	node, ok := h.node(w, identity, energyUnitID)
+	if !ok {
 		return
 	}
 	if node.Type != NodeTypeEnergyUnit {
@@ -55,6 +43,11 @@ func (h *Handler) createEnergyDevice(w http.ResponseWriter, r *http.Request, ide
 		writeError(w, http.StatusBadRequest, "rated_power_required")
 		return
 	}
+	if input.PowerSetpointID != "" {
+		if _, ok := h.node(w, identity, input.PowerSetpointID); !ok {
+			return
+		}
+	}
 	assetCode, err := resolveAssetCode("", input.AssetCode)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_asset_code")
@@ -75,6 +68,14 @@ func (h *Handler) createEnergyDevice(w http.ResponseWriter, r *http.Request, ide
 
 // listEnergyDevices 列出一个 EnergyUnit 下的设备（含功率点位映射）。
 func (h *Handler) listEnergyDevices(w http.ResponseWriter, identity Identity, energyUnitID string) {
+	node, ok := h.node(w, identity, energyUnitID)
+	if !ok {
+		return
+	}
+	if node.Type != NodeTypeEnergyUnit {
+		writeError(w, http.StatusBadRequest, "requires_energy_unit")
+		return
+	}
 	devices, err := siotclient.GetNodes(h.nc, energyUnitID, "all", data.NodeTypeDevice, false)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, "list_failed")

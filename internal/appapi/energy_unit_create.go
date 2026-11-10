@@ -1,6 +1,7 @@
 package appapi
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -83,9 +84,22 @@ func (h *Handler) createEnergyUnit(w http.ResponseWriter, r *http.Request, ident
 	}
 	parent := input.PlantID
 	if parent == "" {
-		parent, err = ensureDefaultPlant(h.nc)
+		parent, err = h.visibleDefaultPlant(identity)
+		if errors.Is(err, errNoVisibleParent) {
+			writeError(w, http.StatusForbidden, "no_access")
+			return
+		}
 		if err != nil {
 			writeError(w, http.StatusBadGateway, "plant_resolve_failed")
+			return
+		}
+	} else {
+		node, ok := h.node(w, identity, parent)
+		if !ok {
+			return
+		}
+		if node.Type != NodeTypePlant {
+			writeError(w, http.StatusBadRequest, "requires_plant")
 			return
 		}
 	}

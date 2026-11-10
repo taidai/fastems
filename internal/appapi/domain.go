@@ -21,18 +21,18 @@ const (
 
 // 四层节点字段的 point type。
 const (
-	PointTypeAssetCode              = "assetCode"
-	PointTypeEnergyType             = "energyType"
-	PointTypeRatedEnergyKWh         = "ratedEnergyKWh"
-	PointTypeRatedPowerKW           = "ratedPowerKW"
-	PointTypeCapability             = "capability"
+	PointTypeAssetCode               = "assetCode"
+	PointTypeEnergyType              = "energyType"
+	PointTypeRatedEnergyKWh          = "ratedEnergyKWh"
+	PointTypeRatedPowerKW            = "ratedPowerKW"
+	PointTypeCapability              = "capability"
 	PointTypeRatedCapabilityOverride = "ratedCapabilityOverride"
-	PointTypeProfileID              = "profileId"
-	PointTypePointMap               = "pointMap"
-	PointTypeSiteTarget             = "totalTarget"
-	PointTypeSiteConstraint         = "totalConstraint"
-	PointTypePlantTarget            = "plantTarget"
-	PointTypePlantConstraint        = "plantConstraint"
+	PointTypeProfileID               = "profileId"
+	PointTypePointMap                = "pointMap"
+	PointTypeSiteTarget              = "totalTarget"
+	PointTypeSiteConstraint          = "totalConstraint"
+	PointTypePlantTarget             = "plantTarget"
+	PointTypePlantConstraint         = "plantConstraint"
 	// PCCFeedback 存 Plant 的并网点反馈绑定（JSON：meterPointID/sign/maxAgeMS/
 	// 上下限），防逆流/需量从它读主表实测，而非空参数。
 	PointTypePCCFeedback = "pccFeedback"
@@ -69,13 +69,15 @@ const (
 // Rated 额定来自 Profile 默认 + Device 实例覆盖；Dynamic 动态由运行时从
 // 点位计算后写回。调度只读能力，不直接认设备型号。
 type Capability struct {
-	Kind        string  `json:"kind"`         // charge / discharge / energy / session
-	Direction   string  `json:"direction"`    // charge / discharge / bidir
-	PowerMinKW  float64 `json:"power_min_kw"`
-	PowerMaxKW  float64 `json:"power_max_kw"`
-	RampKWs     float64 `json:"ramp_kw_s"`
-	Allowed     bool    `json:"allowed"`
-	LimitReason string  `json:"limit_reason,omitempty"`
+	Kind           string  `json:"kind"`      // charge / discharge / energy / session
+	Direction      string  `json:"direction"` // charge / discharge / bidir / none
+	PowerMinKW     float64 `json:"power_min_kw"`
+	PowerMaxKW     float64 `json:"power_max_kw"` // 旧版展示/兼容：两个方向中的较大值
+	ChargeMaxKW    float64 `json:"charge_max_kw"`
+	DischargeMaxKW float64 `json:"discharge_max_kw"`
+	RampKWs        float64 `json:"ramp_kw_s"`
+	Allowed        bool    `json:"allowed"`
+	LimitReason    string  `json:"limit_reason,omitempty"`
 }
 
 // EncodeCapability 序列化一份能力到节点 point。

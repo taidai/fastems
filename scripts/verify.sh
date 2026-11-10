@@ -40,7 +40,7 @@ else
 fi
 
 echo "== temp instance on :$PORT =="
-"./$BIN" -port "$PORT" -nats-port "$NATS_PORT" -data "$DATA" >"$LOG" 2>&1 &
+EASYEMS_SEED_DEMO=1 "./$BIN" -port "$PORT" -nats-port "$NATS_PORT" -data "$DATA" >"$LOG" 2>&1 &
 PID=$!
 curl -s --retry 30 --retry-delay 1 --retry-connrefused -o /dev/null -w "health %{http_code}\n" "http://127.0.0.1:$PORT/api/health"
 

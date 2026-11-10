@@ -62,9 +62,12 @@ func GetDispatchRecord(nc *nats.Conn, energyUnitID, dispatchID string) (decision
 
 // dispatchRecords 列出某个能源设备的调度追溯记录（最新在前）。
 func (h *Handler) dispatchRecords(w http.ResponseWriter, identity Identity, energyUnitID string) {
-	nodes, err := siotclient.GetNodes(h.nc, "all", energyUnitID, "", false)
-	if err != nil || len(nodes) == 0 {
-		writeError(w, http.StatusNotFound, "energy_unit_not_found")
+	node, ok := h.node(w, identity, energyUnitID)
+	if !ok {
+		return
+	}
+	if node.Type != NodeTypeEnergyUnit {
+		writeError(w, http.StatusBadRequest, "requires_energy_unit")
 		return
 	}
 	records := listDispatchRecords(h.nc, energyUnitID)

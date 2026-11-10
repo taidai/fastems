@@ -26,12 +26,14 @@ import (
 // 这是"能建"到"真正可控"的闭环（delivered>0）。
 func TestUserBuiltUnitControlsDevice(t *testing.T) {
 	dataDir := filepath.Join(t.TempDir(), "data")
+	var users api.UserAuthority
 	options := server.Options{
 		ID: "easyems-user-control", DataDir: dataDir, HTTPPort: "9732",
 		NatsPort: 9733, NatsServer: "nats://127.0.0.1:9733", AuthToken: data.NewID(),
 		DeviceAuth: server.DeviceAuthRequired, CustomUIFS: fstest.MapFS{"index.html": {Data: []byte("easyems")}},
 		AppOnly: true, NatsLoopback: true, ProvisioningDisable: true,
-		AppHandlerFactory: func(nc *nats.Conn, users api.UserAuthority) http.Handler {
+		AppHandlerFactory: func(nc *nats.Conn, u api.UserAuthority) http.Handler {
+			users = u
 			return http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})
 		},
 	}
@@ -62,7 +64,7 @@ func TestUserBuiltUnitControlsDevice(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	handler := &Handler{nc: nc}
+	handler := New(nc, users, nil)
 	identity := Identity{UserID: "admin", Policy: AccessPolicy{Admin: true, Role: "admin"}, Anchors: []string{root.ID}}
 
 	// 通道 + 功率设定点位。

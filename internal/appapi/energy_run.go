@@ -10,9 +10,8 @@ import (
 	"easyems/internal/decision"
 )
 
-// RunCapabilityDispatch 执行一次能力级调度：读 EnergyUnit 的能力值、求值
-// 能力级规则、按柜内 Device 能力拆解、写每台 Device 的 valueSet 设定值。
-// 这是破坏性切换里能力级模型接线的核心：把纯函数接到运行时写设备。
+// RunCapabilityDispatch 执行一次能力级调度。柜内拆解、动态能力约束、人工/
+// 互锁闸门和爬坡统一由 writeEnergyUnitPower 执行，避免单柜路径绕过约束。
 func (h *Handler) RunCapabilityDispatch(energyUnitID string) ([]decision.DeviceDispatch, error) {
 	nodes, err := siotclient.GetNodes(h.nc, "all", energyUnitID, "", false)
 	if err != nil || len(nodes) == 0 {
@@ -25,73 +24,22 @@ func (h *Handler) RunCapabilityDispatch(energyUnitID string) ([]decision.DeviceD
 	if rule.State != decision.RulePublished {
 		return nil, fmt.Errorf("capability rule on %s is not published", energyUnitID)
 	}
-	// CTL-01 互锁闸门：非运行态（故障/检修/停机）拒绝执行。
-	if state := LoadCabinetState(nodes[0]); !decision.AllowsAutoDispatch(state) {
-		return nil, fmt.Errorf("energy unit %s is %s, auto dispatch interlocked", energyUnitID, state)
+	if !AllowsEnergyUnitAutoDispatch(nodes[0]) {
+		return nil, fmt.Errorf("energy unit %s is interlocked or manually controlled", energyUnitID)
 	}
-
 	values, err := LoadCapabilityValues(h.nc, []string{energyUnitID})
 	if err != nil {
 		return nil, err
 	}
-
-	// 柜内 Device 能力：读 energyUnit 下的 device 节点，能力从 capability 点。
-	devices, err := siotclient.GetNodes(h.nc, energyUnitID, "all", data.NodeTypeDevice, false)
-	if err != nil {
-		return nil, err
-	}
-	cabinet := make([]decision.DeviceCapability, 0, len(devices))
-	for _, device := range devices {
-		rated := 0.0
-		if point, found := device.Points.Find(PointTypeRatedPowerKW, ""); found {
-			rated = pointFloat(point)
-		}
-		available := rated
-		if point, found := device.Points.Find(PointTypeCapability, ""); found {
-			if capability, err := DecodeCapability(point.Txt()); err == nil && capability.PowerMaxKW > 0 {
-				available = capability.PowerMaxKW
-			}
-		}
-		cabinet = append(cabinet, decision.DeviceCapability{
-			DeviceID:         device.ID,
-			RatedPowerKW:     rated,
-			AvailablePowerKW: available,
-		})
-	}
-
-	dispatches := decision.DispatchCapability(rule, values, map[string][]decision.DeviceCapability{energyUnitID: cabinet})
-
-	// 写 Device 设定值到 valueSet 点，触发 bridge 写设备。写目标优先取 Device
-	// 的 powerSetpoint 点位（功率设定 modbusIo 节点），缺省写 Device 节点。
-	for _, dispatch := range dispatches {
-		if dispatch.Excluded {
-			continue
-		}
-		targetID := dispatch.DeviceID
-		if nodes, err := siotclient.GetNodes(h.nc, "all", dispatch.DeviceID, "", false); err == nil && len(nodes) > 0 {
-			if point, found := nodes[0].Points.Find(PointTypePowerSetpoint, ""); found && point.Txt() != "" {
-				targetID = point.Txt()
-			}
-		}
-		// Q11 爬坡限幅：读目标节点当前设定值，按爬坡/死区推进一档再写，
-		// 避免目标值突变造成设备冲击。无当前值（首次）时直接写目标。
-		setpoint := dispatch.SetpointKW
-		if current, ok := readCurrentSetpoint(h.nc, targetID); ok {
-			setpoint = decision.RampLimit(current, dispatch.SetpointKW, decision.DefaultRampParams())
-		}
-		point := data.NewPointFloat(data.PointTypeValueSet, "", setpoint)
-		point.Origin = "capability-dispatch"
-		if err := siotclient.SendNodePoint(h.nc, targetID, point, true); err != nil {
-			return nil, fmt.Errorf("write device %s: %w", dispatch.DeviceID, err)
-		}
-	}
-	// OBS-01 追溯：生成 dispatchID，把能力快照/分配/设备设定串成一条记录，
-	// 供值班员按 dispatchID 复盘。保存失败不阻塞调度，只记录。
 	requestKW := 0.0
 	for _, action := range decision.EvaluateCapabilityRule(rule, values) {
 		if action.EnergyUnitID == energyUnitID {
 			requestKW += action.RequestKW
 		}
+	}
+	dispatches, err := h.writeEnergyUnitPower(energyUnitID, requestKW)
+	if err != nil {
+		return nil, err
 	}
 	record := decision.BuildRecord(energyUnitID, rule.ID, requestKW, values, LoadCabinetState(nodes[0]), dispatches)
 	if err := appendDispatchRecord(h.nc, energyUnitID, record); err != nil {
