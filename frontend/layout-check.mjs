@@ -12,19 +12,33 @@ let browser
 try { browser = await chromium.launch({ channel: "chrome", headless: true }) }
 catch { browser = await chromium.launch({ channel: "msedge", headless: true }) }
 const errors = []
-const pages = ["工作台", "设备台账", "点位表", "通道", "虚拟聚合", "决策表", "报警与事件", "数据与追溯", "部署与验收", "功率分配器", "账号与权限", "审计日志", "运行画面"]
+const overflows = []
+const pages = ["工作台", "设备台账", "点位表", "通道", "虚拟聚合", "决策表", "报警与事件", "数据与追溯", "部署与验收", "功率分配器", "能源设备", "账号与权限", "审计日志", "运行画面"]
+const navGroups = {
+  "工作台": "总览", "运行画面": "总览",
+  "设备台账": "设备", "点位表": "设备", "通道": "设备", "虚拟聚合": "设备",
+  "决策表": "调度", "功率分配器": "调度", "能源设备": "调度",
+  "报警与事件": "数据", "数据与追溯": "数据",
+  "部署与验收": "配置", "账号与权限": "配置", "审计日志": "配置",
+}
 const sizes = [
   { width: 1920, height: 1080 },
   { width: 1600, height: 1000 },
   { width: 1280, height: 800 },
   { width: 1366, height: 768 },
   { width: 1024, height: 768 },
+  { width: 390, height: 844 },
 ]
 const results = {}
 try {
   const page = await browser.newPage({ viewport: sizes[1] })
   page.on("pageerror", (error) => errors.push(error.message))
-  page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()) })
+  page.on("console", (message) => {
+    if (message.type() !== "error") return
+    const url = message.location().url
+    if (url.endsWith("/favicon.ico")) return
+    errors.push(url ? `${message.text()} (${url})` : message.text())
+  })
   page.on("response", (response) => { if (response.status() >= 500) errors.push(`${response.status()} ${response.url()}`) })
   await page.goto(base)
   await page.fill('input[autocomplete="username"]', "admin")
@@ -33,8 +47,8 @@ try {
   await page.waitForSelector(".console-stage")
 
   async function go(label) {
-    await page.getByLabel("页面目录").click()
-    await page.locator(".console-directory button").filter({ hasText: new RegExp(`^${label}$`) }).click()
+    await page.locator(".console-topnav .topnav-trigger").filter({ hasText: navGroups[label] }).click()
+    await page.locator(".topnav-dropdown").getByRole("menuitem", { name: label, exact: true }).click()
     await page.waitForTimeout(450)
   }
 
@@ -45,11 +59,19 @@ try {
       const wide = (el) => el ? Math.max(0, el.scrollWidth - el.clientWidth) : 0
       const content = q("ion-content")
       const inner = content?.shadowRoot?.querySelector(".inner-scroll")
+      const tableScrollers = [...document.querySelectorAll('[class*="table-wrap"]')].map((el) => {
+        const overflowX = getComputedStyle(el).overflowX
+        return { className: String(el.className), horizontal: wide(el), overflowX, contained: overflowX === "auto" || overflowX === "scroll" }
+      }).filter((item) => item.horizontal > 1)
       return {
         inner: over(inner),
         stage: over(q(".console-stage")),
         doc: over(document.scrollingElement),
+        documentHorizontal: wide(document.scrollingElement),
+        shellHorizontal: wide(q(".console-shell")),
+        stageHorizontal: wide(q(".console-stage")),
         horizontal: Math.max(wide(document.documentElement), wide(q(".console-shell")), wide(q(".console-stage"))),
+        internalTables: tableScrollers,
         delivery: over(q(".delivery-panel")),
         deliveryList: over(q(".delivery-list")),
         points: over(q(".point-table-wrap")),
@@ -68,6 +90,15 @@ try {
     })
   }
 
+  function checkHorizontal(size, label, metrics) {
+    if (metrics.horizontal > 1) {
+      overflows.push({ size, page: label, document: metrics.documentHorizontal, shell: metrics.shellHorizontal, stage: metrics.stageHorizontal })
+    }
+    for (const table of metrics.internalTables) {
+      if (!table.contained) overflows.push({ size, page: label, uncontainedTable: table })
+    }
+  }
+
   for (const size of sizes) {
     await page.setViewportSize(size)
     await page.waitForTimeout(350)
@@ -76,6 +107,7 @@ try {
     for (const label of pages) {
       await go(label)
       results[key][label] = await measure()
+      checkHorizontal(key, label, results[key][label])
       if (size.width === 1600 && label === "工作台") {
         await page.screenshot({ path: path.join(evidenceDir, `layout-overview-1600.png`) })
       }
@@ -89,16 +121,17 @@ try {
     const key = `${size.width}x${size.height}`
     channelTabs[key] = {}
     for (const label of ["运行状态", "端口配置", "点表与模板"]) {
-      await page.locator(".channel-workspace-switch button").filter({ hasText: new RegExp(`^${label}$`) }).click()
+      await page.getByRole("tab", { name: label, exact: true }).click()
       await page.waitForTimeout(400)
       const metrics = await measure()
+      checkHorizontal(key, `通道/${label}`, metrics)
       channelTabs[key][label] = metrics
       if (metrics.stage || metrics.channelWorkspace || metrics.communication || metrics.modbusTools || metrics.doc || metrics.horizontal) {
         throw new Error(`channel workspace overflow ${key} ${label}: ${JSON.stringify(metrics)}`)
       }
       if (size.width === 1600) await page.screenshot({ path: path.join(evidenceDir, `channel-${label === "运行状态" ? "status" : label === "端口配置" ? "config" : "tools"}-1600.png`) })
     }
-    await page.locator(".channel-workspace-switch button").filter({ hasText: /^运行状态$/ }).click()
+    await page.getByRole("tab", { name: "运行状态", exact: true }).click()
     await page.waitForTimeout(250)
   }
 
@@ -148,15 +181,17 @@ try {
   await page.keyboard.press("Escape")
 
   await writeFile(path.join(evidenceDir, "layout-check.json"), JSON.stringify({
-    passed: errors.length === 0,
+    passed: errors.length === 0 && overflows.length === 0,
     sizes: results,
     queryTabs: {},
     channelTabs,
     flowTools: true,
     assistant: { answers, lastAnswer },
+    horizontalOverflows: overflows,
     errors,
   }, null, 2) + "\n")
-  if (errors.length) throw new Error(`console errors: ${errors.join(" | ")}`)
+  if (errors.length) throw new Error(`browser errors: ${errors.join(" | ")}`)
+  if (overflows.length) throw new Error(`horizontal overflow: ${JSON.stringify(overflows)}`)
   console.log("Layout check complete", JSON.stringify(results, null, 1))
 } finally {
   await browser.close()

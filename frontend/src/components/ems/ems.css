@@ -97,7 +97,7 @@
     color: var(--color-ems-ink);
     font-size: 13px;
   }
-  .console-main .panel {
+  .console-main .panel:not(.flow-panel) {
     border: 1px solid var(--color-ems-line);
     border-radius: 16px;
     background: rgb(255 255 255 / 86%);
@@ -105,8 +105,23 @@
     backdrop-filter: blur(20px) saturate(1.08);
     padding: 16px;
   }
-  .console-main .panel h2 { font-size: 17px; letter-spacing: 0; margin: 0 0 6px; }
-  .console-main .panel h3 { font-size: 14px; }
+  .console-main .panel:not(.flow-panel) h2 { font-size: 17px; letter-spacing: 0; margin: 0 0 6px; }
+  .console-main .panel:not(.flow-panel) h3 { font-size: 14px; }
+  /* 能流标签按百分比定位，窄高比视口下会略超出 canvas 下沿；允许在面板内溢出显示，避免被裁掉。 */
+  .console-main .flow-canvas { overflow: visible; }
+
+  /* 窄屏：主导航可横向滑动，不撑破外壳；触摸目标保持 40px。 */
+  @media (max-width: 767px) {
+    .console-topbar { flex-wrap: wrap; row-gap: 6px; }
+    .console-topnav {
+      order: 3; flex: 1 1 100%; min-width: 0; max-width: 100%;
+      overflow-x: auto; overflow-y: hidden; flex-wrap: nowrap;
+      -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    }
+    .console-topnav::-webkit-scrollbar { display: none; }
+    .topnav-item { flex: 0 0 auto; }
+    .topnav-trigger { min-height: 40px; }
+  }
   .console-main .primary-button,
   .console-main .secondary-button {
     min-height: 38px; padding: 7px 14px; border-radius: 10px; font-size: 13px; font-weight: 550;

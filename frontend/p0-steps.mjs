@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises"
 import path from "node:path"
 
-export function p0Steps({ page, snapshot, targetValue, waitTarget, addNode, evidence }) {
+export function p0Steps({ page, snapshot, targetValue, waitTarget, addNode, evidence, go }) {
   async function openManager(name) {
     const line = page.locator(".device-line").filter({ has: page.locator(".device-name strong").getByText(name, { exact: true }) })
     await line.getByRole("button", { name: "管理", exact: true }).click()
@@ -53,8 +53,7 @@ export function p0Steps({ page, snapshot, targetValue, waitTarget, addNode, evid
   }
 
   async function rules() {
-    await page.click(".console-chip")
-    await page.click('.console-directory button:has-text("决策表")')
+    await go("决策表")
     await page.getByRole("button", { name: "重命名", exact: true }).click()
     await page.getByLabel("规则名称").fill("舒适控制 P0")
     await page.getByRole("button", { name: "保存名称" }).click()
@@ -80,7 +79,7 @@ export function p0Steps({ page, snapshot, targetValue, waitTarget, addNode, evid
   }
 
   async function resources() {
-    await page.locator(".console-bottomnav button").filter({ hasText: "总览" }).click()
+    await go("工作台")
     let drawer = await openManager("风机")
     await drawer.getByLabel("名称", { exact: true }).fill("风机 P0")
     await drawer.getByRole("button", { name: "保存修改" }).click()
@@ -133,10 +132,9 @@ export function p0Steps({ page, snapshot, targetValue, waitTarget, addNode, evid
   }
 
   async function modbus() {
-    await page.click(".console-chip")
-    await page.locator(".console-directory button").filter({ hasText: /^通道$/ }).click()
+    await go("通道")
     await page.waitForSelector(".channel-workspace")
-    await page.locator(".channel-workspace-switch button").filter({ hasText: /^端口配置$/ }).click()
+    await page.getByRole("tab", { name: "端口配置", exact: true }).click()
 
     await page.locator(".communication-actions button").click()
     let modal = page.locator('.comm-modal[aria-label="端口配置"]')
@@ -169,8 +167,7 @@ export function p0Steps({ page, snapshot, targetValue, waitTarget, addNode, evid
     await addPoint("Modbus 可写", 0)
     await waitHealthy("Modbus 可写")
 
-    await page.click(".console-chip")
-    await page.locator(".console-directory button").filter({ hasText: /^工作台$/ }).click()
+    await go("工作台")
     const writeLine = page.locator(".device-line").filter({ hasText: "Modbus 可写" })
     await writeLine.waitFor()
     await writeLine.getByRole("spinbutton").fill("0")
@@ -187,9 +184,8 @@ export function p0Steps({ page, snapshot, targetValue, waitTarget, addNode, evid
     await drawer.getByRole("button", { name: "保存修改" }).click()
     await drawer.waitFor({ state: "detached" })
 
-    await page.click(".console-chip")
-    await page.locator(".console-directory button").filter({ hasText: /^通道$/ }).click()
-    await page.locator(".channel-workspace-switch button").filter({ hasText: /^点表与模板$/ }).click()
+    await go("通道")
+    await page.getByRole("tab", { name: "点表与模板", exact: true }).click()
 
     await page.locator('.csv-import input[type="file"]').setInputFiles({
       name: "points.csv", mimeType: "text/csv",
@@ -210,7 +206,7 @@ export function p0Steps({ page, snapshot, targetValue, waitTarget, addNode, evid
     await page.getByRole("button", { name: "保存为型号模板" }).click()
     await page.getByLabel("型号模板").waitFor()
 
-    await page.locator(".channel-workspace-switch button").filter({ hasText: /^端口配置$/ }).click()
+    await page.getByRole("tab", { name: "端口配置", exact: true }).click()
     await page.locator(".communication-actions button").click()
     modal = page.locator('.comm-modal[aria-label="端口配置"]')
     await modal.getByLabel("端口名称").fill("模板总线")
@@ -218,7 +214,7 @@ export function p0Steps({ page, snapshot, targetValue, waitTarget, addNode, evid
     await modal.getByRole("button", { name: "保存端口" }).click()
     await page.locator(".communication-table").getByText("模板总线", { exact: true }).waitFor()
 
-    await page.locator(".channel-workspace-switch button").filter({ hasText: /^点表与模板$/ }).click()
+    await page.getByRole("tab", { name: "点表与模板", exact: true }).click()
     await page.getByLabel("应用到连接").selectOption({ label: "模板总线" })
     await page.getByRole("button", { name: "应用模板", exact: true }).click()
     const deadline = Date.now() + 10000
@@ -238,8 +234,7 @@ export function p0Steps({ page, snapshot, targetValue, waitTarget, addNode, evid
   }
 
   async function delivery() {
-    await page.click(".console-chip")
-    await page.click('.console-directory button:has-text("部署与验收")')
+    await go("部署与验收")
     await page.getByRole("button", { name: "交付检查", exact: true }).click()
     await page.getByRole("heading", { name: "交付检查", exact: true, level: 2 }).waitFor()
     await page.locator(".delivery-item").filter({ hasText: "规则发布与运行" }).waitFor()

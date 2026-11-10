@@ -61,6 +61,13 @@ async function addNode(type, name, value, parent) {
   await page.waitForTimeout(150)
 }
 
+const navGroups = { "工作台": "总览", "决策表": "调度", "通道": "设备", "部署与验收": "配置" }
+async function go(label) {
+  await page.locator(".console-topnav .topnav-trigger").filter({ hasText: navGroups[label] }).click()
+  await page.locator(".topnav-dropdown").getByRole("menuitem", { name: label, exact: true }).click()
+  await page.waitForTimeout(250)
+}
+
 try {
   await page.goto(base)
   await page.getByRole("heading", { name: "登录工作台" }).waitFor()
@@ -78,9 +85,7 @@ try {
   await addNode("variable", "风机", -1, "演示电站")
   await addNode("variable", "风阀", -1, "演示电站")
 
-  await page.click(".console-chip")
-
-  await page.click('.console-directory button:has-text("决策表")')
+  await go("决策表")
   await page.getByRole("button", { name: "+ 新建决策表" }).click()
   await page.getByText("有序决策表", { exact: true }).waitFor()
   await page.locator(".editor-heading h2").filter({ hasText: "新决策表" }).waitFor()
@@ -157,7 +162,7 @@ try {
     throw new Error("Published rule did not write both ordered outputs")
   }
   await page.screenshot({ path: path.join(evidence, "easyems-decision-table.png"), fullPage: true })
-  await page.locator(".console-bottomnav button").filter({ hasText: "总览" }).click()
+  await go("工作台")
   await page.locator(".device-list .device-name strong").filter({ hasText: "风机" }).waitFor()
   await page.screenshot({ path: path.join(evidence, "easyems-workbench.png"), fullPage: true })
   const fanLine = page.locator(".device-line").filter({ has: page.locator(".device-name strong").filter({ hasText: "风机" }) })
@@ -172,7 +177,7 @@ try {
   await waitTarget("风机", 1)
   if (targetValue(await snapshot(), "风机") !== 1) throw new Error("Resume did not restore the automatic output")
   await page.screenshot({ path: path.join(evidence, "easyems-workbench.png"), fullPage: true })
-  const p0 = p0Steps({ page, snapshot, targetValue, waitTarget, addNode, evidence })
+  const p0 = p0Steps({ page, snapshot, targetValue, waitTarget, addNode, evidence, go })
   await p0.rules()
   await p0.resources()
   await p0.modbus()

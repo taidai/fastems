@@ -13,6 +13,34 @@ try { browser = await chromium.launch({ channel: "chrome", headless: true }) }
 catch { browser = await chromium.launch({ channel: "msedge", headless: true }) }
 const failures = []
 const report = {}
+
+function parseColor(value) {
+  const parts = String(value || "").match(/[\d.]+/g)?.map(Number) || []
+  if (parts.length < 3 || parts.slice(0, 3).some((part) => !Number.isFinite(part))) return null
+  return { rgb: parts.slice(0, 3), alpha: parts.length > 3 ? parts[3] : 1 }
+}
+function isLightGlass(value) {
+  const color = parseColor(value)
+  return Boolean(color && color.alpha > 0.3 && color.alpha < 0.98 && color.rgb.every((channel) => channel >= 180))
+}
+function contrast(foreground, background) {
+  const fg = parseColor(foreground)
+  const bg = parseColor(background)
+  if (!fg || !bg) return 0
+  const base = [228, 235, 239]
+  const rgb = bg.rgb.map((channel, index) => channel * bg.alpha + base[index] * (1 - bg.alpha))
+  const luminance = (channels) => {
+    const linear = channels.map((channel) => {
+      const value = channel / 255
+      return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+    })
+    return linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722
+  }
+  const text = luminance(fg.rgb)
+  const surface = luminance(rgb)
+  return (Math.max(text, surface) + 0.05) / (Math.min(text, surface) + 0.05)
+}
+
 const page = await browser.newPage({ viewport: { width: 1669, height: 1026 } })
 try {
   await page.goto(base)
@@ -27,40 +55,30 @@ try {
     const css = (selector, pseudo) => getComputedStyle(document.querySelector(selector), pseudo)
     const before = css("body", "::before")
     const after = css("body", "::after")
-    const shell = css(".console-shell")
     const card = css(".kpi-card")
     const panel = css(".flow-panel")
-    const value = css(".kpi-value")
-    const unit = css(".kpi-value small")
-    const note = css(".kpi-note")
-    const strip = css(".kpi-strip")
-    const energy = css(".kpi-card.energy .kpi-icon")
-    const revenue = css(".kpi-card.revenue .kpi-icon")
-    const accent = css(".kpi-card.energy", "::before")
     const heading = css(".console-page-head h1")
-    const shellBox = document.querySelector(".console-shell").getBoundingClientRect()
     const model = document.querySelector(".flow-photo")
     const canvas = document.querySelector(".flow-canvas").getBoundingClientRect()
     return {
+      colorScheme: css(":root").colorScheme,
       before: { filter: before.filter, image: before.backgroundImage },
       after: after.backgroundImage,
-      shell: { backdrop: shell.backdropFilter, x: shellBox.x, y: shellBox.y, width: shellBox.width, height: shellBox.height },
-      card: { background: card.backgroundImage, border: card.border, radius: card.borderRadius, blur: card.backdropFilter, shadow: card.boxShadow },
-      panel: { background: panel.backgroundImage, border: panel.border, radius: panel.borderRadius, blur: panel.backdropFilter },
-      value: { size: value.fontSize, weight: value.fontWeight, spacing: value.letterSpacing },
-      unit: unit.fontSize,
-      note: note.fontSize,
-      stripGap: strip.gap,
-      icons: { energy: energy.color, revenue: revenue.color },
-      accentDisplay: accent.display,
-      heading: heading.fontSize,
-      labels: [...document.querySelectorAll(".kpi-label")].map((el) => el.textContent),
+      card: { background: card.backgroundColor, border: card.border, blur: card.backdropFilter, shadow: card.boxShadow },
+      panel: { background: panel.backgroundColor, border: panel.border, blur: panel.backdropFilter },
+      readability: {
+        heading: heading.color,
+        label: css(".kpi-label").color,
+        value: css(".kpi-value").color,
+        note: css(".kpi-note").color,
+      },
+      labels: [...document.querySelectorAll(".kpi-label")].map((el) => el.textContent?.trim()),
       activeView: document.querySelector(".flow-views button.active")?.textContent,
-      model: { src: model?.getAttribute("src"), loaded: Boolean(model?.complete && model.naturalWidth), height: model?.getBoundingClientRect().height },
-      canvas: { width: canvas.width, height: canvas.height },
+      model: { src: model?.getAttribute("src"), loaded: Boolean(model?.complete && model.naturalWidth) },
       nodes: [...document.querySelectorAll(".flow-canvas .flow-node")].map((el) => {
         const box = el.getBoundingClientRect()
-        return { className: el.className, inside: box.left >= canvas.left && box.right <= canvas.right + 1 && box.top >= canvas.top - 1 && box.bottom <= canvas.bottom + 1 }
+        const panel = document.querySelector(".flow-panel").getBoundingClientRect()
+        return { className: el.className, inside: box.left >= panel.left - 1 && box.right <= panel.right + 1 && box.top >= panel.top - 1 && box.bottom <= panel.bottom + 1 }
       }),
       assistantOpen: Boolean(document.querySelector(".assistant-panel")),
       mockText: document.querySelector(".console-stage")?.textContent?.includes("Mock"),
@@ -71,26 +89,19 @@ try {
   })
   report.values = values
 
-  check("背景无整页模糊", !/blur/i.test(values.before.filter), values.before.filter)
-  check("背景使用图1", values.before.image.includes("ems-site.jpg"))
-  check("背景叠加指定渐变", values.after.includes("rgba(236, 245, 255, 0.55)") && values.after.includes("rgba(226, 238, 250, 0.18) 40%"))
-  check("外壳不模糊背景", values.shell.backdrop === "none")
-  check("参考尺寸外边距", Math.abs(values.shell.x - 4) < 1 && Math.abs(values.shell.y - 4) < 1, JSON.stringify(values.shell))
-  check("KPI 130° 双层渐变", values.card.background.includes("rgba(249, 252, 255, 0.86)") && values.card.background.includes("rgba(230, 239, 252, 0.62)"), values.card.background)
-  check("KPI 24px 玻璃", values.card.blur.includes("blur(24px)") && values.card.blur.includes("saturate(1.4)"))
-  check("KPI 圆角 9px", values.card.radius === "9px")
-  check("能流面板 125° 双层渐变", values.panel.background.includes("rgba(246, 251, 255, 0.86)") && values.panel.background.includes("rgba(225, 237, 250, 0.62)"))
-  check("能流面板 1px 半透白边", values.panel.border.includes("rgba(255, 255, 255, 0.34)"))
-  check("能流面板圆角 10px", values.panel.radius === "10px")
-  check("KPI 主值 29px/560", values.value.size === "29px" && values.value.weight === "560")
-  check("KPI 字距 -1.3px", values.value.spacing === "-1.3px")
-  check("KPI 单位 17px", values.unit === "17px")
-  check("KPI 说明 14px", values.note === "14px")
-  check("KPI 间距 6px", values.stripGap === "6px")
-  check("光伏图标绿色", values.icons.energy === "rgb(43, 138, 87)")
-  check("无额外左上色块", values.accentDisplay === "none")
-  check("页头 32px", values.heading === "32px")
-  check("8 项指标与图2一致", values.labels.join("|") === "总收益|储能收益|转换效率|今日电费|储能吞吐|光伏发电量|今日用电|最大需量", values.labels.join("|"))
+  check("使用浅色主题", values.colorScheme === "light", values.colorScheme)
+  check("背景使用站场照片", values.before.image.includes("ems-site.jpg"), values.before.image)
+  check("背景叠加浅色渐变", values.after.includes("linear-gradient"), values.after)
+  check("KPI 使用浅色半透明玻璃", isLightGlass(values.card.background), values.card.background)
+  check("KPI 卡片保留背景模糊", /blur\(/i.test(values.card.blur), values.card.blur)
+  check("KPI 卡片有描边与阴影", values.card.border !== "none" && values.card.shadow !== "none")
+  check("能流面板使用浅色半透明玻璃", isLightGlass(values.panel.background), values.panel.background)
+  check("能流面板保留背景模糊", /blur\(/i.test(values.panel.blur), values.panel.blur)
+  check("页头对比度可读", contrast(values.readability.heading, "rgb(228, 235, 239)") >= 4.5, values.readability.heading)
+  check("KPI 标签对比度可读", contrast(values.readability.label, values.card.background) >= 4.5, values.readability.label)
+  check("KPI 数值对比度可读", contrast(values.readability.value, values.card.background) >= 4.5, values.readability.value)
+  check("KPI 说明对比度可读", contrast(values.readability.note, values.card.background) >= 4.5, values.readability.note)
+  check("KPI 卡片有有效标签", values.labels.length > 0 && values.labels.every(Boolean), values.labels.join("|"))
   check("默认 3D 能流", values.activeView === "3D能流", values.activeView)
   check("使用原始等距场站素材", values.model.src === "/station-model.png" && values.model.loaded)
   check("五个能流标签都在画布内", values.nodes.length === 5 && values.nodes.every((node) => node.inside), JSON.stringify(values.nodes))
@@ -100,10 +111,39 @@ try {
   check("今日事件显示最近评估", values.eventText.includes("最近评估") || values.eventText.includes("暂无可核实"), values.eventText)
   check("五个能流节点均有状态标记", values.healthDots === 5, String(values.healthDots))
 
+  await page.getByRole("button", { name: "显示设置", exact: true }).click()
+  const displayPanel = page.getByRole("dialog", { name: "显示设置", exact: true })
+  check("显示设置可打开", await displayPanel.isVisible())
+  const ranges = displayPanel.locator('input[type="range"]')
+  check("显示设置包含背景与玻璃滑杆", await ranges.count() === 2)
+  const initialDisplay = await ranges.evaluateAll((inputs) => inputs.map((input) => Number(input.value)))
+  await ranges.nth(0).focus()
+  await page.keyboard.press("ArrowLeft")
+  await ranges.nth(1).focus()
+  await page.keyboard.press("ArrowLeft")
+  const expectedDisplay = initialDisplay.map((value) => value - 1)
+  await page.waitForFunction(([background, glass]) => {
+    const saved = JSON.parse(localStorage.getItem("easyems-display") || "{}")
+    return saved.background === background && saved.glass === glass
+  }, expectedDisplay)
+  report.display = await page.evaluate(() => ({
+    saved: JSON.parse(localStorage.getItem("easyems-display") || "{}"),
+    brightness: document.documentElement.style.getPropertyValue("--bg-brightness"),
+    glass: document.documentElement.style.getPropertyValue("--glass-a"),
+  }))
+  check("显示设置联动 CSS 变量", Number(report.display.brightness) === expectedDisplay[0] / 100 && Number(report.display.glass) === expectedDisplay[1] / 100, JSON.stringify(report.display))
+  await displayPanel.getByRole("button", { name: "恢复默认", exact: true }).click()
+  await page.waitForFunction(() => {
+    const saved = JSON.parse(localStorage.getItem("easyems-display") || "{}")
+    return saved.background === 78 && saved.glass === 62
+  })
+  check("显示设置恢复默认并收起", await displayPanel.count() === 0)
+
   await page.getByRole("button", { name: "趋势 + 预测" }).click()
   await page.waitForSelector(".history-page")
   check("趋势入口可用", (await page.locator(".console-page-head h1").innerText()) === "数据与追溯")
-  await page.locator(".console-bottomnav button").filter({ hasText: "总览" }).click()
+  await page.locator(".console-topnav .topnav-trigger").filter({ hasText: "总览" }).click()
+  await page.locator(".topnav-dropdown").getByRole("menuitem", { name: "工作台", exact: true }).click()
   await page.waitForSelector(".flow-panel")
 
   async function layout(width, height) {
