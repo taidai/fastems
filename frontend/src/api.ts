@@ -425,6 +425,16 @@ export async function saveEnergyAllocator(token: string, energyUnitId: string, m
   return request<{ saved: boolean }>(token, `/energy-units/${energyUnitId}/allocator`, "PUT", { members })
 }
 
+export type CapabilityInputs = { soc_point_id: string; temp_point_id: string; soc_min: number; soc_max: number; temp_derate: number; temp_limit: number }
+
+export async function fetchCapabilityInputs(token: string, energyUnitId: string) {
+  return request<{ inputs: CapabilityInputs; configured: boolean }>(token, `/energy-units/${energyUnitId}/capability-inputs`)
+}
+
+export async function saveCapabilityInputs(token: string, energyUnitId: string, inputs: CapabilityInputs) {
+  return request<{ saved: boolean }>(token, `/energy-units/${energyUnitId}/capability-inputs`, "PUT", inputs)
+}
+
 export type AllocShare = {
   member_id: string
   capacity: number

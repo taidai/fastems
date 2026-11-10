@@ -21,7 +21,8 @@ func DynamicDischarge(limit CapabilityLimit) (float64, bool) {
 	if limit.SOC <= limit.SOCMin {
 		return 0, false // SOC 低，禁放
 	}
-	if limit.Temp >= limit.TempLimit {
+	// TempLimit<=0 表示未配置温度限制（如温度点位缺失），不做温度剔除。
+	if limit.TempLimit > 0 && limit.Temp >= limit.TempLimit {
 		return 0, false // 温度超限，剔除
 	}
 	capacity := min2(limit.Rated, limit.Available)
@@ -44,7 +45,7 @@ func DynamicCharge(limit CapabilityLimit) (float64, bool) {
 	if limit.SOC >= limit.SOCMax {
 		return 0, false // SOC 高，禁充
 	}
-	if limit.Temp >= limit.TempLimit {
+	if limit.TempLimit > 0 && limit.Temp >= limit.TempLimit {
 		return 0, false
 	}
 	capacity := min2(limit.Rated, limit.Available)

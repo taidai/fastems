@@ -55,6 +55,9 @@ func (s *EnergyScheduler) Stop(error) {
 }
 
 func (s *EnergyScheduler) tick() {
+	// 动态能力：先按 SOC/温度刷新 capability，再调度。
+	RefreshCapabilities(s.nc)
+
 	controlled := map[string]bool{}
 
 	// 站级策略优先：防逆流 > 需量 > 削峰填谷；接管时该站单柜规则本轮让位。

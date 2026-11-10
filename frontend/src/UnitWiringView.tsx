@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { EmsButton, EmsSectionHeader, EmptyState, InlineNotice, StatusBadge } from "./components/ems"
 import UnitDevicePanel from "./UnitDevicePanel"
+import CapabilityInputsPanel from "./CapabilityInputsPanel"
 import { fetchEnergyUnits } from "./api"
 import type { EnergyUnitSummary, Node } from "./api"
 
@@ -38,6 +39,9 @@ export default function UnitWiringView({ token, nodes, onError }: {
         </button>)}
       </div>)}
 
-    {current && <UnitDevicePanel token={token} unitId={current.id} nodes={nodes} onError={onError} />}
+    {current && <>
+      <UnitDevicePanel token={token} unitId={current.id} nodes={nodes} onError={onError} />
+      <CapabilityInputsPanel token={token} unitId={current.id} nodes={nodes} onError={onError} />
+    </>}
   </section>
 }
