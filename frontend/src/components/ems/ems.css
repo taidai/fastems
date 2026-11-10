@@ -89,9 +89,42 @@
   @media (prefers-reduced-motion: reduce) {
     .ems-card, .ems-overlay, .ems-segment { transition: none; }
   }
+}
 
-  /* 过渡兼容层：仅作用于尚未完成组件迁移的页面外壳（部署、通讯配置弹层），
-     让它们与 EMS 卡片/按钮视觉一致；页面迁移完成后删除对应作用域。 */
+/* 过渡兼容层（未分层，随 ems.css 最后加载）：全站旧结构（.panel / 原生控件）统一到 EMS
+   视觉基线。已完成迁移的页面使用 EMS 组件，不依赖这些选择器；剩余页面随迁移逐步删除。 */
+.console-main {
+    color: var(--color-ems-ink);
+    font-size: 13px;
+  }
+  .console-main .panel {
+    border: 1px solid var(--color-ems-line);
+    border-radius: 16px;
+    background: rgb(255 255 255 / 86%);
+    box-shadow: 0 10px 30px rgb(31 46 58 / 8%);
+    backdrop-filter: blur(20px) saturate(1.08);
+    padding: 16px;
+  }
+  .console-main .panel h2 { font-size: 17px; letter-spacing: 0; margin: 0 0 6px; }
+  .console-main .panel h3 { font-size: 14px; }
+  .console-main .primary-button,
+  .console-main .secondary-button {
+    min-height: 38px; padding: 7px 14px; border-radius: 10px; font-size: 13px; font-weight: 550;
+  }
+  .console-main .primary-button { background: var(--color-ems-accent); border-color: var(--color-ems-accent); color: #fff; }
+  .console-main .secondary-button {
+    border: 1px solid var(--color-ems-line); background: rgb(255 255 255 / 82%); color: var(--color-ems-ink);
+  }
+  .console-main select,
+  .console-main input:not([type="checkbox"]):not([type="range"]):not([type="radio"]) {
+    min-height: 38px; border: 1px solid var(--color-ems-line); border-radius: 10px; background: #fff; font-size: 13px;
+  }
+  .console-main .section-kicker { color: var(--color-ems-accent); letter-spacing: 0.08em; }
+  .console-main .empty-state {
+    display: grid; justify-items: center; gap: 8px; padding: 26px 16px;
+    border: 1px dashed var(--color-ems-line); border-radius: 14px; background: rgb(255 255 255 / 45%); text-align: center;
+  }
+
   .deploy-page, .comm-modal, .assistant-panel {
     color: var(--color-ems-ink);
     font-size: 13px;
@@ -128,4 +161,3 @@
     .deploy-page .deploy-actions > * { flex: 1 1 auto; }
     .deploy-page .scan-form { grid-template-columns: 1fr; }
   }
-}
