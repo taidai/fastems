@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { IonCardContent } from "@ionic/react"
 import { EmsButton, EmsCard, EmsInput, EmsOverlay, EmsSectionHeader, EmsSelect, EmsSelectOption, InlineNotice, StatusBadge } from "./components/ems"
-import { fetchPlants, fetchPlantPCC, savePlantPCC, fetchPlantStrategy, savePlantStrategy, fetchSiteTarget, saveSiteTarget } from "./api"
+import { fetchPlants, fetchPlantPCC, savePlantPCC, fetchPlantStrategy, savePlantStrategy, fetchSiteTarget, saveSiteTarget, fetchPhaseVerdict, type PhaseVerdict } from "./api"
 import type { Node, TariffPeriod } from "./api"
 
 const toMin = (text: string) => {
@@ -30,6 +30,10 @@ export default function PlantStrategyPanel({ token, nodes, onError }: {
   const [saved, setSaved] = useState(false)
   const [confirm, setConfirm] = useState(false)
   const sites = nodes.filter((node) => node.type === "site")
+  const [phaseA, setPhaseA] = useState("")
+  const [phaseB, setPhaseB] = useState("")
+  const [phaseC, setPhaseC] = useState("")
+  const [verdict, setVerdict] = useState<PhaseVerdict | null>(null)
   const [siteId, setSiteId] = useState("")
   const [siteTargetKW, setSiteTargetKW] = useState(0)
   const [siteSaved, setSiteSaved] = useState(false)
@@ -75,6 +79,8 @@ export default function PlantStrategyPanel({ token, nodes, onError }: {
         setMeterId(result.binding.MeterPointID)
         setReverseLimit(result.binding.LowerLimitKW)
         setDemandLimit(result.binding.UpperLimitKW)
+        const phases = result.binding.PhasePointIDs || []
+        setPhaseA(phases[0] || ""); setPhaseB(phases[1] || ""); setPhaseC(phases[2] || "")
         setSaved(true)
       }
     }).catch(() => {})
@@ -93,7 +99,7 @@ export default function PlantStrategyPanel({ token, nodes, onError }: {
     if (!meterId) { onError("请选择 PCC 主表点位"); return }
     setBusy(true)
     try {
-      await savePlantPCC(token, plantId, { MeterPointID: meterId, Sign: 1, MaxAgeMS: 15000, UpperLimitKW: demandLimit, LowerLimitKW: reverseLimit })
+      await savePlantPCC(token, plantId, { MeterPointID: meterId, Sign: 1, MaxAgeMS: 15000, UpperLimitKW: demandLimit, LowerLimitKW: reverseLimit, PhasePointIDs: [phaseA, phaseB, phaseC].filter(Boolean) })
       const periods: TariffPeriod[] = []
       if (pvPower > 0) {
         periods.push({ StartMin: toMin(valleyStart), EndMin: toMin(valleyEnd), Kind: "valley", Price: 0 })
@@ -130,6 +136,21 @@ export default function PlantStrategyPanel({ token, nodes, onError }: {
           <EmsInput label="谷时段结束" aria-label="谷时段结束" type="time" value={valleyEnd} onIonInput={(event) => setValleyEnd(event.detail.value || "08:00")} />
           <EmsInput label="峰时段开始" aria-label="峰时段开始" type="time" value={peakStart} onIonInput={(event) => setPeakStart(event.detail.value || "18:00")} />
           <EmsInput label="峰时段结束" aria-label="峰时段结束" type="time" value={peakEnd} onIonInput={(event) => setPeakEnd(event.detail.value || "22:00")} />
+        </div>
+      </div>
+      <div className="grid gap-3 rounded-xl border border-ems-line p-3">
+        <strong className="text-sm text-ems-ink">逐相反送（可选）</strong>
+        <p className="m-0 text-xs text-ems-muted">配置 A/B/C 三相功率点位后，可识别合相为零但单相反送的情况；执行器不支持独立调相时会如实提示。</p>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <EmsSelect label="A 相点位" aria-label="A 相点位" value={phaseA} onIonChange={(event) => setPhaseA(event.detail.value)}><EmsSelectOption value="">不配置</EmsSelectOption>{meters.map((node) => <EmsSelectOption key={node.id} value={node.id}>{node.points.find((p) => p.type === "description")?.text || node.id}</EmsSelectOption>)}</EmsSelect>
+          <EmsSelect label="B 相点位" aria-label="B 相点位" value={phaseB} onIonChange={(event) => setPhaseB(event.detail.value)}><EmsSelectOption value="">不配置</EmsSelectOption>{meters.map((node) => <EmsSelectOption key={node.id} value={node.id}>{node.points.find((p) => p.type === "description")?.text || node.id}</EmsSelectOption>)}</EmsSelect>
+          <EmsSelect label="C 相点位" aria-label="C 相点位" value={phaseC} onIonChange={(event) => setPhaseC(event.detail.value)}><EmsSelectOption value="">不配置</EmsSelectOption>{meters.map((node) => <EmsSelectOption key={node.id} value={node.id}>{node.points.find((p) => p.type === "description")?.text || node.id}</EmsSelectOption>)}</EmsSelect>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <EmsButton size="small" variant="secondary" onClick={() => { if (!plantId) return; void fetchPhaseVerdict(token, plantId).then(setVerdict).catch((cause) => onError(cause instanceof Error ? cause.message : "逐相判定不可用")) }}>读取逐相判定</EmsButton>
+          {verdict && (verdict.available
+            ? <span className="text-xs text-ems-muted">合相 {verdict.net_kw} kW · 各相反送 {verdict.phase_reverse_kw?.join(" / ")} · {verdict.note}</span>
+            : <span className="text-xs text-ems-amber">{verdict.reason}</span>)}
         </div>
       </div>
       <InlineNotice tone="info">启用后，电站按硬优先级自动调节：防逆流 → 需量（{demandLimit || "不限"} kW）→ 削峰填谷（{pvPower > 0 ? `${pvPower} kW` : "未启用"}）。</InlineNotice>

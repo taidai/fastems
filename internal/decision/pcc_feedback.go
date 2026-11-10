@@ -12,13 +12,16 @@ type PCCFeedback struct {
 	MaxAgeMS     int64   // 数据有效期 ms；0 = 不检查
 	UpperLimitKW float64 // 购电上限（需量），0 = 不限
 	LowerLimitKW float64 // 送电下限（反送阈值），通常 0 = 禁止反送
+	// PhasePointIDs 是可选的 A/B/C 三相功率点位；三相同为新鲜数据时才给出
+	// 逐相判定，否则只按合相处理。
+	PhasePointIDs []string
 }
 
 // PCCReading 是读到的一次 PCC 实测。
 type PCCReading struct {
-	KW       float64 // 归一化后的 PCC 功率（已乘 Sign，购电为正）
-	Usable   bool    // 数据是否可用于闭环控制
-	Reason   string  // 不可用原因（缺点位/非数值/过期）
+	KW     float64 // 归一化后的 PCC 功率（已乘 Sign，购电为正）
+	Usable bool    // 数据是否可用于闭环控制
+	Reason string  // 不可用原因（缺点位/非数值/过期）
 }
 
 // ReadPCC 用原始主表读数构造一次 PCC 实测。rawKW 是主表原始值，ageMS 是

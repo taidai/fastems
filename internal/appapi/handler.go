@@ -435,6 +435,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.getPlantPCC(w, identity, parts[1])
 	case len(parts) == 3 && parts[0] == "plants" && parts[2] == "pcc" && r.Method == http.MethodPut:
 		h.savePlantPCC(w, r, identity, parts[1])
+	case len(parts) == 3 && parts[0] == "plants" && parts[2] == "phase-verdict" && r.Method == http.MethodGet:
+		h.phaseVerdict(w, identity, parts[1])
 	case len(parts) == 3 && parts[0] == "plants" && parts[2] == "strategy" && (r.Method == http.MethodGet || r.Method == http.MethodPut):
 		h.plantStrategy(w, r, identity, parts[1])
 	case path == "safety" && r.Method == http.MethodPut:

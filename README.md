@@ -92,6 +92,8 @@ Windows PowerShell 使用 `$env:EASYEMS_ADMIN_PASSWORD='replace-with-a-local-pas
 
 访问 `http://localhost:4000`，账号为 `admin`。当前 HTTP 监听适用于本机或受信网络验收，不宣称可直接暴露公网。
 
+演示数据默认关闭：生产实例不会生成演示站点。仅在本地/测试需要时设置 `EASYEMS_SEED_DEMO=1`，演示资产均带“演示”标识，不能当作真实设备或验收证据。
+
 ## 完整备份与恢复
 
 已验证的支持方式是**离线复制整个数据目录**：停止 easyems，复制 `data`（包括 JetStream、设备密钥和初始化标记），恢复时停止目标实例并用备份替换其数据目录，再启动同一个应用。不要只复制 YAML 或部分文件。

@@ -380,7 +380,7 @@ export async function createEnergyDevice(token: string, energyUnitId: string, in
 
 // 电站策略（防逆流/需量）：PCC 反馈绑定。
 export type PlantSummary = { id: string; asset_code: string; description: string }
-export type PCCBinding = { MeterPointID: string; Sign: number; MaxAgeMS: number; UpperLimitKW: number; LowerLimitKW: number }
+export type PCCBinding = { MeterPointID: string; Sign: number; MaxAgeMS: number; UpperLimitKW: number; LowerLimitKW: number; PhasePointIDs?: string[] }
 
 export async function fetchPlants(token: string) {
   return request<{ plants: PlantSummary[] }>(token, `/plants`)
@@ -621,4 +621,10 @@ export async function fetchOpcuaPoints(token: string, channelId: string) {
 }
 export async function createOpcuaPoint(token: string, channelId: string, input: { node_id: string; description: string; read_only: boolean }) {
   return request<{ id: string }>(token, `/opcua/channels/${channelId}/points`, "POST", input)
+}
+
+// 逐相判定：三相点位都新鲜时返回各相反送；执行器不支持独立调相时如实说明。
+export type PhaseVerdict = { available: boolean; reason?: string; net_kw?: number; phase_reverse_kw?: number[]; can_per_phase?: boolean; note?: string }
+export async function fetchPhaseVerdict(token: string, plantId: string) {
+  return request<PhaseVerdict>(token, `/plants/${plantId}/phase-verdict`)
 }
