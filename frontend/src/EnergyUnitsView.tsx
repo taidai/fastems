@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
-import { IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonInput, IonSelect, IonSelectOption } from "@ionic/react"
+import { IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle } from "@ionic/react"
+import { EmsButton, EmsCard, EmsInput, EmsSectionHeader, EmsSelect, EmsSelectOption, EmptyState, InlineNotice } from "./components/ems"
 import { fetchEnergyUnits, createEnergyUnit, fetchEnergyDevices, createEnergyDevice, saveEnergyRule, publishEnergyRule } from "./api"
 import type { EnergyUnitSummary, EnergyDevice, Node } from "./api"
 import { templates, buildFromTemplate } from "./strategyTemplates"
@@ -69,80 +70,67 @@ export default function EnergyUnitsView({ token, nodes, onError }: {
   }
 
   if (selected) {
-    return <section className="panel energy-units-view">
-      <div className="panel-heading"><div><span className="section-kicker">能源设备</span><h2>运行策略</h2><p>{units.find((unit) => unit.id === selected)?.asset_code || selected}</p></div><button className="secondary-button" onClick={() => setSelected("")}>返回列表</button></div>
+    return <section className="grid gap-4">
+      <EmsSectionHeader kicker="能源设备" title="运行策略" description={units.find((unit) => unit.id === selected)?.asset_code || selected}
+        actions={<EmsButton variant="secondary" onClick={() => setSelected("")}>返回列表</EmsButton>} />
       <DevicePanel token={token} unitId={selected} nodes={nodes} onError={onError} />
       <EnergyRuleEditor token={token} energyUnitId={selected} onError={onError} />
     </section>
   }
 
-  return <section className="panel energy-units-view">
+  return <section className="grid gap-4">
     <PlantStrategyPanel token={token} nodes={nodes} onError={onError} />
-    <div className="panel-heading"><div><span className="section-kicker">能源设备</span><h2>能源设备</h2><p>每台能源设备独立按策略自动充放电，可挂设备、配策略。</p></div>
-      <button className="secondary-button" onClick={() => showAdd ? setShowAdd(false) : openWizard()}>{showAdd ? "收起" : "+ 新建能源设备"}</button>
-    </div>
+    <EmsSectionHeader kicker="能源设备" title="能源设备" description="每台能源设备独立按策略自动充放电，可挂设备、配策略。"
+      actions={<EmsButton variant="secondary" onClick={() => showAdd ? setShowAdd(false) : openWizard()}>{showAdd ? "收起" : "+ 新建能源设备"}</EmsButton>} />
 
-    {showAdd && <div className="energy-unit-add wizard">
+    {showAdd && <EmsCard variant="subtle"><IonCardContent className="grid gap-4">
       <ol className="wizard-steps">
         {["能源设备信息", "挂设备", "选策略并启动"].map((title, index) => <li key={title} className={step > index + 1 ? "done" : step === index + 1 ? "active" : ""}>{index + 1}. {title}</li>)}
       </ol>
 
-      {step === 1 && <div className="wizard-body">
-        <p className="wizard-consequence">给这台能源设备起个名字、填额定功率。这一步只登记信息，不会动设备。</p>
-        <div className="energy-rule-row">
-          <input aria-label="节点名称" placeholder="能源设备名称，例如：2 号能源设备" value={name} onChange={(event) => setName(event.target.value)} />
-          <span className="set-label">额定功率 kW</span>
-          <input aria-label="额定功率" type="number" inputMode="decimal" value={rated} onChange={(event) => setRated(Number(event.target.value))} />
-          <select aria-label="能源类型" value={energyType} onChange={(event) => setEnergyType(event.target.value)}>
-            <option value="storage">储能（可充可放）</option>
-            <option value="pv">光伏（只发电）</option>
-            <option value="ev">充电桩（只耗电）</option>
-          </select>
+      {step === 1 && <div className="grid gap-3">
+        <p className="m-0 text-sm text-ems-muted">给这台能源设备起个名字、填额定功率。这一步只登记信息，不会动设备。</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <EmsInput label="能源设备名称" aria-label="节点名称" placeholder="例如：2 号能源设备" value={name} onIonInput={(event) => setName(event.detail.value || "")} />
+          <EmsInput label="额定功率（kW）" aria-label="额定功率" type="number" value={rated} onIonInput={(event) => setRated(Number(event.detail.value))} />
         </div>
+        <EmsSelect label="能源类型" aria-label="能源类型" value={energyType} onIonChange={(event) => setEnergyType(event.detail.value)}>
+          <EmsSelectOption value="storage">储能（可充可放）</EmsSelectOption>
+          <EmsSelectOption value="pv">光伏（只发电）</EmsSelectOption>
+          <EmsSelectOption value="ev">充电桩（只耗电）</EmsSelectOption>
+        </EmsSelect>
       </div>}
 
-      {step === 2 && <div className="wizard-body">
-        <p className="wizard-consequence">把柜子的功率设定映射到一个实际点位。选了之后，调度才会真正写这台设备。</p>
-        <div className="energy-rule-row">
-          <span className="set-label">功率设定点位</span>
-          <select aria-label="创建功率点位" value={pointId} onChange={(event) => setPointId(event.target.value)}>
-            <option value="">选择 modbus 点位</option>
-            {powerPoints.map((node) => <option key={node.id} value={node.id}>{node.points.find((p) => p.type === "description")?.text || node.id}</option>)}
-          </select>
-        </div>
-        {powerPoints.length === 0 && <p className="form-note">还没有 modbus 点位，请先在"通道"页配置功率设定点位。</p>}
+      {step === 2 && <div className="grid gap-3">
+        <p className="m-0 text-sm text-ems-muted">把柜子的功率设定映射到一个实际点位。选了之后，调度才会真正写这台设备。</p>
+        <EmsSelect label="功率设定点位" aria-label="创建功率点位" value={pointId} onIonChange={(event) => setPointId(event.detail.value)}>
+          <EmsSelectOption value="">选择 modbus 点位</EmsSelectOption>
+          {powerPoints.map((node) => <EmsSelectOption key={node.id} value={node.id}>{node.points.find((p) => p.type === "description")?.text || node.id}</EmsSelectOption>)}
+        </EmsSelect>
+        {powerPoints.length === 0 && <InlineNotice tone="warning">还没有 modbus 点位，请先在"通道"页配置功率设定点位。</InlineNotice>}
       </div>}
 
-      {step === 3 && <div className="wizard-body">
-        <p className="wizard-consequence">选一个运行策略。确认后柜子会按这个策略每秒自动充放电，请核对功率是否正确。</p>
-        <div className="energy-rule-row">
-          <select aria-label="创建策略模板" value={templateKey} onChange={(event) => setTemplateKey(event.target.value)}>
-            {templates.map((t) => <option key={t.key} value={t.key}>{t.name}</option>)}
-          </select>
-          {templates.find((t) => t.key === templateKey)?.needKW && <>
-            <span className="set-label">功率 kW</span>
-            <input aria-label="创建策略功率" type="number" inputMode="decimal" value={templateKW} onChange={(event) => setTemplateKW(Number(event.target.value))} />
-          </>}
-          {templates.find((t) => t.key === templateKey)?.needSOC && <>
-            <span className="set-label">SOC 阈值 %</span>
-            <input aria-label="创建 SOC 阈值" type="number" inputMode="decimal" value={templateSOC} onChange={(event) => setTemplateSOC(Number(event.target.value))} />
-          </>}
+      {step === 3 && <div className="grid gap-3">
+        <p className="m-0 text-sm text-ems-muted">选一个运行策略。确认后柜子会按这个策略每秒自动充放电，请核对功率是否正确。</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <EmsSelect label="策略模板" aria-label="创建策略模板" value={templateKey} onIonChange={(event) => setTemplateKey(event.detail.value)}>
+            {templates.map((t) => <EmsSelectOption key={t.key} value={t.key}>{t.name}</EmsSelectOption>)}
+          </EmsSelect>
+          {templates.find((t) => t.key === templateKey)?.needKW && <EmsInput label="功率（kW）" aria-label="创建策略功率" type="number" value={templateKW} onIonInput={(event) => setTemplateKW(Number(event.detail.value))} />}
+          {templates.find((t) => t.key === templateKey)?.needSOC && <EmsInput label="SOC 阈值（%）" aria-label="创建 SOC 阈值" type="number" value={templateSOC} onIonInput={(event) => setTemplateSOC(Number(event.detail.value))} />}
         </div>
-        <div className="wizard-preview">
-          <strong>确认后果</strong>
-          <span>能源设备「{name || "未命名"}」（额定 {rated} kW）将按「{templates.find((t) => t.key === templateKey)?.name}」以 {templateKW} kW 自动{templateKey === "charge" ? "充电" : "放电"}。</span>
-        </div>
+        <InlineNotice tone="warning"><strong>确认后果：</strong>能源设备「{name || "未命名"}」（额定 {rated} kW）将按「{templates.find((t) => t.key === templateKey)?.name}」以 {templateKW} kW 自动{templateKey === "charge" ? "充电" : "放电"}。</InlineNotice>
       </div>}
 
-      <div className="wizard-actions">
-        {step > 1 && <button className="secondary-button" onClick={() => setStep(step - 1)}>上一步</button>}
+      <div className="flex justify-end gap-2">
+        {step > 1 && <EmsButton variant="secondary" onClick={() => setStep(step - 1)}>上一步</EmsButton>}
         {step < 3
-          ? <button className="primary-button" onClick={nextStep}>下一步</button>
-          : <button className="primary-button" disabled={busy} onClick={() => void add()}>{busy ? "创建中…" : "确认并启动"}</button>}
+          ? <EmsButton onClick={nextStep}>下一步</EmsButton>
+          : <EmsButton busy={busy} busyLabel="创建中…" onClick={() => void add()}>确认并启动</EmsButton>}
       </div>
-    </div>}
+    </IonCardContent></EmsCard>}
 
-    {units.length === 0 ? <div className="empty-state"><strong>还没有能源设备</strong><span>点击"新建能源设备"，三步让一台柜子按策略自动跑起来。</span></div> : <div className="energy-unit-list">
+    {units.length === 0 ? <EmptyState title="还没有能源设备" description="点击“新建能源设备”，三步让一台柜子按策略自动跑起来。" /> : <div className="energy-unit-list">
       {units.map((unit) => <button key={unit.id} className="energy-unit-row" onClick={() => setSelected(unit.id)}>
         <strong>{unit.asset_code || unit.description || unit.id}</strong>
         <span>{unit.description || unit.id}</span>
@@ -190,14 +178,11 @@ function DevicePanel({ token, unitId, nodes, onError }: {
     }
   }
 
-  const inputClass = "h-10 rounded-lg border border-ems-line bg-white/95 px-3 text-sm text-ems-ink"
-  const fieldClass = "grid min-w-36 flex-1 gap-1 text-xs text-ems-muted"
-
-  return <IonCard className="m-0 rounded-2xl border border-ems-line bg-white/85 shadow-sm backdrop-blur-xl">
+  return <EmsCard>
     <IonCardHeader className="pb-2">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div><IonCardTitle className="text-base">柜内设备</IonCardTitle><IonCardSubtitle>映射功率点位后，调度才能写到真实设备</IonCardSubtitle></div>
-        <IonButton size="small" fill="outline" onClick={() => setShowAdd(!showAdd)}>{showAdd ? "收起" : "+ 添加设备"}</IonButton>
+        <EmsButton variant="secondary" size="small" onClick={() => setShowAdd(!showAdd)}>{showAdd ? "收起" : "+ 添加设备"}</EmsButton>
       </div>
     </IonCardHeader>
     <IonCardContent>
@@ -211,24 +196,18 @@ function DevicePanel({ token, unitId, nodes, onError }: {
 
       {showAdd && <div className="mt-4 grid gap-3 border-t border-ems-line pt-4">
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className={fieldClass}>设备名称
-            <IonInput className={inputClass} aria-label="设备名称" placeholder="例如：1 号 PCS" value={name} onIonInput={(event) => setName(event.detail.value || "")} />
-          </label>
-          <label className={fieldClass}>额定功率（kW）
-            <IonInput className={inputClass} aria-label="设备额定功率" type="number" value={rated} onIonInput={(event) => setRated(Number(event.detail.value))} />
-          </label>
+          <EmsInput label="设备名称" aria-label="设备名称" placeholder="例如：1 号 PCS" value={name} onIonInput={(event) => setName(event.detail.value || "")} />
+          <EmsInput label="额定功率（kW）" aria-label="设备额定功率" type="number" value={rated} onIonInput={(event) => setRated(Number(event.detail.value))} />
         </div>
         <div className="flex flex-wrap items-end gap-3">
-          <label className={fieldClass}>功率设定点位
-            <IonSelect className={inputClass} aria-label="功率设定点位" value={pointId} onIonChange={(event) => setPointId(event.detail.value)}>
-              <IonSelectOption value="">选择 modbus 点位</IonSelectOption>
-              {powerPoints.map((node) => <IonSelectOption key={node.id} value={node.id}>{node.points.find((p) => p.type === "description")?.text || node.id}</IonSelectOption>)}
-            </IonSelect>
-          </label>
-          <IonButton disabled={busy} onClick={() => void add()}>{busy ? "添加中…" : "添加"}</IonButton>
+          <EmsSelect label="功率设定点位" aria-label="功率设定点位" value={pointId} onIonChange={(event) => setPointId(event.detail.value)}>
+            <EmsSelectOption value="">选择 modbus 点位</EmsSelectOption>
+            {powerPoints.map((node) => <EmsSelectOption key={node.id} value={node.id}>{node.points.find((p) => p.type === "description")?.text || node.id}</EmsSelectOption>)}
+          </EmsSelect>
+          <EmsButton busy={busy} busyLabel="添加中…" onClick={() => void add()}>添加</EmsButton>
         </div>
         {powerPoints.length === 0 && <p className="m-0 text-xs text-ems-amber">还没有 modbus 点位，请先在"通道"页配置功率设定点位。</p>}
       </div>}
     </IonCardContent>
-  </IonCard>
+  </EmsCard>
 }

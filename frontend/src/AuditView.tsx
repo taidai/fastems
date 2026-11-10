@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
+import { IonCardContent } from "@ionic/react"
+import { EmsButton, EmsCard, EmsInput, EmsOverlay, EmsRecordList, EmsSectionHeader, EmsSelect, EmsSelectOption, EmptyState, FilterToolbar, StatusBadge } from "./components/ems"
 import { downloadCSV, request } from "./api"
 import type { AuditRecord } from "./generated/contract"
 
@@ -38,54 +40,56 @@ export default function AuditView({ token, onError }: { token: string; onError: 
 
   useEffect(() => { void load(emptyFilters) }, [load])
 
-  return <section className="audit-page panel">
-    <div className="audit-head">
-      <div><span className="section-kicker">只读留痕</span><h2>审计日志</h2><p>登录、配置、控制、报警与账号操作；不记录密码、令牌或请求体。</p></div>
-      <button className="secondary-button" disabled={loading} onClick={() => void load(filters)}>{loading ? "读取中…" : "刷新"}</button>
-    </div>
-    <div className="audit-filters">
-      <label>操作人<input value={draft.actor} onChange={(event) => setDraft({ ...draft, actor: event.target.value })} placeholder="账号或用户 ID" /></label>
-      <label>动作<select value={draft.action} onChange={(event) => setDraft({ ...draft, action: event.target.value })}><option value="">全部</option>{actions.map((action) => <option key={action} value={action}>{action}</option>)}</select></label>
-      <label>结果<select value={draft.result} onChange={(event) => setDraft({ ...draft, result: event.target.value })}><option value="">全部</option><option value="success">成功</option><option value="failure">失败</option></select></label>
-      <label>开始日期<input type="date" value={draft.from} onChange={(event) => setDraft({ ...draft, from: event.target.value })} /></label>
-      <label>结束日期<input type="date" value={draft.to} onChange={(event) => setDraft({ ...draft, to: event.target.value })} /></label>
-      <div className="audit-actions">
-        <button className="primary-button" disabled={loading} onClick={() => { setFilters(draft); void load(draft) }}>查询</button>
-        <button className="secondary-button" disabled={loading} onClick={() => { setDraft(emptyFilters); setFilters(emptyFilters); void load(emptyFilters) }}>重置</button>
-        <button className="secondary-button" disabled={loading} onClick={() => void downloadCSV(token, `/audit/export?${queryString(filters)}`, "easyems-audit.csv").catch((cause) => onError(cause instanceof Error ? cause.message : "导出失败"))}>导出 CSV</button>
-      </div>
-    </div>
+  return <section className="grid gap-4">
+    <EmsSectionHeader kicker="只读留痕" title="审计日志" description="登录、配置、控制、报警与账号操作；不记录密码、令牌或请求体。"
+      actions={<EmsButton variant="secondary" busy={loading} busyLabel="读取中…" onClick={() => void load(filters)}>刷新</EmsButton>} />
 
-    <div className="audit-layout">
-      <div className="audit-table-wrap">
-        <table className="audit-table">
-          <thead><tr><th>时间</th><th>操作人</th><th>动作</th><th>对象</th><th>结果</th><th>IP</th></tr></thead>
-          <tbody>
-            {records.map((record) => <tr key={record.id} className={selected?.id === record.id ? "selected" : ""} onClick={() => setSelected(record)}>
-              <td>{new Date(record.time).toLocaleString("zh-CN", { hour12: false })}</td>
-              <td>{record.actor}</td>
-              <td><span className="audit-action">{record.action}</span></td>
-              <td title={record.object}>{record.object || "—"}</td>
-              <td><span className={`audit-result ${record.result}`}>{record.result === "success" ? "成功" : "失败"}</span></td>
-              <td>{record.ip || "—"}</td>
-            </tr>)}
-          </tbody>
-        </table>
-        {!loading && records.length === 0 && <div className="empty-state"><strong>没有匹配的审计记录</strong><span>登录或执行一次配置/控制后，这里会出现记录。</span></div>}
-      </div>
-      <aside className="audit-detail panel">
-        {selected ? <>
-          <div className="audit-detail-head"><strong>{selected.action}</strong><span className={`audit-result ${selected.result}`}>{selected.result === "success" ? "成功" : "失败"}</span></div>
-          <dl>
-            <div><dt>时间</dt><dd>{new Date(selected.time).toLocaleString("zh-CN", { hour12: false })}</dd></div>
-            <div><dt>操作人</dt><dd>{selected.actor}</dd></div>
-            <div><dt>对象</dt><dd>{selected.object || "—"}</dd></div>
-            <div><dt>详情</dt><dd>{selected.detail || "—"}</dd></div>
-            <div><dt>IP</dt><dd>{selected.ip || "—"}</dd></div>
-            <div><dt>记录 ID</dt><dd><code>{selected.id}</code></dd></div>
-          </dl>
-        </> : <div className="empty-state"><span>选择一条记录查看详情。</span></div>}
-      </aside>
-    </div>
+    <EmsCard><IonCardContent>
+      <FilterToolbar trailing={<>
+        <EmsButton busy={loading} onClick={() => { setFilters(draft); void load(draft) }}>查询</EmsButton>
+        <EmsButton variant="secondary" disabled={loading} onClick={() => { setDraft(emptyFilters); setFilters(emptyFilters); void load(emptyFilters) }}>重置</EmsButton>
+        <EmsButton variant="secondary" disabled={loading} onClick={() => void downloadCSV(token, `/audit/export?${queryString(filters)}`, "easyems-audit.csv").catch((cause) => onError(cause instanceof Error ? cause.message : "导出失败"))}>导出 CSV</EmsButton>
+      </>}>
+        <EmsInput label="操作人" value={draft.actor} onIonInput={(event) => setDraft({ ...draft, actor: event.detail.value || "" })} placeholder="账号或用户 ID" />
+        <EmsSelect label="动作" value={draft.action} onIonChange={(event) => setDraft({ ...draft, action: event.detail.value })}>
+          <EmsSelectOption value="">全部</EmsSelectOption>
+          {actions.map((action) => <EmsSelectOption key={action} value={action}>{action}</EmsSelectOption>)}
+        </EmsSelect>
+        <EmsSelect label="结果" value={draft.result} onIonChange={(event) => setDraft({ ...draft, result: event.detail.value })}>
+          <EmsSelectOption value="">全部</EmsSelectOption><EmsSelectOption value="success">成功</EmsSelectOption><EmsSelectOption value="failure">失败</EmsSelectOption>
+        </EmsSelect>
+        <EmsInput label="开始日期" type="date" value={draft.from} onIonInput={(event) => setDraft({ ...draft, from: event.detail.value || "" })} />
+        <EmsInput label="结束日期" type="date" value={draft.to} onIonInput={(event) => setDraft({ ...draft, to: event.detail.value || "" })} />
+      </FilterToolbar>
+    </IonCardContent></EmsCard>
+
+    <EmsRecordList rows={records} keyOf={(record) => record.id} onRowClick={setSelected}
+      empty={<EmptyState title="没有匹配的审计记录" description="登录或执行一次配置/控制后，这里会出现记录。" />}
+      columns={[
+        { key: "time", label: "时间", render: (record) => new Date(record.time).toLocaleString("zh-CN", { hour12: false }) },
+        { key: "actor", label: "操作人", render: (record) => record.actor },
+        { key: "action", label: "动作", render: (record) => record.action },
+        { key: "object", label: "对象", render: (record) => record.object || "—" },
+        { key: "result", label: "结果", render: (record) => <StatusBadge tone={record.result === "success" ? "success" : "danger"}>{record.result === "success" ? "成功" : "失败"}</StatusBadge> },
+        { key: "ip", label: "IP", render: (record) => record.ip || "—" },
+      ]}
+      mobileCard={(record) => <button className="grid gap-2 text-left" onClick={() => setSelected(record)}>
+        <div className="flex items-center justify-between gap-2"><strong>{record.action}</strong><StatusBadge tone={record.result === "success" ? "success" : "danger"}>{record.result === "success" ? "成功" : "失败"}</StatusBadge></div>
+        <span className="text-xs text-ems-muted">{new Date(record.time).toLocaleString("zh-CN", { hour12: false })} · {record.actor}</span>
+        <span className="text-xs text-ems-ink">{record.object || "—"}</span>
+      </button>}
+    />
+
+    <EmsOverlay open={Boolean(selected)} variant="drawer" title={selected?.action || "审计详情"} onClose={() => setSelected(null)}
+      actions={<EmsButton variant="secondary" onClick={() => setSelected(null)}>关闭</EmsButton>}>
+      {selected && <dl className="grid gap-4 text-sm">
+        <div><dt className="text-xs text-ems-muted">时间</dt><dd>{new Date(selected.time).toLocaleString("zh-CN", { hour12: false })}</dd></div>
+        <div><dt className="text-xs text-ems-muted">操作人</dt><dd>{selected.actor}</dd></div>
+        <div><dt className="text-xs text-ems-muted">对象</dt><dd>{selected.object || "—"}</dd></div>
+        <div><dt className="text-xs text-ems-muted">详情</dt><dd className="whitespace-pre-wrap">{selected.detail || "—"}</dd></div>
+        <div><dt className="text-xs text-ems-muted">IP</dt><dd>{selected.ip || "—"}</dd></div>
+        <div><dt className="text-xs text-ems-muted">记录 ID</dt><dd><code className="break-all">{selected.id}</code></dd></div>
+      </dl>}
+    </EmsOverlay>
   </section>
 }
