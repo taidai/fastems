@@ -108,4 +108,22 @@ export interface QualityStats {
   last_success?: string;
   last_error?: string;
   updated_at: string;
+  /**
+   * Rolling windows come from in-memory minute buckets and reset on
+   * restart; cumulative counters stay available above.
+   */
+  window_5m?: WindowQuality;
+  window_1h?: WindowQuality;
+}
+/**
+ * WindowQuality is one rolling quality window.
+ */
+export interface WindowQuality {
+  minutes: number /* int */;
+  polls: number /* int */;
+  failures: number /* int */;
+  success_rate: number /* float64 */;
+  avg_latency_ms: number /* float64 */;
+  max_latency_ms: number /* float64 */;
+  errors?: { [key: string]: number /* int */};
 }

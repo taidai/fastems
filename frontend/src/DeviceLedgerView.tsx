@@ -60,6 +60,8 @@ export default function DeviceLedgerView({ token, onError, canConfigure, canOper
     (device.name && device.name !== `站号 ${device.server_id}` ? device.name : `${device.channel_name} · 站号 ${device.server_id}`)
 
   function nextAction(device: LedgerDevice) {
+    // 客户工作台是只读视图：只提供查看详情，不引导到通道或绑定流程。
+    if (!canConfigure) return { label: "查看", run: () => setSelected(device) }
     if (!device.profile_id) return { label: "绑定 Profile →", run: goChannels }
     if (!device.verified) return { label: "去验证 →", run: () => setSelected(device) }
     return { label: "管理", run: () => setSelected(device) }
@@ -69,7 +71,7 @@ export default function DeviceLedgerView({ token, onError, canConfigure, canOper
     <EmsSectionHeader kicker="设备对象" title="设备台账" description="一台设备一行：业务节点、通道站号、Profile、健康与验证。"
       actions={<>
         <EmsButton variant="secondary" busy={loading} busyLabel="刷新中…" onClick={() => void load()}>刷新</EmsButton>
-        <EmsButton onClick={goChannels}>+ 接入新设备</EmsButton>
+        {canConfigure && <EmsButton onClick={goChannels}>+ 接入新设备</EmsButton>}
       </>} />
 
     <MetricStrip items={[
@@ -86,7 +88,7 @@ export default function DeviceLedgerView({ token, onError, canConfigure, canOper
     </FilterToolbar>
 
     <EmsRecordList rows={shown} keyOf={(device) => `${device.channel_id}/${device.server_id}`} onRowClick={setSelected}
-      empty={<EmptyState title="没有匹配的设备" description="先在“通道”里配置端口和单元，或在“端口配置”绑定 Profile。" />}
+      empty={<EmptyState title="没有匹配的设备" description={canConfigure ? "先在“通道”里配置端口和单元，或在“端口配置”绑定 Profile。" : "当前没有可显示的设备。"} />}
       columns={[
         { key: "device", label: "设备", render: (device) => <><strong>{deviceLabel(device)}</strong><small className="block text-ems-muted">{device.name !== deviceLabel(device) ? device.name : device.device_serial || ""}</small></> },
         { key: "business", label: "业务节点", render: (device) => device.business_node_name || "未绑定" },

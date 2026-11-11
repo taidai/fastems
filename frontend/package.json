@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build"
+    "build": "tsc --noEmit && vite build",
+    "check:navigation": "node navigation-check.mjs",
+    "check:navigation:browser": "node navigation-browser-check.mjs",
+    "check:acceptance": "node acceptance-status-check.mjs"
   },
   "dependencies": {
     "@ionic/react": "^9.0.10",

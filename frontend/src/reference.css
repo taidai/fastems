@@ -186,6 +186,8 @@
   .console-brand > strong { color: #162025; font-size: 17px; white-space: nowrap; }
   .console-brand > strong small { font-size: 14px; }
   .console-profile { display: none; }
+  .console-workbench { margin-left: 2px; padding: 2px; }
+  .console-workbench button { padding: 5px 8px; font-size: 11.5px; }
   .health-summary { display: none; }
   .kpi-copy { display: grid; gap: 3px; min-width: 0; }
   .kpi-card > .kpi-icon, .kpi-card > .kpi-icon svg { width: 24px; height: 24px; }
@@ -220,6 +222,19 @@
 }
 .topnav-dropdown button { padding: 9px 12px; border: 0; border-radius: 8px; background: none; text-align: left; font-size: 13px; color: #3a4a5a; cursor: pointer; }
 .topnav-dropdown button.active, .topnav-dropdown button:hover { background: rgba(255, 255, 255, 0.9); color: #162025; }
+
+/* 工作台切换：客户 / 交付。只对可配置角色显示；切组会切换该工作台的页面集合。 */
+.console-workbench {
+  display: flex; align-items: center; gap: 2px; margin-left: 10px; padding: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.55); border-radius: 10px; background: rgba(255, 255, 255, 0.35);
+}
+.console-workbench button {
+  border: 0; background: none; padding: 6px 11px; border-radius: 8px;
+  color: #4a5b68; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.console-workbench button:hover { color: #162025; }
+.console-workbench button.active { background: #fff; color: #162025; box-shadow: 0 2px 8px rgba(31, 46, 58, 0.14); }
+.console-workbench button:focus-visible { outline: 2px solid #2b6c9c; outline-offset: 1px; }
 
 /* 底部导航已移除，回收其为内容区预留的底部空间。 */
 .console-shell { padding-bottom: 0; }

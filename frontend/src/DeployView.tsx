@@ -100,7 +100,7 @@ function messageOf(cause: unknown) {
   return cause instanceof Error ? cause.message : "操作失败"
 }
 
-export default function DeployView({ token, isAdmin, goDelivery }: { token: string; isAdmin: boolean; goDelivery: () => void }) {
+export default function DeployView({ token, isAdmin, goDelivery, embedded = false }: { token: string; isAdmin: boolean; goDelivery: () => void; embedded?: boolean }) {
   const [runtime, setRuntime] = useState<RuntimeInfo | null>(null)
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [channels, setChannels] = useState<EmsChannel[]>([])
@@ -368,7 +368,7 @@ export default function DeployView({ token, isAdmin, goDelivery }: { token: stri
         </div> : <p className="inline-note">运行状态读取失败；通道页面和工作台数据仍可用。</p>}
       </article>
 
-      <article className="panel deploy-card">
+      {!embedded && <article className="panel deploy-card">
         <div className="deploy-card-head">
           <div><span className="section-kicker">基于当前实例</span><h2>验收报告</h2></div>
           <div className="deploy-actions">
@@ -389,7 +389,7 @@ export default function DeployView({ token, isAdmin, goDelivery }: { token: stri
             <div><strong>{check.title}</strong><p>{check.detail}</p>{check.next_step && <small>下一步：{check.next_step}</small>}</div>
           </div>)}</div>
         </> : <p className="inline-note">还没有验收报告。运行验收会检查接口、通道、点位、规则、报警、历史、权限和备份。</p>}
-      </article>
+      </article>}
     </div>
 
     <article className="panel deploy-card">

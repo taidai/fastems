@@ -10,7 +10,7 @@ import HistoryView from "./HistoryView"
 import AuditView from "./AuditView"
 import type { QualityStats } from "./generated/contract"
 import ScreenView from "./ScreenView"
-import DeployView from "./DeployView"
+import DeliveryWorkbench from "./DeliveryWorkbench"
 import AllocatorsView from "./AllocatorsView"
 import PointsView from "./PointsView"
 import AggregatesView from "./AggregatesView"
@@ -22,6 +22,7 @@ import ResourceGroupsView from "./ResourceGroupsView"
 import DispatchTraceView from "./DispatchTraceView"
 import OpcuaView from "./OpcuaView"
 import UnitWiringView from "./UnitWiringView"
+import HealthView from "./HealthView"
 import EnergyUnitsStatus from "./EnergyUnitsStatus"
 import ConfirmDialog from "./ConfirmDialog"
 import FrameDrawer from "./FrameDrawer"
@@ -52,10 +53,11 @@ import {
   updateUserPolicy,
   type UserAccount,
 } from "./api"
+import { visiblePagesFor, workbenchFullNames, workbenchNames, type Page, type Workbench } from "./navigation"
 
 const emptyDocument: Document = { table: { rows: [] }, bindings: { points: {}, actions: {} } }
 const roleNames: Record<string, string> = { admin: "管理员", implementer: "实施", operator: "操作员", viewer: "查看者" }
-type Page = "devices" | "screen" | "dispatchTrace" | "ledger" | "points" | "channels" | "aggregate" | "deploy" | "allocators" | "energyUnits" | "unitWiring" | "resourceGroups" | "alarms" | "history" | "rules" | "users" | "audit" | "delivery" | "opcua"
+const workbenchStorageKey = "easyems-workbench"
 type DisplaySettings = { background: number; glass: number }
 const defaultDisplay: DisplaySettings = { background: 78, glass: 62 }
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
@@ -193,6 +195,10 @@ export default function App() {
   const [token, setToken] = useState(() => sessionStorage.getItem("easyems-token") || "")
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const [page, setPage] = useState<Page>("devices")
+  const [workbench, setWorkbench] = useState<Workbench>(() => {
+    const saved = window.localStorage.getItem(workbenchStorageKey)
+    return saved === "delivery" || saved === "customer" ? saved : "customer"
+  })
   const [error, setError] = useState("")
   const [email, setEmail] = useState("admin")
   const [password, setPassword] = useState("")
@@ -224,6 +230,37 @@ export default function App() {
   const [shiftOpen, setShiftOpen] = useState(false)
   const [commandsOpen, setCommandsOpen] = useState(false)
   const [stageScale, setStageScale] = useState(() => window.innerWidth >= 1000 ? Math.min((window.innerWidth - 8) / 1632, (window.innerHeight - 8) / 1000) : 1)
+
+  const policy = snapshot?.user.policy
+  const isAdminUser = !!policy?.admin
+  const canConfigureUser = isAdminUser || policy?.role === "implementer"
+  const visiblePages = useMemo(
+    () => visiblePagesFor(workbench, isAdminUser, canConfigureUser),
+    [workbench, isAdminUser, canConfigureUser],
+  )
+  // 路由守卫：切换工作台或角色变化后，当前页若不在可见集合内，落到该工作台第一个可见页。
+  useEffect(() => {
+    if (visiblePages.length && !visiblePages.some((def) => def.key === page)) setPage(visiblePages[0].key)
+  }, [visiblePages, page])
+
+  // 默认工作台：首次按角色，之后记住上次选择；角色被降权时回落到客户工作台。
+  const workbenchInitialized = useRef(false)
+  const switchWorkbench = useCallback((next: Workbench) => {
+    setWorkbench(next)
+    window.localStorage.setItem(workbenchStorageKey, next)
+    setNavMenu(null)
+  }, [])
+  useEffect(() => {
+    if (!snapshot?.user.policy) return
+    if (workbench === "delivery" && !canConfigureUser) {
+      setWorkbench("customer")
+      return
+    }
+    if (!workbenchInitialized.current) {
+      workbenchInitialized.current = true
+      if (!window.localStorage.getItem(workbenchStorageKey) && canConfigureUser) setWorkbench("delivery")
+    }
+  }, [snapshot, workbench, canConfigureUser])
 
   const refresh = useCallback(async () => {
     if (!token) return
@@ -393,8 +430,8 @@ export default function App() {
   if (!snapshot) return <IonApp><IonContent fullscreen><main className="loading-page"><IonSpinner /><p>{error || "正在读取工作台…"}</p></main></IonContent></IonApp>
 
   const view = activeSnapshot || snapshot
-  const isAdmin = view.user.policy.admin
-  const canConfigure = isAdmin || view.user.policy.role === "implementer"
+  const isAdmin = isAdminUser
+  const canConfigure = canConfigureUser
   const canOperate = canConfigure || view.user.policy.role === "operator"
   const points = view.nodes.filter((node) => node.type === "variable" || node.type === "modbusIo")
   const groups = view.nodes.filter((node) => node.type === "group" || view.roots.includes(node.id))
@@ -445,7 +482,7 @@ export default function App() {
     points: { title: "设备与点位", subtitle: "批量管理、实时值、质量与回读" },
     channels: { title: "通道", subtitle: "运行健康、端口参数、单元与点位" },
     aggregate: { title: "虚拟聚合", subtitle: "只读虚拟设备：求和、平均、最值、计数与质量传播" },
-    deploy: { title: "部署与验收", subtitle: "扫描、点表、运行状态与验收报告" },
+    deploy: { title: "交付工作台", subtitle: "7 步交付主链：门槛、预检与验收进度" },
     allocators: { title: "功率分配器", subtitle: "一个总目标，按每台 PCS 当前能力分配" },
     energyUnits: { title: "能源设备", subtitle: "能力级规则、站级策略、资源集群与调度追溯" },
     unitWiring: { title: "能源设备接线", subtitle: "为能源设备挂 PCS 并映射功率设定点位（点位只在此层出现）" },
@@ -453,6 +490,7 @@ export default function App() {
     dispatchTrace: { title: "调度追溯", subtitle: "每次调度的请求、能力、分配与设备设定，按 dispatchID 复盘" },
     alarms: { title: "报警与事件", subtitle: "该处理的排在前面" },
     history: { title: "历史与追溯", subtitle: "趋势、历史与统一时间轴" },
+    health: { title: "通信与健康", subtitle: "通道成功率、延迟与断线，按 5 分钟与 1 小时窗口" },
     query: { title: "设备数据查询", subtitle: "按站点查概览、实时值、告警、趋势与报表" },
     rules: { title: "决策表", subtitle: "有序规则、模拟、发布与运行记录" },
     users: { title: "账号与权限", subtitle: "按人员分配可见与可操作范围" },
@@ -467,21 +505,13 @@ export default function App() {
   }
   const stationName = labelForRoot(view.roots[0])
   const tabs = [
-    { key: "run", label: "运行", icon: "home" as IconName, pages: ["devices", "screen", "alarms", "history", "dispatchTrace"] },
-    { key: "ems", label: "EMS 业务", icon: "sliders" as IconName, pages: ["energyUnits", "resourceGroups", "allocators", "rules"] },
-    { key: "build", label: "接入建模", icon: "devices" as IconName, pages: ["ledger", "unitWiring", "channels", "points", "aggregate", "opcua"] },
-    { key: "ops", label: "系统运维", icon: "gear" as IconName, pages: ["deploy", "users", "audit"] },
-  ]
+    { key: "run", label: "运行", icon: "home" as IconName, workbench: "customer" as Workbench, pages: ["devices", "screen", "alarms", "dispatchTrace", "history", "health", "ledger"] },
+    { key: "ems", label: "EMS 业务", icon: "sliders" as IconName, workbench: "delivery" as Workbench, pages: ["energyUnits", "resourceGroups", "allocators", "rules"] },
+    { key: "build", label: "接入建模", icon: "devices" as IconName, workbench: "delivery" as Workbench, pages: ["ledger", "unitWiring", "channels", "points", "aggregate", "opcua"] },
+    { key: "ops", label: "系统运维", icon: "gear" as IconName, workbench: "delivery" as Workbench, pages: ["deploy", "users", "audit"] },
+  ].filter((tab) => tab.workbench === workbench)
   const activeTab = tabs.find((tab) => tab.pages.includes(page))?.key
-  const directory: { key: Page; label: string; adminOnly?: boolean; configOnly?: boolean }[] = [
-    { key: "devices", label: "运行总览" }, { key: "screen", label: "运行画面" },
-    { key: "alarms", label: "报警与事件" }, { key: "history", label: "历史与追溯" }, { key: "dispatchTrace", label: "调度追溯" },
-    { key: "energyUnits", label: "能源设备", configOnly: true }, { key: "resourceGroups", label: "资源集群", configOnly: true }, { key: "allocators", label: "功率分配器", configOnly: true },
-    { key: "rules", label: "决策表" },
-    { key: "ledger", label: "设备台账" }, { key: "unitWiring", label: "能源设备接线", configOnly: true }, { key: "channels", label: "通道" }, { key: "points", label: "点位表" }, { key: "opcua", label: "OPC-UA", configOnly: true }, { key: "aggregate", label: "虚拟聚合" },
-    { key: "deploy", label: "部署与验收", configOnly: true },
-    { key: "users", label: "账号与权限", adminOnly: true }, { key: "audit", label: "审计日志", adminOnly: true },
-  ]
+  const directory = visiblePages
 
   return <IonApp><IonContent fullscreen><div className="console-viewport"><div className="console-shell" style={{ "--console-scale": String(stageScale) } as CSSProperties}>
     <header className="console-topbar">
@@ -489,6 +519,11 @@ export default function App() {
       <select className="console-station" aria-label="当前项目" value={view.roots[0]} onChange={(event) => setStationID(event.target.value)}>
         {snapshot.roots.map((root) => <option key={root} value={root}>{labelForRoot(root)}</option>)}
       </select>
+      {canConfigure && <div className="console-workbench" role="group" aria-label="工作台">
+        {(["customer", "delivery"] as Workbench[]).map((key) => (
+          <button key={key} className={workbench === key ? "active" : ""} aria-pressed={workbench === key} title={workbenchFullNames[key]} onClick={() => switchWorkbench(key)}>{workbenchNames[key]}</button>
+        ))}
+      </div>}
       <nav className="console-topnav" aria-label="主导航" ref={navRef}>
         {tabs.map((tab) => {
           const subPages = directory.filter((d) => tab.pages.includes(d.key) && (!d.adminOnly || isAdmin) && (!d.configOnly || canConfigure))
@@ -538,7 +573,7 @@ export default function App() {
         <button className="console-icon" title="活动报警" aria-label="活动报警" onClick={() => setPage("alarms")}><Icon name="bell" size={25} />{alarmCount > 0 && <em>{alarmCount}</em>}</button>
         <span className="console-user">楼顶 · {roleNames[view.user.policy.role] || "用户"}</span>
         <time>{clock.toLocaleTimeString("zh-CN", { hour12: false })}</time>
-        <button className="console-profile" aria-label="账号与权限" onClick={() => setPage("users")}><Icon name="user" size={23} /><span>{view.user.user_id}</span></button>
+        {isAdmin && <button className="console-profile" aria-label="账号与权限" onClick={() => setPage("users")}><Icon name="user" size={23} /><span>{view.user.user_id}</span></button>}
         <button className="console-exit" title="退出登录" aria-label="退出登录" onClick={() => { sessionStorage.removeItem("easyems-token"); setToken(""); setSnapshot(null) }}>退出</button>
       </div>
     </header>
@@ -582,7 +617,7 @@ export default function App() {
         openAlarms={() => setPage("alarms")}
       />}
 
-      {page === "ledger" && <DeviceLedgerView token={token} onError={setError} canConfigure={canConfigure} canOperate={canOperate} goChannels={() => setPage("channels")} goPoints={() => setPage("points")} goHistory={() => setPage("history")} goAlarms={() => setPage("alarms")} />}
+      {page === "ledger" && <DeviceLedgerView token={token} onError={setError} canConfigure={canConfigure && workbench === "delivery"} canOperate={canOperate && workbench === "delivery"} goChannels={() => setPage("channels")} goPoints={() => setPage("points")} goHistory={() => setPage("history")} goAlarms={() => setPage("alarms")} />}
 
       {page === "points" && <PointsView
         token={token} nodes={view.nodes} isAdmin={canConfigure} canOperate={canOperate} busy={busy} run={run}
@@ -597,7 +632,7 @@ export default function App() {
 
       {page === "aggregate" && <AggregatesView token={token} nodes={view.nodes} groups={groups} canConfigure={canConfigure} />}
 
-      {page === "deploy" && canConfigure && <DeployView token={token} isAdmin={canConfigure} goDelivery={() => setPage("delivery")} />}
+      {page === "deploy" && canConfigure && <DeliveryWorkbench token={token} nodes={view.nodes} canConfigure={canConfigure} goPage={(next) => setPage(next)} onError={setError} />}
 
       {page === "allocators" && canConfigure && <AllocatorsView
         token={token} nodes={view.nodes} groups={groups} points={points}
@@ -611,6 +646,8 @@ export default function App() {
       {page === "unitWiring" && canConfigure && <UnitWiringView token={token} nodes={view.nodes} onError={setError} />}
 
       {page === "alarms" && <AlarmsView token={token} rootID={view.roots[0]} nodes={view.nodes} canOperate={canOperate} canConfigure={canConfigure} onError={setError} openHistory={(id) => { setHistoryPoint(id); setPage("history") }} />}
+
+      {page === "health" && <HealthView token={token} onError={setError} />}
 
       {page === "history" && <HistoryView key={historyPoint || "history"} token={token} points={points} initialPoint={historyPoint || undefined} onError={setError} isAdmin={canConfigure} />}
 

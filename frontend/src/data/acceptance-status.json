@@ -1,0 +1,271 @@
+{
+  "updated_at": "2026-11-11",
+  "source": "docs/acceptance-evidence.md",
+  "rows": [
+    {
+      "id": "A01",
+      "title": "项目复用与授权隔离",
+      "status": "implemented",
+      "summary": "从已交付项目克隆点表、Profile、规则与验收配置，并给出复用/变化/待确认清单",
+      "evidence": [
+        "TestReuseProject",
+        "TestRewriteReferences"
+      ],
+      "gap": "",
+      "updated_at": "2026-11-11"
+    },
+    {
+      "id": "A02",
+      "title": "多厂商 Profile 复用",
+      "status": "implemented",
+      "summary": "Profile 批量应用到多个站号；按逻辑点名称自动映射，业务节点绑定保持，缺失或只读点位阻断相关控制",
+      "evidence": [
+        "TestApplyProfilesPersistsModels",
+        "TestApplyProfileVerdicts",
+        "TestCatalogProfilesCarryPointsAndVerification"
+      ],
+      "gap": "现场批量换柜的真机复验仍需 M5",
+      "updated_at": "2026-11-11"
+    },
+    {
+      "id": "A03",
+      "title": "策略模板与可解释试算",
+      "status": "implemented",
+      "summary": "场景试算、草稿拒绝与仲裁原因已实现",
+      "evidence": [
+        "TestRunScenariosVerdicts",
+        "TestRunCapabilityDispatchRejectsDraft"
+      ],
+      "gap": "金标准表尚未建立",
+      "updated_at": "2026-11-11"
+    },
+    {
+      "id": "A04",
+      "title": "逐 PCC 与跨 Plant 组上限",
+      "status": "implemented",
+      "summary": "逐 PCC 独立闭环与组共享上限已实现",
+      "evidence": [
+        "TestMultiPlantIndependentPCC",
+        "TestGroupDispatchRespectsSharedLimit"
+      ],
+      "gap": "缺跨 Plant 同一组的集成用例",
+      "updated_at": "2026-11-11"
+    },
+    {
+      "id": "A05",
+      "title": "动态能力与数据时效",
+      "status": "implemented",
+      "summary": "分方向能力、过期与坏值关闭已实现",
+      "evidence": [
+        "TestRefreshCapabilities",
+        "TestAllocateEnergyDirectionalCapabilityAndStatus"
+      ],
+      "gap": "六个固定数值用例未做成 fixture",
+      "updated_at": "2026-11-11"
+    },
+    {
+      "id": "A06",
+      "title": "设定确认与功率偏差",
+      "status": "partial",
+      "summary": "回读确认与超时未知已实现；功率跟踪偏差未实现",
+      "evidence": [
+        "TestSubmitWritesAndReadbackConfirms",
+        "TestPointWriteRequiresFreshReadback"
+      ],
+      "gap": "容差、持续时间与偏差展示未实现",
+      "updated_at": "2026-11-11"
+    },
+    {
+      "id": "A07",
+      "title": "故障、失联与恢复",
+      "status": "partial",
+      "summary": "互锁、检修与离线告警已实现；场景故障动作表未实现",
+      "evidence": [
+        "TestFaultInterlocksDispatch",
+        "TestCabinetTransition"
+      ],
+      "gap": "限功率/停充/停放等动作表未实现",
+      "updated_at": "2026-11-11"
+    },
+    {
+      "id": "A08",
+      "title": "15 分钟滑动需量",
+      "status": "implemented",
+      "summary": "15 分钟滑动需量：15 个一分钟 bin，缺 bin 不削峰并展示缺样区间",
+      "evidence": [
+        "TestSlidingDemand",
+        "TestPlantDemandWindow"
+      ],
+      "gap": "",
+      "updated_at": "2026-11-11"
+    },
+    {
+      "id": "A09",
+      "title": "96 点计划与硬优先级",
+      "status": "implemented",
+      "summary": "96 点计划按 15 分钟时段生效，空缺时段不填零；硬优先级不变",
+      "evidence": [
+        "TestPlan96TargetAt",
+        "TestArbitrate",
+        "TestOrderByPriority"
+      ],
+      "gap": "",
+      "updated_at": "2026-11-11"
+    },
+    {
+      "id": "A10",
+      "title": "现场联调与投运门槛",
+      "status": "partial",
+      "summary": "交付检查与投运门槛已实现；具名阻塞项未实现",
+      "evidence": [
+        "TestModbusCSVDiffAndDeliveryEvidence",
+        "TestDeliveryPreflight"
+      ],
+      "gap": "方向未确认、主表过期等具名阻塞项",
+      "updated_at": "2026-11-11"
+    },
+    {
+      "id": "A11",
+      "title": "站点权限与越权隔离",
+      "status": "implemented",
+      "summary": "跨站 403、角色动作与审计已实现",
+      "evidence": [
+        "TestTreeScopeHTTPIsolation",
+        "TestCanActionViewerDeniedEveryAction"
+      ],
+      "gap": "",
+      "updated_at": "2026-11-11"
+    },
+    {
+      "id": "A12",
+      "title": "协议与断线恢复",
+      "status": "implemented",
+      "summary": "Modbus/OPC-UA 读写、重连与健康已实现",
+      "evidence": [
+        "TestRealTCPFrames",
+        "TestRunnerReportsHealthAndReconnects"
+      ],
+      "gap": "真机对表仍需 M5",
+      "updated_at": "2026-11-11"
+    },
+    {
+      "id": "A13",
+      "title": "升级与版本回退",
+      "status": "partial",
+      "summary": "项目级发布、版本快照与回退已实现；三方冲突的角色确认未实现",
+      "evidence": [
+        "TestProjectVersionPublishAndRollback",
+        "TestReplayVersionAtTime"
+      ],
+      "gap": "升级冲突的人工确认与 installer 视图限制",
+      "updated_at": "2026-11-11"
+    },
+    {
+      "id": "A14",
+      "title": "交接与客户独立使用",
+      "status": "partial",
+      "summary": "客户监控、报警、控制与追溯可用；交接清单未实现",
+      "evidence": [
+        "TestProductAPIVerticalSlice",
+        "TestUserBuiltUnitControlsDevice"
+      ],
+      "gap": "交接清单与 S/H 证据标注未实现",
+      "updated_at": "2026-11-11"
+    },
+    {
+      "id": "A15",
+      "title": "换品牌与点位变化",
+      "status": "implemented",
+      "summary": "换厂商逐点判定 exact/scaled/missing；缩放不一致标注，缺失或只读点明确阻断，业务绑定保持",
+      "evidence": [
+        "TestApplyProfileVerdicts",
+        "TestApplyProfilesPersistsModels"
+      ],
+      "gap": "簇数或管理边界变化按新单元重建，不属于换点流程",
+      "updated_at": "2026-11-11"
+    },
+    {
+      "id": "A16",
+      "title": "异构控制边界与容量",
+      "status": "partial",
+      "summary": "功率按实时能力分配已实现；内部簇未建模",
+      "evidence": [
+        "TestDistributeProportionalSplit",
+        "TestAllocatorRejectsSharedOwnership"
+      ],
+      "gap": "多簇管理器内部簇与能量计划未实现",
+      "updated_at": "2026-11-11"
+    },
+    {
+      "id": "A17",
+      "title": "项目包导出与干净主机导入",
+      "status": "unimplemented",
+      "summary": "无项目包导出、manifest 与引用重写",
+      "evidence": [],
+      "gap": "全部未实现",
+      "updated_at": "2026-11-11"
+    },
+    {
+      "id": "A18",
+      "title": "应用资产生成",
+      "status": "unimplemented",
+      "summary": "页面为手写 React，无配置生成路径",
+      "evidence": [],
+      "gap": "全部未实现",
+      "updated_at": "2026-11-11"
+    },
+    {
+      "id": "A19",
+      "title": "一键发布与失败原子性",
+      "status": "partial",
+      "summary": "版本发布快照与回退已实现；预检阻断、迁移与失败注入未实现",
+      "evidence": [
+        "TestProjectVersionPublishAndRollback"
+      ],
+      "gap": "发布前预检阻断与迁移原子性",
+      "updated_at": "2026-11-11"
+    },
+    {
+      "id": "A20",
+      "title": "持久化与故障恢复",
+      "status": "partial",
+      "summary": "JSONL 追加式审计与命令日志已实现；关系库与 Outbox 未实现",
+      "evidence": [
+        "TestCommandHistorySurvivesRestart",
+        "TestSubmitIsIdempotent"
+      ],
+      "gap": "关系库、Outbox 与断库恢复",
+      "updated_at": "2026-11-11"
+    },
+    {
+      "id": "A21",
+      "title": "MQTT 凭据、ACL 与端到端",
+      "status": "unimplemented",
+      "summary": "仅上行遥测，无凭据、ACL 与下行",
+      "evidence": [],
+      "gap": "全部未实现",
+      "updated_at": "2026-11-11"
+    },
+    {
+      "id": "A22",
+      "title": "整目录备份与恢复",
+      "status": "partial",
+      "summary": "离线整目录恢复脚本可用；未覆盖 EMS 计数校验",
+      "evidence": [
+        "restore-check.mjs",
+        "TestAppendQueryAndCSV"
+      ],
+      "gap": "未校验单元/历史/审计计数",
+      "updated_at": "2026-11-11"
+    },
+    {
+      "id": "A23",
+      "title": "STS 三态互锁与命令",
+      "status": "unimplemented",
+      "summary": "STS 未建模",
+      "evidence": [],
+      "gap": "全部未实现",
+      "updated_at": "2026-11-11"
+    }
+  ]
+}
