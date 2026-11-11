@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>交付工作台 · 建站到发布 单页线框</title>
+<style>
+  :root{--ink:#26323c;--muted:#74838f;--line:#b9c4cc;--soft:#eef2f5;--blue:#2b6c9c;--green:#4d8f5e;--amber:#c08a2e;--red:#a3473c}
+  *{box-sizing:border-box}
+  html,body{margin:0;width:1920px;background:#e9edf0;color:var(--ink);font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif}
+  .page{width:1920px;padding:22px 24px 16px;background:#f7f9fa}
+  .head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:12px}
+  h1{font-size:24px;margin:0 0 4px;font-weight:700}
+  .sub{font-size:12px;color:var(--muted)}
+  .legend{font-size:11px;color:var(--muted);text-align:right;line-height:1.7}
+  .legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
+  .i-have{background:#4d8f5e}.i-part{background:#d9a441}.i-none{background:#fff;border:1.2px solid #a3473c}
+
+  .wire{border:2px solid #3a4650;background:#fff;border-radius:6px;overflow:hidden;display:grid;grid-template-rows:54px 1fr 50px;height:716px;box-shadow:0 3px 0 rgba(58,70,80,.08)}
+  .tb{display:flex;align-items:center;gap:14px;border-bottom:1.5px solid #3a4650;padding:0 16px;background:#fbfcfd}
+  .tb .title{font-size:14px;font-weight:700}
+  .tb .ver{font-size:11px;padding:2px 8px;border:1px solid var(--line);border-radius:10px;color:var(--muted);background:#fff}
+  .tb .phases{display:flex;align-items:center;gap:6px;margin-left:26px;font-size:11px;color:var(--muted)}
+  .tb .phases span{padding:3px 8px;border:1px solid var(--line);border-radius:4px;background:#fff}
+  .tb .phases span.on{border-color:var(--blue);color:var(--blue);font-weight:700;background:#eaf2f8}
+  .tb .phases em{font-style:normal;color:#b3bdc5}
+  .tb .acts{margin-left:auto;display:flex;gap:8px;align-items:center}
+  .btn{font-size:12px;padding:6px 12px;border:1.4px solid #3a4650;border-radius:5px;background:#fff}
+  .btn.pri{background:#2b6c9c;border-color:#2b6c9c;color:#fff;font-weight:600}
+  .btn.off{color:#aab4bc;border-color:#cfd7dd}
+
+  .body{display:grid;grid-template-columns:296px 1fr 322px}
+  .rail{border-right:1.5px solid #3a4650;padding:12px 0;overflow:hidden;background:#fcfdfe}
+  .rail .gh{font-size:10.5px;letter-spacing:1px;color:#8b99a4;padding:0 16px;margin:0 0 4px}
+  .step{display:grid;grid-template-columns:22px 1fr auto;gap:8px;align-items:center;padding:6px 14px;font-size:12px;color:#3d4d5a;border-left:3px solid transparent}
+  .step .no{width:18px;height:18px;border-radius:50%;border:1.3px solid #9fb0bc;display:flex;align-items:center;justify-content:center;font-size:10px;color:#7d8d99;background:#fff}
+  .step .st{font-size:10px;color:#9aa8b3}
+  .step.on{background:#eaf2f8;border-left-color:#2b6c9c}
+  .step.on .no{border-color:#2b6c9c;color:#2b6c9c;font-weight:700}
+  .step.done .no{background:#e7f2ea;border-color:#4d8f5e;color:#3d7a4a}
+  .step.done .st{color:#4d8f5e}
+  .step.todo .no{border-style:dashed;border-color:#c9a76a;color:#a98336}
+  .step .cnt{font-size:9.5px;color:#8a97a2;padding:1px 5px;border:1px dashed #c6d1d9;border-radius:8px;background:#fff}
+  .rail .sep{height:1px;background:#e6ebef;margin:7px 14px}
+
+  .main{padding:14px 16px;overflow:hidden}
+  .crumb{font-size:10.5px;color:#8b99a4;margin-bottom:6px}
+  .h2{font-size:17px;margin:0 0 3px;font-weight:700}
+  .hint{font-size:11.5px;color:var(--muted);margin-bottom:12px}
+  .fieldrow{display:grid;grid-template-columns:150px 1fr 150px 1fr;gap:8px 10px;font-size:11.5px;align-items:center;margin-bottom:8px}
+  .lbl{color:#5d6d7a;text-align:right}
+  .box{border:1.4px solid var(--line);border-radius:4px;background:#fff;padding:5px 8px;min-height:26px;color:#33424e;font-size:11.5px;display:flex;align-items:center;justify-content:space-between}
+  .box .ph{color:#a9b4bd}
+  .box.dd:after{content:"▾";color:#8b99a4;font-size:10px}
+  .box.sel{border-color:var(--blue);background:#f4f9fc}
+
+  .tbl{border:1.4px solid var(--line);border-radius:5px;overflow:hidden;margin-top:4px}
+  .tr{display:grid;grid-template-columns:52px 1fr 1.3fr 1fr 74px 96px;font-size:11px}
+  .tr>div{padding:5px 8px;border-right:1px solid #e3e9ee;border-bottom:1px solid #e3e9ee;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tr>div:last-child{border-right:none}
+  .tr.hd{background:#f0f4f7;color:#5d6d7a;font-weight:600}
+  .tr:last-child>div{border-bottom:none}
+  .tag{display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;border:1px solid #cfd8de;color:#687985;background:#fff}
+  .tag.reuse{border-color:#b9d8c2;color:#3d7a4a;background:#eef7f0}
+  .tag.new{border-color:#e5cf9f;color:#9a6a1e;background:#fdf7ea}
+
+  .cards{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:12px}
+  .card{border:1.4px dashed var(--line);border-radius:5px;padding:8px 10px;background:#fbfcfd}
+  .card b{display:block;font-size:11.5px;margin-bottom:3px}
+  .card .big{font-size:20px;font-weight:700;line-height:1.1}
+  .card .list{font-size:10.5px;color:#6d7d89;line-height:1.5;margin-top:4px}
+
+  .reuse{margin-top:12px;border:1.4px solid var(--line);border-radius:5px;overflow:hidden}
+  .reuse .rt{padding:6px 10px;background:#f0f4f7;font-size:11px;color:#5d6d7a;border-bottom:1px solid #e3e9ee}
+  .rgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:0}
+  .rgrid>div{padding:8px 10px;border-right:1px solid #e3e9ee;font-size:10.5px;color:#6d7d89;line-height:1.55}
+  .rgrid>div:last-child{border-right:none}
+  .rgrid b{display:block;font-size:11.5px;color:#33424e;margin-bottom:2px}
+  .noimport{padding:7px 10px;border-top:1px dashed #e3e9ee;font-size:10.5px;color:#8a5b20;background:#fdf8ee}
+
+  .right{border-left:1.5px solid #3a4650;padding:12px 14px;background:#fcfdfe;overflow:hidden}
+  .rsec{margin-bottom:11px}
+  .rsec h4{font-size:11px;margin:0 0 4px;color:#7b8994;letter-spacing:.6px;font-weight:600}
+  .kv{font-size:11.5px;line-height:1.7;color:#465763}
+  .kv .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:middle}
+  .gate{border:1.4px solid var(--line);border-radius:5px;padding:7px 9px;background:#fff;font-size:11px}
+  .gate .row{display:flex;justify-content:space-between;padding:2.5px 0;border-bottom:1px dotted #e3e9ee}
+  .gate .row:last-child{border-bottom:none}
+  .gate .no{color:#a3473c}
+  .gate .yes{color:#3d7a4a}
+  .note{font-size:10.5px;color:#8b99a4;line-height:1.55;border-left:3px solid #d8e2e9;padding-left:8px;margin-top:8px}
+
+  .bb{display:flex;align-items:center;gap:12px;border-top:1.5px solid #3a4650;padding:0 16px;background:#fbfcfd;font-size:11.5px;color:#687985}
+  .bb .spacer{margin-left:auto}
+
+  /* 流程条 */
+  .flow{margin-top:12px}
+  .flow h3{font-size:13px;margin:0 0 7px;color:#3d4d5a}
+  .steps{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+  .sc{border:1.4px solid var(--line);border-radius:6px;background:#fff;padding:8px 9px;min-height:88px}
+  .sc .n{font-size:9.5px;color:#8b99a4}
+  .sc b{display:block;font-size:11.5px;margin:2px 0 3px;color:#2f3f4c}
+  .sc span{font-size:10px;color:#6d7d89;line-height:1.5;display:block}
+  .sc .st{position:relative;float:right;font-size:9px;margin-top:-1px}
+  .sc .sdot{float:right;width:9px;height:9px;border-radius:50%;margin-top:3px}
+  .sdot.have{background:#4d8f5e}.sdot.part{background:#d9a441}.sdot.none{background:#fff;border:1.3px solid #a3473c}
+  .sc.gap{border-style:dashed;background:#fdfaf6}
+  .foot{margin-top:9px;font-size:10.5px;color:#93a2ae;text-align:right}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="head">
+    <div>
+      <h1>交付工作台 · 从建站到发布（单页线框）</h1>
+      <div class="sub">一个页面承载 11 个步骤：左侧导航不变，中间主区随步骤切换，右侧始终显示差异、阻塞与发布门槛</div>
+    </div>
+    <div class="legend">
+      <i class="i-have"></i>已有　<i class="i-part"></i>部分　<i class="i-none"></i>缺失（与验收地图同口径）<br/>
+      线框只表达结构与控件，不代表视觉样式
+    </div>
+  </div>
+
+  <div class="wire">
+    <!-- 顶栏 -->
+    <div class="tb">
+      <span class="title">苏州二期 光储站</span>
+      <span class="ver">草稿 · v0.3</span>
+      <div class="phases">
+        <span class="on">准备</span><em>›</em><span>接入</span><em>›</em><span>建模</span><em>›</em><span>策略</span><em>›</em><span>联调</span><em>›</em><span>发布</span>
+      </div>
+      <div class="acts">
+        <span class="btn off">预检</span>
+        <span class="btn off">发布</span>
+      </div>
+    </div>
+
+    <!-- 主体 -->
+    <div class="body">
+      <!-- 左：步骤轨 -->
+      <aside class="rail">
+        <div class="gh">准备</div>
+        <div class="step on"><span class="no">1</span><span>从已验收项目创建</span><span class="st">进行中</span></div>
+        <div class="sep"></div>
+        <div class="gh">接入</div>
+        <div class="step"><span class="no">2</span><span>通道</span><span class="st">未开始</span></div>
+        <div class="step"><span class="no">3</span><span>Profile 与型号</span><span class="st">未开始</span></div>
+        <div class="step"><span class="no">4</span><span>点位映射</span><span class="st">未开始</span></div>
+        <div class="sep"></div>
+        <div class="gh">建模</div>
+        <div class="step"><span class="no">5</span><span>EnergyUnit</span><span class="st">未开始</span></div>
+        <div class="step"><span class="no">6</span><span>PCC 绑定</span><span class="st">未开始</span></div>
+        <div class="step"><span class="no">7</span><span>ResourceGroup</span><span class="st">未开始</span></div>
+        <div class="sep"></div>
+        <div class="gh">策略</div>
+        <div class="step"><span class="no">8</span><span>决策表与试算</span><span class="st">未开始</span></div>
+        <div class="step todo"><span class="no">9</span><span>计划 / 需量 / 电价</span><span class="st">部分</span></div>
+        <div class="sep"></div>
+        <div class="gh">交付</div>
+        <div class="step"><span class="no">10</span><span>联调解锁</span><span class="st">未开始</span></div>
+        <div class="step"><span class="no">11</span><span>预检与发布</span><span class="st">未开始</span></div>
+        <div class="note" style="margin:10px 14px 0">灰色圆点＝未开始；绿色＝已完成；橙色虚线＝该步有缺口（A08/A09/A19）。</div>
+      </aside>
+
+      <!-- 中：当前步骤 -->
+      <main class="main">
+        <div class="crumb">准备 › 从已验收项目创建</div>
+        <div class="h2">选择源项目，确认复用与变化</div>
+        <div class="hint">系统只复用工程资产，不带入旧站地址、凭据与控制授权；新设备默认待机。</div>
+
+        <div class="fieldrow">
+          <span class="lbl">源项目</span>
+          <span class="box dd sel">苏州一期 光储 4 柜 · 已签收 v1.2</span>
+          <span class="lbl">新站名称</span>
+          <span class="box">苏州二期</span>
+        </div>
+        <div class="fieldrow">
+          <span class="lbl">柜数 / 型号</span>
+          <span class="box">4 台 · PCS-B 125 kW</span>
+          <span class="lbl">默认并网点</span>
+          <span class="box dd">PCC-C（新建）</span>
+        </div>
+
+        <div class="tbl">
+          <div class="tr hd"><div>柜号</div><div>型号</div><div>连接地址</div><div>所属 Plant</div><div>PCC</div><div>差异</div></div>
+          <div class="tr"><div>1</div><div>PCS-B 125 kW</div><div>192.168.20.21</div><div>Plant A</div><div>PCC-C</div><div><span class="tag reuse">复用</span> <span class="tag new">地址</span></div></div>
+          <div class="tr"><div>2</div><div>PCS-B 125 kW</div><div>192.168.20.22</div><div>Plant A</div><div>PCC-C</div><div><span class="tag reuse">复用</span> <span class="tag new">地址</span></div></div>
+          <div class="tr"><div>3</div><div>PCS-B 125 kW</div><div>192.168.20.23</div><div>Plant B</div><div>PCC-D</div><div><span class="tag reuse">复用</span> <span class="tag new">地址</span></div></div>
+          <div class="tr"><div>4</div><div>PCS-B 125 kW</div><div>192.168.20.24</div><div>Plant B</div><div>PCC-D</div><div><span class="tag reuse">复用</span> <span class="tag new">地址</span></div></div>
+        </div>
+
+        <div class="cards">
+          <div class="card"><b>复用</b><div class="big">18</div><div class="list">点表、Profile、规则、画面、验收场景</div></div>
+          <div class="card"><b>变化</b><div class="big">9</div><div class="list">4 个柜号 · 4 个地址 · 1 个 PCC</div></div>
+          <div class="card"><b>待确认</b><div class="big">2</div><div class="list">并网点方向 · 控制授权</div></div>
+        </div>
+
+        <div class="reuse">
+          <div class="rt">复用明细（源：苏州一期 v1.2，可逐项展开确认）</div>
+          <div class="rgrid">
+            <div><b>点表 · 96 点</b>4 个型号模板、缩放与回读定义</div>
+            <div><b>规则 · 3 条</b>决策表与 6 个验收场景</div>
+            <div><b>画面 · 4 个</b>单元页、PCC 页、历史视图</div>
+            <div><b>验收 · 2 套</b>证据模板与遗留项清单</div>
+          </div>
+          <div class="noimport">不会带入：旧站 IP 与端口、设备凭据与 token、控制授权、运行历史与报警记录。新设备创建后一律处于待机。</div>
+        </div>
+      </main>
+
+      <!-- 右：检查器 -->
+      <aside class="right">
+        <div class="rsec">
+          <h4>本步要做的事</h4>
+          <div class="kv"><span class="dot" style="background:#c08a2e"></span>确认 PCC-C/PCC-D 的购售方向</div>
+          <div class="kv"><span class="dot" style="background:#c08a2e"></span>确认这 4 台柜的控制授权</div>
+          <div class="kv"><span class="dot" style="background:#4d8f5e"></span>旧站地址与 token 已剔除（0 命中）</div>
+        </div>
+        <div class="rsec">
+          <h4>发布门槛（全程累计）</h4>
+          <div class="gate">
+            <div class="row"><span>点位已映射</span><span class="no">0 / 96</span></div>
+            <div class="row"><span>通道健康</span><span class="no">未接入</span></div>
+            <div class="row"><span>阻塞项</span><span class="no">2 未解决</span></div>
+            <div class="row"><span>试算与金标准</span><span class="no">未运行</span></div>
+            <div class="row"><span>预检</span><span class="no">未运行</span></div>
+          </div>
+        </div>
+        <div class="rsec">
+          <h4>证据（自动累积）</h4>
+          <div class="kv">草稿保存 12:04 · 操作者 张工</div>
+          <div class="kv">差异哈希 <span style="color:#8b99a4">待生成</span></div>
+        </div>
+        <div class="note">右侧栏不随步骤切换；它回答三个问题：这一步还差什么、整个项目能不能发布、证据是否齐。</div>
+      </aside>
+    </div>
+
+    <!-- 底栏 -->
+    <div class="bb">
+      <span>草稿已自动保存</span>
+      <span>·</span>
+      <span>下一步将创建 4 个通道并检查连通性</span>
+      <span class="spacer"></span>
+      <span class="btn">保存草稿</span>
+      <span class="btn pri">下一步：接入通道 →</span>
+    </div>
+  </div>
+
+  <!-- 主链展开 -->
+  <div class="flow">
+    <h3>同一页面的 11 个步骤（中间主区的内容随步骤切换）</h3>
+    <div class="steps">
+      <div class="sc"><span class="sdot have"></span><span class="n">01 · 准备</span><b>从已验收项目创建</b><span>源项目、柜体表、复用/变化/待确认三栏</span></div>
+      <div class="sc"><span class="sdot have"></span><span class="n">02 · 接入</span><b>通道</b><span>协议、IP/串口、站号、轮询周期、连通性探针</span></div>
+      <div class="sc"><span class="sdot part"></span><span class="n">03 · 接入</span><b>Profile 与型号</b><span>厂商型号匹配、必需点清单、批量应用（当前逐柜）</span></div>
+      <div class="sc"><span class="sdot part"></span><span class="n">04 · 接入</span><b>点位映射</b><span>逻辑点→物理点、缩放/偏移、回读点、缺失与不等价</span></div>
+      <div class="sc"><span class="sdot have"></span><span class="n">05 · 建模</span><b>EnergyUnit</b><span>能力、充放限值、SOC/温度来源、时效、模式</span></div>
+      <div class="sc"><span class="sdot part"></span><span class="n">06 · 建模</span><b>PCC 绑定</b><span>反馈电表、方向、时效、三相点位、受影响 EU</span></div>
+      <div class="sc"><span class="sdot have"></span><span class="n">07 · 建模</span><b>ResourceGroup</b><span>成员引用、共享上限 kW、有效期、跨 Plant 提示</span></div>
+      <div class="sc"><span class="sdot have"></span><span class="n">08 · 策略</span><b>决策表与试算</b><span>规则编辑、场景、同一输入试算、原因与缺口</span></div>
+      <div class="sc gap"><span class="sdot none"></span><span class="n">09 · 策略</span><b>计划 / 需量 / 电价</b><span>96 点曲线与 15 分钟窗口未实现（A08/A09）；电价时段已有</span></div>
+      <div class="sc"><span class="sdot part"></span><span class="n">10 · 交付</span><b>联调解锁</b><span>阻塞清单、原始读数、映射复验；具名阻塞项待补（A10）</span></div>
+      <div class="sc gap"><span class="sdot none"></span><span class="n">11 · 交付</span><b>预检与发布</b><span>预检与证据导出已有；包级一键发布与失败原子性未实现（A19）</span></div>
+      <div class="sc" style="border-style:dashed;background:#fafcfd"><span class="n">—</span><b>交接</b><span>发布后进入客户工作台；当前只有验收报告与证据 zip，交接清单待补（A14）</span></div>
+    </div>
+  </div>
+
+  <div class="foot">线框的核心判断：交付是一个"有门槛的单页流程"，不是一串独立配置页；右侧门槛始终可见，才不会出现"配完了才发现不能发布"。</div>
+</div>
+</body>
+</html>

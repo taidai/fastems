@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EMS 无代码交付平台 · 总图与验收地图</title>
+<style>
+  :root{--navy:#0a376f;--blue:#0d5b9e;--green:#5eaa45;--ink:#183451;--muted:#60758d;--line:#cfdfed;--amber:#95611d}
+  *{box-sizing:border-box}
+  html,body{margin:0;width:2400px;background:#edf3f8;color:var(--ink);font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC",Arial,sans-serif}
+  .page{position:relative;width:2400px;padding:22px 28px 16px;background:radial-gradient(circle at 10% 0%,#fff,transparent 32%),linear-gradient(145deg,#f5f9fc,#e7eff6)}
+  .header{height:96px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;border-radius:18px;color:#fff;background:linear-gradient(105deg,#093674,#0b5593 58%,#1689b5);box-shadow:0 8px 22px rgba(17,61,107,.18);position:relative;overflow:hidden}
+  .header:after{content:"";position:absolute;right:270px;top:-55px;width:220px;height:200px;background:linear-gradient(135deg,#75bd4f,#43a26a);transform:skewX(-28deg)}
+  h1{font-size:35px;line-height:1.2;margin:0 0 7px;font-weight:750;letter-spacing:.4px}.subtitle{font-size:16px;opacity:.94;letter-spacing:.4px}
+  .version{position:relative;z-index:2;text-align:right;font-size:13px;line-height:1.75;opacity:.95}.version b{font-size:17px}
+
+  /* 范围声明 */
+  .scope{display:grid;grid-template-columns:auto 1fr;gap:9px 14px;align-items:center;margin:12px 0 0;padding:12px 18px;border-radius:12px;background:#fff8e9;border:1px solid #e6cf9f;font-size:13.5px;line-height:1.5;color:#7a561d}
+  .scope>b{justify-self:start;padding:4px 10px;border-radius:6px;background:#b5791f;color:#fff;font-size:12.5px;letter-spacing:.5px}
+  .scope-states{grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap;font-size:12.5px}
+  .scope-states span{padding:3px 11px;border-radius:6px;line-height:1.5}
+  .scope-states .ok{background:#e7f3e5;color:#2f6f43;border:1px solid #c6dfbd}
+  .scope-states .part{background:#fff3dd;color:#8a5b20;border:1px solid #e8d3a8}
+  .scope-states .none{background:#fbeceb;color:#9a3b32;border:1px solid #e8c3bf}
+
+  .roles{height:64px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin:12px 0}
+  .role{padding:9px 16px;border-radius:12px;background:rgba(255,255,255,.95);border:1px solid #c6d9e9;font-size:14px;line-height:1.5;display:flex;align-items:center;gap:12px}.role b{padding:5px 10px;border-radius:7px;background:#0c5b96;color:#fff;white-space:nowrap;font-size:13px}.role.goal{background:#eaf5e7;border-color:#bfdab3}.role.goal b{background:#4b8c48}
+
+  .card{background:rgba(255,255,255,.96);border:1px solid rgba(157,188,213,.7);border-radius:15px;box-shadow:0 5px 16px rgba(35,74,111,.07);padding:14px 16px;margin-bottom:12px}
+  .title{display:flex;align-items:center;gap:10px;margin-bottom:11px}.title h2{font-size:23px;margin:0;color:#0a477f;white-space:nowrap}.title small{margin-left:auto;font-size:12px;color:#7a8c9e}
+  .num{width:31px;height:31px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:16px;font-weight:700;background:linear-gradient(145deg,#1684bb,#0a4d8b);flex:none}
+
+  /* 1 分层 */
+  .layers{display:grid;gap:7px}
+  .layer{display:grid;grid-template-columns:250px 1fr 168px;gap:12px;align-items:stretch;padding:9px 12px;border-radius:11px;border:1px solid var(--line);background:linear-gradient(145deg,#f7fbff,#eef6fb)}
+  .layer .head b{display:block;font-size:15px;color:#0a598e}.layer .head span{display:block;font-size:11.5px;color:#6b8199;margin-top:2px}
+  .layer .body{font-size:12.5px;line-height:1.65;color:#456079}
+  .layer .body em{font-style:normal;display:inline-block;margin:2px 5px 2px 0;padding:2px 8px;border-radius:6px;background:#e4eff8;color:#2c6288;font-size:11.5px}
+  .layer .state{display:flex;align-items:center;justify-content:center;text-align:center;font-size:11.5px;line-height:1.4;border-radius:8px;padding:5px 8px}
+  .st-done{background:#e7f3e5;color:#2f6f43;border:1px solid #c6dfbd}
+  .st-part{background:#fff6e7;color:#95611d;border:1px solid #e6cf9f}
+  .st-none{background:#fbeceb;color:#9a3b32;border:1px solid #e8c3bf}
+  .l0{border-left:5px solid #0d5b9e}.l1{border-left:5px solid #2f7f6f}.l2{border-left:5px solid #6a5aa8}.l3{border-left:5px solid #4b8c48}
+  .layer-caption{margin-top:7px;font-size:11.5px;color:#6f839a;text-align:center}
+
+  /* 2 主链 */
+  .steps{display:grid;grid-template-columns:1fr 20px 1fr 20px 1fr 20px 1fr 20px 1fr 20px 1fr;gap:5px;align-items:stretch}
+  .step{border:1px solid var(--line);border-radius:11px;padding:10px 10px;background:linear-gradient(145deg,#f7fbff,#eef6fb);min-width:0}
+  .step>b{display:block;font-size:14.5px;color:#0a598e;margin-bottom:5px}
+  .step .human,.step .auto{display:block;font-size:11.5px;line-height:1.5;margin-top:4px;color:#566d84}
+  .step .human b{display:inline;color:#8a5b20;font-size:11px}.step .auto b{display:inline;color:#2f6f43;font-size:11px}
+  .arrow{display:flex;align-items:center;justify-content:center;color:#2b789c;font-size:23px}
+  .legend-line{margin-top:8px;font-size:11.5px;color:#6f839a}
+
+  /* 3 领域 */
+  .domain-grid{display:grid;grid-template-columns:1.62fr .78fr;gap:14px}
+  .dm{border:1px solid #d6e4ef;border-radius:12px;background:linear-gradient(160deg,#f8fbfe,#edf5fa);padding:11px 13px}
+  .dm-site{width:56%;margin:0 auto;padding:7px 12px;border-radius:9px;text-align:center;color:#fff;background:linear-gradient(145deg,#0b5793,#1689b5);font-size:13px;font-weight:600}
+  .dm-arrow{text-align:center;color:#469179;font-size:13px;line-height:1.15;margin:2px 0}
+  .pcc-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:2px}
+  .pcc-card{border:1px solid #b9d3e6;border-radius:8px;padding:6px 9px;background:#fff;font-size:11px;line-height:1.45;color:#47647d}
+  .pcc-card b{display:block;color:#0a5a8f;font-size:12px;margin-bottom:2px}
+  .plant-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .plant-card{border:1px solid var(--line);border-radius:8px;padding:6px 9px;background:#f3f9fd;font-size:11.5px;line-height:1.4;color:#506a82}
+  .plant-card b{display:block;color:#0b5b92;font-size:12.5px;margin-bottom:2px}
+  .rg-band{position:relative;border:2px dashed #4b8c48;border-radius:11px;background:rgba(110,170,90,.09);padding:20px 12px 10px;margin-top:2px}
+  .rg-label{position:absolute;left:12px;top:-11px;padding:1px 10px;border-radius:6px;background:#4b8c48;color:#fff;font-size:11px;letter-spacing:.3px}
+  .rg-note{position:absolute;right:10px;top:-11px;padding:1px 9px;border-radius:6px;background:#fff;border:1px solid #bcd6b2;color:#3f7a4d;font-size:10.5px}
+  .eu-row{display:grid;grid-template-columns:1fr 1.15fr;gap:9px}
+  .eu-card{border:1px solid #c9dfc1;border-radius:8px;padding:7px 9px;background:#eef7eb;font-size:11px;line-height:1.45;color:#48624f}
+  .eu-card>b{display:block;color:#34784a;font-size:12.5px;margin-bottom:2px}
+  .eu-spec{display:flex;gap:6px;margin:3px 0}
+  .eu-spec span{padding:1px 7px;border-radius:5px;background:#dcecd6;color:#2f6f43;font-size:10.5px;font-weight:600}
+  .cluster-row{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:4px}
+  .cluster{border:1px dashed #9ec193;border-radius:6px;padding:3px 6px;background:rgba(255,255,255,.65);font-size:10px;color:#4f7157;line-height:1.35}
+  .cluster em{font-style:normal;display:block;font-size:9.5px;color:#7b9481}
+  .noneu-row{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:7px}
+  .noneu{border:1px solid #cfd9e6;border-radius:8px;padding:5px 9px;background:#f4f7fb;font-size:10.5px;line-height:1.4;color:#556a80}
+  .noneu b{display:block;color:#3d5b78;font-size:11.5px;margin-bottom:1px}
+  .device-row{margin-top:7px;padding:6px 10px;border-radius:8px;background:#e9f1f8;border:1px solid #c9dbea;font-size:11px;line-height:1.5;color:#44627c}
+  .device-row b{color:#0b5b92}
+  .dm-caption{margin-top:7px;font-size:10.5px;color:#77909f;text-align:center}
+
+  .note{border:1px solid #d4e2ed;border-radius:9px;padding:8px 10px;background:#eef5fa;font-size:11.5px;line-height:1.55;color:#526b82;margin-bottom:7px}
+  .note b{display:block;color:#135c8d;font-size:12.5px;margin-bottom:3px}
+  .note.green{background:#edf6e9;border-color:#cfe1c5}.note.green b{color:#397346}
+  .note.amber{background:#fff6e7;border-color:#ead5ab}.note.amber b{color:#95611d}
+  .invariants{padding:9px 11px;border-radius:9px;background:#0b4f86;color:#eaf3fb;font-size:11px;line-height:1.65}
+  .invariants b{display:block;font-size:12.5px;margin-bottom:4px;color:#fff}
+  .invariants span{display:block;padding-left:12px;position:relative}
+  .invariants span:before{content:"◇";position:absolute;left:0;color:#8fd07a;font-size:9px;top:2px}
+
+  /* 4 项目包 + 控制链 */
+  .middle{display:grid;grid-template-columns:.72fr 1.28fr;gap:12px;align-items:start}
+  .package{color:#eef7ff;background:linear-gradient(145deg,#0a3b75,#0c5c93);border-color:#1d76aa}
+  .package .title h2,.package .title small{color:#fff}.package .num{background:#64b14c}
+  .assets{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+  .asset{padding:7px 9px;border:1px solid rgba(198,224,244,.35);border-radius:8px;background:rgba(255,255,255,.09);font-size:11.5px;line-height:1.45}
+  .asset b{display:block;color:#fff;font-size:12.5px;margin-bottom:2px}.asset span{opacity:.82}
+  .states{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-top:9px;padding:8px;border-radius:8px;background:rgba(3,34,68,.32);font-size:11px}
+  .state{padding:4px 7px;border-radius:5px;background:rgba(255,255,255,.12)}
+  .state.active{background:#5da948;color:#fff;font-weight:700}.state-arrow{opacity:.55}
+  .output{margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.12);color:#fff;font-size:11.5px;line-height:1.5;border-left:4px solid #73bd56}
+  .output.warn{background:rgba(255,206,120,.16);border-left-color:#e2a53c}
+
+  .control-flow{display:grid;grid-template-columns:1fr 17px 1fr 17px 1fr 17px 1fr 17px 1fr 17px 1fr 17px 1fr 17px 1fr;align-items:center;gap:4px}
+  .flow-box{min-height:74px;border-radius:10px;padding:9px 6px;color:#fff;text-align:center;background:linear-gradient(145deg,#0b5793,#0b6fa4)}
+  .flow-box b{display:block;font-size:13px;margin-bottom:4px}.flow-box span{font-size:10.5px;line-height:1.35;opacity:.9;display:block}
+  .flow-box.alt{background:linear-gradient(145deg,#277e74,#47998a)}
+  .flow-box.end{background:linear-gradient(145deg,#0b477f,#0a376f)}
+  .flow-box.guard{background:linear-gradient(145deg,#8a5b20,#b5791f)}
+  .flow-arrow{text-align:center;color:#43819f;font-size:17px}
+  .feedback-line{margin-top:7px;padding:6px 10px;border-radius:8px;background:#e6f4e7;color:#367047;text-align:center;font-size:11px}
+  .guard-line{margin-top:6px;padding:6px 10px;border-radius:8px;background:#fdf2dd;color:#7d5719;font-size:11px;text-align:center;border:1px dashed #dfc188}
+  .notes{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px}
+
+  /* 5 矩阵 */
+  table{width:100%;border-collapse:separate;border-spacing:0 4px;table-layout:fixed;font-size:12px}
+  thead th{background:#0b528a;color:#fff;text-align:left;padding:7px 8px;font-size:12.5px;font-weight:600;border-right:1px solid rgba(255,255,255,.2)}
+  thead th:first-child{border-radius:7px 0 0 0}thead th:last-child{border-radius:0 7px 0 0}
+  tbody td{padding:6px 8px;background:#f4f8fc;border-right:1px solid #dde7ef;line-height:1.42;vertical-align:top;color:#425c74}
+  tbody td:first-child{border-radius:6px 0 0 6px;text-align:center;font-weight:700;color:#0b5b93;vertical-align:middle}
+  tbody td:last-child{border-radius:0 6px 6px 0;vertical-align:middle;text-align:center}
+  tbody tr:nth-child(even) td{background:#edf4fa}
+  tbody tr.v1-missing td{background:#fdf6ea}
+  tbody tr.v1-missing:nth-child(even) td{background:#fbf0dd}
+  .check{display:inline-block;width:16px;height:16px;border:1.5px solid #7fa1b9;border-radius:3px;text-align:center;line-height:14px;color:#7fa1b9;font-size:11px;margin-right:4px;vertical-align:middle}
+  .etype{display:inline-block;padding:1px 4px;border-radius:4px;background:#e1edf6;color:#2d648a;font-size:10.5px;white-space:nowrap;margin-right:2px}
+  .todo{display:inline-block;padding:1px 5px;border-radius:4px;background:#e6c37f;color:#6b4508;font-size:10px;white-space:nowrap;margin-bottom:3px}
+  .todo.partial{background:#c9dcec;color:#24557d}
+  .rowtitle b{display:block;color:#124a76;font-size:12.5px;margin-bottom:2px}
+  .pass{color:#2f6f43}.fail{color:#9a3b32}
+
+  /* 6 协作 */
+  .team{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .member{border:1px solid #c9dbea;border-radius:10px;padding:9px 11px;background:#f5fafd;font-size:11.5px;line-height:1.55;color:#4d657c}
+  .member b{display:block;font-size:13px;color:#0b5b92;margin-bottom:4px}
+  .member .do{color:#2f6f43}.member .dont{color:#9a5b2a}.member .out{color:#3f5f80;margin-top:3px;padding-top:3px;border-top:1px dashed #cfdde8}
+  .discipline{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:9px}
+  .disc{border-left:4px solid #0d5b9e;border-radius:8px;padding:7px 10px;background:#eef5fa;font-size:11.5px;line-height:1.5;color:#4d657c}
+  .disc b{display:block;color:#135c8d;font-size:12px;margin-bottom:2px}
+
+  /* footer */
+  .footer{display:grid;grid-template-columns:1.05fr 1.15fr 1fr;gap:12px;margin-top:12px}
+  .foot{border:1px solid #d1dfeb;border-radius:11px;padding:9px 12px;background:rgba(255,255,255,.9);font-size:11px;line-height:1.55;color:#526a80}
+  .foot b{display:block;color:#145685;font-size:12px;margin-bottom:3px}
+  .foot.external b{color:#8a5b20}
+  .foot .k{display:inline-block;margin:1px 4px 1px 0;padding:1px 6px;border-radius:4px;background:#e4eff8;color:#2c6288;font-size:10.5px}
+  .blueprint-note{margin-top:8px;text-align:right;font-size:10px;color:#7b8b99;letter-spacing:.3px}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="header">
+    <div><h1>EMS 无代码交付平台 · 总图与验收地图</h1><div class="subtitle">一个项目包贯穿开发、交付与运行：逐 PCC 仲裁 · 安全回读 · 版本可回退 · 历史可追</div></div>
+    <div class="version"><b>验收基线 V1.0</b><br/>图上每一项都可转为测试或现场签收<br/>2026-11-11</div>
+  </header>
+
+  <div class="scope">
+    <b>V1 可签收范围</b>
+    <span>以 EMS 为行业包的配置式交付平台：项目在一台实例内完成复用、适配、策略、联调、发布、交接与升级回退。逐行证据与缺口见 <code>docs/acceptance-evidence.md</code>。</span>
+    <div class="scope-states">
+      <span class="ok">已实现 A01–A05 · A08 · A09 · A11 · A12 · A15</span>
+      <span class="part">部分 A06 A07 A10 A13 A14 A16 A19 A20 A22</span>
+      <span class="none">未实现 A17 · A18 · A21 · A23</span>
+    </div>
+  </div>
+
+  <section class="roles">
+    <div class="role"><b>交付人员</b><span>开发与实施合一，不碰代码；复用已验收资产，只处理变化与例外</span></div>
+    <div class="role"><b>终端客户</b><span>使用完整 EMS：监控、报警、控制、追溯、备份升级与日常运维</span></div>
+    <div class="role goal"><b>唯一目的</b><span>团队能反复、可靠地交付，客户能安全、独立地使用</span></div>
+  </section>
+
+  <!-- 1 分层与责任 -->
+  <section class="card">
+    <div class="title"><span class="num">1</span><h2>分层与责任：谁提供能力，谁负责交付</h2><small>下层提供能力，上层承载业务；每一层有唯一负责人和独立验收</small></div>
+    <div class="layers">
+      <div class="layer l3">
+        <div class="head"><b>L3 运行时（系统）</b><span>客户看到的就是这一层</span></div>
+        <div class="body"><em>采集</em><em>物模型</em><em>规则与策略</em><em>仲裁</em><em>命令与回读</em><em>追溯</em><em>报警</em><em>SCADA</em> 1 秒周期，安全原语内建，运行结果全部留痕</div>
+        <div class="state st-done">已实现<br/>纳入验收</div>
+      </div>
+      <div class="layer l2">
+        <div class="head"><b>L2 项目包（交付人员）</b><span>唯一可版本化的交付资产</span></div>
+        <div class="body"><em>模型</em><em>适配</em><em>规则</em><em>应用</em><em>验证</em><em>版本</em> 一个项目包对应一个站点的全部工程配置；发布只是包上的一个动作</div>
+        <div class="state st-part">部分实现<br/>同实例复用已交付<br/>跨机导出/导入未实现</div>
+      </div>
+      <div class="layer l1">
+        <div class="head"><b>L1 EMS 行业包（维护者 + 交付）</b><span>让平台懂"光储充"</span></div>
+        <div class="body"><em>Site / Plant / PCC</em><em>EnergyUnit</em><em>调度与硬优先级</em><em>互锁与故障动作</em><em>标准能力与点表</em><em>96 点计划</em><em>15 分钟滑动需量</em><em>验收场景</em> 领域语义只在这一层，内核不出现"PCS""SOC"</div>
+        <div class="state st-done">已实现<br/>纳入验收</div>
+        <div class="head"><b>L0 平台内核（平台维护者）</b><span>配置式，不含通用应用搭建</span></div>
+        <div class="body"><em>对象与点位类型</em><em>协议适配器：Modbus / OPC-UA / MQTT 上行</em><em>决策表与状态机</em><em>角色与权限</em><em>包与版本</em><em>证据与审计</em><em>单 Go 服务 · 离线 Docker</em> 不含页面设计器、自由脚本与通用流程画布</div>
+        <div class="state st-done">已实现<br/>纳入验收</div>
+      </div>
+    </div>
+    <div class="layer-caption">这张图证明的是"EMS 能在该内核上被无代码地反复交付"，不是"任意行业应用都能被搭建"；后者需要 A17（第二行业包）与 A18（应用资产生成）两项能力先落地。</div>
+  </section>
+
+  <!-- 2 主链 -->
+  <section class="card">
+    <div class="title"><span class="num">2</span><h2>反复交付主链</h2><small>人只做判断与例外处理，其余由系统自动完成并留证</small></div>
+    <div class="steps">
+      <div class="step"><b>① 从已验收项目创建</b><span class="human"><b>人｜</b>填柜数、型号、地址、PCC</span><span class="auto"><b>系统｜</b>列出复用 / 变化 / 待确认项</span></div>
+      <div class="arrow">→</div>
+      <div class="step"><b>② 批量换厂商</b><span class="human"><b>人｜</b>选 Profile，确认缺失项</span><span class="auto"><b>系统｜</b>整批应用，逻辑点自动关联</span></div>
+      <div class="arrow">→</div>
+      <div class="step"><b>③ 模板配策略</b><span class="human"><b>人｜</b>填计划、需量、适用 PCC</span><span class="auto"><b>系统｜</b>同一输入试算，给出原因与缺口</span></div>
+      <div class="arrow">→</div>
+      <div class="step"><b>④ 现场联调</b><span class="human"><b>人｜</b>按阻塞清单逐项复验</span><span class="auto"><b>系统｜</b>显示原值、映射、时效与步骤</span></div>
+      <div class="arrow">→</div>
+      <div class="step"><b>⑤ 校验发布与交接</b><span class="human"><b>人｜</b>确认冲突项、签字交接</span><span class="auto"><b>系统｜</b>预检、仿真、证据汇总</span></div>
+      <div class="arrow">→</div>
+      <div class="step"><b>⑥ 售后升级与回退</b><span class="human"><b>人｜</b>只确认新版与定制的冲突</span><span class="auto"><b>系统｜</b>保留历史，不回放旧命令</span></div>
+    </div>
+    <div class="legend-line">约束：复用资产但不复制旧站地址、凭据与控制授权；新设备默认待机；仿真证据与真机证据分开；交接不靠口头描述。</div>
+  </section>
+
+  <!-- 3 领域模型 -->
+  <section class="card">
+    <div class="title"><span class="num">3</span><h2>领域模型：以最小独立受控能力单元为核心</h2><small>PCC 是约束维度，ResourceGroup 是成员覆盖层，都不是调度层级</small></div>
+    <div class="domain-grid">
+      <div class="dm">
+        <div class="dm-site">Site 场站｜总目标 · 总约束 · 0..n 个 PCC</div>
+        <div class="dm-arrow">↓　并网关系：PCC 属 Site，Plant 通过并网点引用 PCC</div>
+        <div class="pcc-row">
+          <div class="pcc-card"><b>PCC-A</b>反馈电表 · 购售方向 · 时效 15 s · 可选三相 · 受影响 EU：EU-01</div>
+          <div class="pcc-card"><b>PCC-B</b>反馈电表 · 购售方向 · 时效 15 s · 可选三相 · 受影响 EU：EU-02</div>
+        </div>
+        <div class="dm-arrow">↓</div>
+        <div class="plant-row">
+          <div class="plant-card"><b>Plant A（光储）</b>电站目标 · 柜间协调 · 引用 PCC-A</div>
+          <div class="plant-card"><b>Plant B（储 + 光）</b>电站目标 · 柜间协调 · 引用 PCC-B</div>
+        </div>
+        <div class="dm-arrow">↓</div>
+        <div class="rg-band">
+          <span class="rg-label">ResourceGroup RG-1｜共享上限 70 kW · 有效期</span>
+          <span class="rg-note">成员是引用，不形成父子层级</span>
+          <div class="eu-row">
+            <div class="eu-card"><b>EU-01｜单簇储能（Plant A 成员）</b>
+              <div class="eu-spec"><span>1 × 522 kWh</span><span>200 kW</span><span>SOC 60%</span></div>
+              簇就是独立受控单元；kW 用于功率分配，kWh/SOC 用于能量计划
+              <div class="cluster-row">
+                <div class="cluster">簇即受控边界<em>簇内 BMS/PCS 只是组成设备，不再产生第二层调度对象</em></div>
+                <div class="cluster">无二级管理器<em>不重复计数，也不参与 ResourceGroup 分配</em></div>
+              </div>
+            </div>
+            <div class="eu-card"><b>EU-02｜多簇管理器（Plant B 成员）</b>
+              <div class="eu-spec"><span>2 × 130.5 kWh</span><span>100 kW</span><span>SOC 40%</span></div>
+              管理器是受控单元，内部簇不参与分配（内部簇模型尚未实现，见 A16）
+              <div class="cluster-row">
+                <div class="cluster">簇 1 · 130.5 kWh<em>内部设备：不是 EU、不入组、只上报</em></div>
+                <div class="cluster">簇 2 · 130.5 kWh<em>内部设备：不是 EU、不入组、只上报</em></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="noneu-row">
+          <div class="noneu"><b>监测电表（Device）</b>挂在 PCC 上做反馈或分项计量；不属 EnergyUnit，不入组，不参与 kW 分配</div>
+          <div class="noneu"><b>STS 绑定（非 EnergyUnit）</b>三态：不存在 / 状态可读 / 可控且有回读；可被多个 EU 共享；只按实际映射参与互锁。<b style="color:#9a3b32">模型尚未实现，见 A23。</b></div>
+        </div>
+        <div class="device-row"><b>Device → Point</b>　PCS / BMS / Meter / IO / Fire。每个逻辑点带角色：<b>测量 / 设定 / 回读 / 状态 / 报警</b>，并声明必需、可选或可替代；缺失角色按规则降级或阻断，不用默认点冒充。</div>
+        <div class="dm-caption">调度对象是 EnergyUnit，不是柜、不是设备型号。一个可调 EU 属 0..1 个有功组；一个受控目标只有一个写口。</div>
+      </div>
+      <div>
+        <div class="note"><b>换品牌＝点位重映射，不换逻辑能力</b>功率、SOC、状态、设定与回读点可以不同；按标准能力重映射，缺失或不等价项明确降级或阻断，禁止用默认点位静默代替。</div>
+        <div class="note green"><b>异构＝控制边界 + 功率/能量分离</b>一簇一管理以簇为 EU；多簇一管理以管理器为 EU，内部簇不重复分配。功率看 kW 与实时能力，能量计划看 kWh 与 SOC。522/261 kWh 只影响能量可行性，不影响功率分配口径。</div>
+        <div class="note amber"><b>STS 与簇管理方式正交</b>STS 是拓扑开关，没有有功能力；可挂在 PCC 边界被多个 EU 共享。只读时不生成位置、只作互锁输入；可控时命令走命令引擎，不进入功率分配。</div>
+        <div class="invariants"><b>必须始终成立的不变量</b>
+          <span>PCC 是仲裁与约束维度，不拥有写口</span>
+          <span>一个可调 EnergyUnit 同时只属 0..1 个有功组</span>
+          <span>组上限是瞬时 kW（含方向与有效期），由 Site Scheduler 持有并分解</span>
+          <span>组是约束容器，不是第三个分配器</span>
+          <span>监测设备与内部簇不进入可调能力与分配</span>
+          <span>逐 PCC 限值优先于组共享上限</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 项目包 + 控制链 -->
+  <section class="middle">
+    <div class="card package">
+      <div class="title"><span class="num">4</span><h2>唯一资产：项目包</h2><small>开发 / 交付 / 运行共用</small></div>
+      <div class="assets">
+        <div class="asset"><b>模型</b><span>拓扑、物模型、能力与互锁</span></div>
+        <div class="asset"><b>适配</b><span>Profile、读写、回读、故障策略</span></div>
+        <div class="asset"><b>规则</b><span>决策表、状态机、策略与参数</span></div>
+        <div class="asset"><b>应用</b><span>画面、报警、历史与角色动作</span></div>
+        <div class="asset"><b>验证</b><span>输入场景、预期结果与验收要求</span></div>
+        <div class="asset"><b>版本</b><span>基线、定制、依赖、迁移与回退点</span></div>
+      </div>
+      <div class="states"><span class="state">草稿</span><span class="state-arrow">→</span><span class="state">验证</span><span class="state-arrow">→</span><span class="state active">发布</span><span class="state-arrow">·</span><span class="state">需要时回退</span></div>
+      <div class="output"><b>已实现：</b>同实例内从已验收项目复用；规则与配置随版本发布；发布前预检、投运门槛与证据汇总。</div>
+      <div class="output warn"><b>未实现：</b>跨机导出/导入、manifest 哈希与引用重写、包级一键发布与失败原子性。对外不得声称"项目包可直接搬到另一台"。见 A17–A19。</div>
+    </div>
+
+    <div class="card">
+      <div class="title"><span class="num">5</span><h2>完整控制链与安全语义</h2><small>从站级目标到设备执行的单一路径</small></div>
+      <div class="control-flow">
+        <div class="flow-box"><b>输入源</b><span>运行策略 / 人工指令<br/>防逆流 / 需量 / 电价</span></div><div class="flow-arrow">→</div>
+        <div class="flow-box"><b>Site Scheduler</b><span>站级目标分解<br/>持有组上限</span></div><div class="flow-arrow">→</div>
+        <div class="flow-box"><b>Plant Scheduler</b><span>电站功率分配<br/>柜间协调</span></div><div class="flow-arrow">→</div>
+        <div class="flow-box"><b>EU Capability</b><span>额定 → 实时<br/>→ 可分配能力</span></div><div class="flow-arrow">→</div>
+        <div class="flow-box guard"><b>Cabinet Controller</b><span>安全校验 / 互锁<br/>跟踪目标</span></div><div class="flow-arrow">→</div>
+        <div class="flow-box"><b>Command Engine</b><span>校验 / 超时 / 回读<br/>审计 / 幂等</span></div><div class="flow-arrow">→</div>
+        <div class="flow-box"><b>Device Adapter</b><span>统一接口<br/>屏蔽厂商差异</span></div><div class="flow-arrow">→</div>
+        <div class="flow-box end"><b>Driver / Physical</b><span>Modbus · OPC-UA<br/>MQTT 上行 · PCS/BMS/Meter/IO</span></div>
+      </div>
+      <div class="guard-line">硬优先级：安全 / 消防互锁 › 防逆流 › 逐 PCC 限值 › 组共享上限 › 需量 › 集群或站计划 › 电价。每一段先判 PCC 再判组，不能用全站净额掩盖局部反送。</div>
+      <div class="feedback-line">↑ 遥测 / 状态 / SOC / 实测功率 回流：更新实时能力，并向调度层提供状态、约束与告警</div>
+      <div class="notes">
+        <div class="note green"><b>逐 PCC 与资源所有权</b>每个 PCC 明确反馈电表、方向、时效、三相点与受影响 EU；跨 Plant 分组后仍逐 PCC 判定。</div>
+        <div class="note"><b>能力、数据与启动门槛</b>默认待机，验收后启动；BMS / SOC / 温度 / 在线 / 时效共同限制充放能力，过期或坏值不授权控制。</div>
+        <div class="note amber"><b>命令确认 ≠ 功率跟踪</b>设定回读按编码与分辨率比较，且必须由提交后的样本关联确认；实测另按容差与持续时间判断。失联显示结果未知，故障不一律置零。</div>
+        <div class="note"><b>数据与回退</b>JetStream 管配置与热状态，审计与命令日志为追加式 JSONL；回退只回退工程配置，历史保留，恢复前重读设备状态。关系库与幂等 Outbox 尚未实现。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 验收矩阵 -->
+  <section class="card">
+    <div class="title"><span class="num">6</span><h2>逐项验收矩阵 A01–A23</h2><small>□ 未签收　｜　S 仿真　I 集成/容器　H 真机　D 文档/评审　｜　橙底 = 未实现　｜　标签 = 部分实现</small></div>
+    <table>
+      <colgroup><col style="width:56px"/><col style="width:186px"/><col style="width:628px"/><col style="width:836px"/><col style="width:494px"/><col style="width:82px"/></colgroup>
+      <thead><tr><th>ID</th><th>验收项</th><th>场景 / 输入（含数值）</th><th>通过标准（可判定）</th><th>应留证据（按类型）</th><th>类型</th></tr></thead>
+      <tbody>
+        <tr><td>A01</td><td class="rowtitle"><b>项目复用与授权隔离</b></td><td>源站 2 柜（192.168.10.11/12，PCC-A/B，旧 token T）；目标 4 柜（192.168.20.21–24，PCC-C）。源项目必须是已签收版本</td><td>复用 18 项 / 变化 9 项（4 柜 + 4 地址 + 1 PCC）/ 待确认 2 项（方向、控制授权）；导出物中 <code>192.168.10.*</code> 与 T 命中 0；4/4 设备 standby；前 10 分钟写入 0</td><td><b>配置：</b>差异 JSON + 哈希、密钥扫描 0 命中、预检 2 阻塞</td><td><span class="check">□</span><span class="etype">S/I</span></td></tr>
+
+        <tr><td>A02</td><td class="rowtitle"><b>多厂商 Profile 复用</b></td><td>4 柜 × 24 逻辑点 = 96；B 厂 Profile 每柜缺 2 个回读点</td><td>96/96 引用解析、悬空 0；画面绑定 12/12 保持；阻断控制 8 项（每柜 2）并附原因；新增验收项 4；默认点替代 0；写入 0</td><td><b>配置：</b>逐点期望/实际一致性报告（含计数）</td><td><span class="check">□</span><span class="etype">S/I/H</span></td></tr>
+
+        <tr><td>A03</td><td class="rowtitle"><b>策略模板与可解释试算</b></td><td>冻结 fixture：96 点计划；10:00–10:15 = +80 kW；需量限值 500；PCC-A 限值 0；PV 200；负荷 300；SOC 50%</td><td>金标准表逐项 ±0.1 kW：10:00 段 EU-01 +40 / EU-02 +40 / winner=plan / gap=0；12:00 段两单元 0 / winner=anti-reverse / reason=PCC_A_OVER_LIMIT / gap=20；reason 完全一致；三次运行输出哈希相同（确定性单独断言，不代替正确性）</td><td><b>仿真：</b>fixture 哈希、金标准 JSON、实际输出、diff</td><td><span class="check">□</span><span class="etype">S</span></td></tr>
+
+        <tr><td>A04</td><td class="rowtitle"><b>逐 PCC 与跨 Plant 组上限</b></td><td>① Plant A 可充 100 kW，PCC-A = −30，Plant B = +30；② EU-A01（Plant A）与 EU-B01（Plant B）同属 RG-1，上限 70 kW，各可 60 kW，目标 +100 kW</td><td>① A 设定 −30 ±1，PCC-A 动作后 0 ±1，B 变化 0 且写入 0，A 恰好 1 次写入；断言 <code>pcc_a=over_limit</code> 且 <code>site.net=0</code>。② 交付 70、缺口 30、A01=35 / B01=35 ±1、<code>limited_by=group_shared_limit</code>、总写入恰好 2 次、无 100 kW 写入</td><td><b>集成：</b>PCC 读数时间序列、dispatch（目标/winner/limited_by）、写日志计数</td><td><span class="check">□</span><span class="etype">S/I</span></td></tr>
+
+        <tr><td>A05</td><td class="rowtitle"><b>动态能力与数据时效</b></td><td>六个固定用例：SOC 96%；SOC 样本 6000 ms &gt; 5000；充电许可过期 6000 ms；放电许可坏值；温度 55℃ &gt; 50℃；全部新鲜</td><td>逐例精确断言 charge/discharge 上限（96% → 0/100；样本过期 → 0/0；许可过期 → 0/100；坏值 → 0/100；温度按冻结表；新鲜 → 100/100）；reason 含点位 ID 与样本年龄；60 秒内新命令 0</td><td><b>仿真：</b>6 份能力快照、写入计数时序</td><td><span class="check">□</span><span class="etype">S/I</span></td></tr>
+
+        <tr><td>A06</td><td class="rowtitle"><b>设定确认与功率偏差</b><span class="todo partial">部分</span></td><td>t0 下发 100 kW；t0+2 s 回读 100.0（分辨率 0.1）；实测持续 82 kW（t0+5…65 s）；子用例 B 仅注入 t0−10 s 的 100.0 样本</td><td>仅当回读样本时间戳 &gt; submitted_at 且 |回读−100| ≤ 0.1 才 confirmed；子用例 B 状态保持 submitted；跟踪偏差 18% &gt; 5% 且持续 ≥60 s 时，界面同时显示"设定已确认"与"偏差 18 kW / 18%"</td><td><b>命令：</b>submitted_at、样本时间戳/值、状态迁移、实测窗口</td><td><span class="check">□</span><span class="etype">S/I/H</span></td></tr>
+
+        <tr><td>A07</td><td class="rowtitle"><b>故障、失联与恢复</b><span class="todo partial">部分</span></td><td>冻结动作表：BMS 过温 → 充电限 0、放电限 50% 额定、5 s 内 critical；t0+30 s 失联；t0+120 s 恢复</td><td>逐项匹配冻结表；未受影响方向不置零；失联 10 s 内 unknown、离线期间写入 0；恢复后读 SOC/功率/故障字 → maintenance，人工确认前写入 0；无自动重放；操作者记录</td><td><b>命令：</b>故障注入日志、状态机时间戳、写日志、告警记录</td><td><span class="check">□</span><span class="etype">S/I/H</span></td></tr>
+
+        <tr><td>A08</td><td class="rowtitle"><b>15 分钟滑动需量</b></td><td>电表恒定 120 kW，20 个一分钟 bin；删除 10:07 bin 后再恢复</td><td>t=15:00 窗口 (0,15] 有 15 个有效 bin，需量 120 ±0.1，t=0 不计入；缺 1 bin 时无需求值、无预测，界面标"缺 10:07–10:08"，写入 0；恢复后回到 120</td><td><b>仿真：</b>bin 表（含/排除标记）、计数、计算值、写计数</td><td><span class="check">□</span><span class="etype">S/I</span></td></tr>
+
+        <tr><td>A09</td><td class="rowtitle"><b>96 点计划与硬优先级</b></td><td>五个冲突时段：安全（BMS 故障 + 计划 +80）；防逆流（计划 +80、PCC 限 0）；需量（要求 450）；计划（+80 vs 电价 −30）；电价（无计划、−30）；另加缺失时段 13:00–13:15</td><td>逐段设定值（0 阻断 / −20 / 450 / +80 / −30）±1 kW；winner 与 reason 精确；每段一条仲裁记录并列出落败方；缺失时段无目标而非 0；组上限位于安全、防逆流、PCC 限值之后，计划与电价之前</td><td><b>仿真：</b>计划版本哈希、仲裁记录、期望/实际表</td><td><span class="check">□</span><span class="etype">S/I</span></td></tr>
+
+        <tr><td>A10</td><td class="rowtitle"><b>现场联调与投运门槛</b><span class="todo partial">部分</span></td><td>3 号柜方向未确认；PCC-2 主表样本 20 s &gt; 15 s</td><td>恰好 2 个阻塞，各含原始值、映射点 ID、年龄、验证步骤；状态 standby；写入 0；仅解决方向 → 1 阻塞仍 standby；刷新电表 → 0 阻塞；人工确认后才 running</td><td><b>集成：</b>阻塞 JSON 时间戳、写计数、状态迁移</td><td><span class="check">□</span><span class="etype">I/H</span></td></tr>
+
+        <tr><td>A11</td><td class="rowtitle"><b>站点权限与越权隔离</b></td><td>viewer / installer / admin 三种角色跨站 GET 与 PUT；本站范围内对照</td><td>跨站请求一律 403，本站范围内 200；viewer 不能执行控制与配置动作；拒绝与放行都写入审计；不得以共享管理员 token 代替设备或用户身份</td><td><b>安全：</b>HTTP 状态矩阵、角色×动作表、审计条目</td><td><span class="check">□</span><span class="etype">I</span></td></tr>
+
+        <tr><td>A12</td><td class="rowtitle"><b>协议与断线恢复</b></td><td>Modbus 原始 1234 × 0.1 + 0 = 123.4 kW；写 50.0 → 原始 500；OPC-UA <code>ns=2;s=Plant.Line1.Power</code> 与 <code>ns=3;i=1001</code>；断线 30 s 后重连</td><td>换算与回读 50.0 ±0.05；NodeID 精确解析；断线 → bad/stale、末时间戳不变、不伪造在线值、5 s 内 offline、写入 0；重连 10 s 内首个新鲜样本 → online</td><td><b>集成：</b>协议轨迹、换算表、健康日志</td><td><span class="check">□</span><span class="etype">S/I/H</span></td></tr>
+
+        <tr><td>A13</td><td class="rowtitle"><b>升级与版本回退</b><span class="todo partial">部分：冲突确认未实现</span></td><td>基线 v1.0 + 现场定制 C1/C2 + 新版 v1.1；恰好 3 个字段级冲突</td><td>installer 确认 403、交付人员 200；升级后 +2 报警 +1 操作；审计 200 → 214 条 0 丢失且每条带来源版本；回退 v1.0：工程版本回退、214 条全在、跨升级时间序列可查、命令重放 0、状态重读并人工确认后启动</td><td><b>版本：</b>差异 JSON、角色状态码、审计计数、写计数</td><td><span class="check">□</span><span class="etype">I</span></td></tr>
+
+        <tr><td>A14</td><td class="rowtitle"><b>交接与客户独立使用</b><span class="todo partial">部分</span></td><td>交接 fixture：11 通过 / 2 遗留（负责人与下一步）；客户账号执行报警确认、启动 1 号单元、人工 50 kW、viewer 越权、重新登录</td><td>证据全部标 S 或 H、0 未标注；报警确认 200 + 审计；启动由回读确认；50 kW → 回读 50.0 ±0.1；viewer 403；客户账号无配置/发布入口；重登回到同一项目、版本与上次位置</td><td><b>交接：</b>交接清单哈希、角色×动作矩阵、命令时间线、恢复状态</td><td><span class="check">□</span><span class="etype">I/H/D</span></td></tr>
+
+        <tr><td>A15</td><td class="rowtitle"><b>换品牌与点位变化</b></td><td>A 厂 18 个逻辑点；B 厂 14 个等价、2 个缩放 ×0.1、2 个缺失（设定回读、状态）；6 条规则引用</td><td>18/18 逐项判定；14 精确、2 缩放误差 ≤0.1%、2 缺失 → 2 项控制阻断 + 2 条验收项；6/6 规则解析、悬空 0；回退写入 0；映射验证前 standby；可控边界（簇/管理器）改变时按重组处理，不复用同一 EU ID</td><td><b>配置：</b>映射 CSV 逐点判定、悬空 0、阻断清单</td><td><span class="check">□</span><span class="etype">S/I/H</span></td></tr>
+
+        <tr><td>A16</td><td class="rowtitle"><b>异构控制边界与容量</b><span class="todo partial">部分：内部簇未建模</span></td><td>EU-01 = 1 × 522 kWh / 200 kW / SOC 60%；EU-02 = 管理器 2 × 130.5 kWh / 100 kW / SOC 40%；另加反向组合 2 × 261 = 522 多簇</td><td>功率 +150 kW 持续 30 min → 100 / 50 ±1、合计 150、缺口 0；EU-02 恰好 1 次调度与写入（不是 2 次）；内部簇各 25 kW 仅遥测；能量 90 kWh / 60 min → 60 / 30 ±1%，末 SOC 48.5% / 28.5% ±0.5%；反向组合下功率分配仍按 kW 而非容量比例</td><td><b>集成：</b>拓扑快照、逐单元分配、内部簇遥测、SOC 曲线</td><td><span class="check">□</span><span class="etype">S/I/H</span></td></tr>
+
+        <tr class="v1-missing"><td>A17</td><td class="rowtitle"><b>项目包导出与干净主机导入</b><span class="todo">V1 未实现</span></td><td>从 v1.2 导出 manifest 哈希 H1；断网、空数据目录的干净主机导入；换路径到第二台再跑 A06 冒烟</td><td>manifest 含六类资产；旧 IP 与 token 命中 0；导入复现 H1；≤5 分钟启动；4/4 单元、24/24 点可见；100 kW → 回读 100.0；外联连接 0；第二台同哈希同结果</td><td><b>配置：</b>manifest 与哈希、离线安装日志、网络抓包</td><td><span class="check">□</span><span class="etype">I</span></td></tr>
+
+        <tr class="v1-missing"><td>A18</td><td class="rowtitle"><b>应用资产生成</b><span class="todo">V1 未实现</span></td><td>非开发者从包建站：4 柜、B 厂、2 PCC、96 点、1 条新报警规则，不写代码、不发前端版本</td><td>生成 4 个单元页 / 2 个 PCC 页 / 96 个绑定点 / 3 条报警 / 1 个历史视图 / 角色动作；前端构建哈希不变；控制台错误 0；50 kW → 回读 50.0；≤30 分钟</td><td><b>集成：</b>生成物 diff 与哈希、浏览器日志、计时记录</td><td><span class="check">□</span><span class="etype">I</span></td></tr>
+
+        <tr><td>A19</td><td class="rowtitle"><b>一键发布与失败原子性</b><span class="todo partial">部分：预检阻断未实现</span></td><td>草稿一键发布；分别注入预检失败与迁移失败，修复后重试</td><td>失败时旧版本继续运行、部署阻断、无半部署；证据链含版本、输入与结果；只有重试成功后才切换版本</td><td><b>版本：</b>发布流水、版本切换点、失败注入日志</td><td><span class="check">□</span><span class="etype">I</span></td></tr>
+
+        <tr><td>A20</td><td class="rowtitle"><b>持久化与故障恢复</b><span class="todo partial">V1 部分：当前为 JSONL</span></td><td>100 次调度 + 200 条审计；杀进程后重启；同一提交重复注入 10 次；接入关系库后另测停库 60 s</td><td>审计 200/200 保留；重复设备写入 0；dispatch ID 唯一 100；幂等键恰好生效一次；重启后不重放；关系库版本另断言恢复后 60 s 内积压归零</td><td><b>集成：</b>前后行数、幂等台账、写日志、重启日志</td><td><span class="check">□</span><span class="etype">I</span></td></tr>
+
+        <tr class="v1-missing"><td>A21</td><td class="rowtitle"><b>MQTT 凭据、ACL 与端到端</b><span class="todo">V1 未实现</span></td><td>设备独立凭据（bcrypt 存储）发布遥测、接收命令；设备 A 发布或订阅 B 的主题；&gt;300 s 的 retained 命令；只有 PubAck 的设备；断线 30 s 后重连</td><td>上行遥测时间戳与质量正确；跨主题拒绝（MQTT 5 PUBACK 0x87 或 3.1.1 断开）；只有设备上行发布才能 confirmed，PubAck 不算确认；旧 retained 写入 0 且不重复执行；重连不重复下发</td><td><b>安全：</b>MQTT reason code、ACL 主题表、命令状态时间线、重复与写计数</td><td><span class="check">□</span><span class="etype">I</span></td></tr>
+
+        <tr><td>A22</td><td class="rowtitle"><b>整目录备份与恢复</b><span class="todo partial">部分</span></td><td>停机 → 复制完整数据目录 → 在第二台空目录恢复 → 登录</td><td>4/4 单元、100/100 历史点、10/10 规则、3/3 画面、214/214 审计恢复；命令重放 0</td><td><b>配置：</b>备份 manifest、恢复日志、恢复后计数</td><td><span class="check">□</span><span class="etype">I</span></td></tr>
+
+        <tr class="v1-missing"><td>A23</td><td class="rowtitle"><b>STS 三态互锁与命令</b><span class="todo">V1 未实现</span></td><td>同一站点的三种变体：无 STS；STS 状态可读但不可控；STS 可控且有回读。分别注入分闸与合闸</td><td>无 STS：不生成位置、不声称互锁；只读：仅作互锁输入，命令生成 0；可控：切换命令经命令引擎并带回读确认，不进入功率分配；分闸时电网充电命令被阻断且写入 0；恢复前重读状态并人工确认</td><td><b>命令：</b>STS 状态序列、互锁判定、写入计数、回读时间戳</td><td><span class="check">□</span><span class="etype">S/I/H</span></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 7 协作 -->
+  <section class="card">
+    <div class="title"><span class="num">7</span><h2>团队协作与变更纪律</h2><small>谁负责什么、改动如何传染到验收</small></div>
+    <div class="team">
+      <div class="member"><b>平台维护者</b><span class="do">负责：</span>协议适配器、规则引擎内核、点类型、扩展包、内核版本。<br/><span class="dont">不碰：</span>客户项目内的点位与策略配置。<div class="out">产出：内核版本 + 全量回归 + 变更说明</div></div>
+      <div class="member"><b>交付人员</b><span class="do">负责：</span>建项目、换 Profile、配策略、现场联调、发布交接、升级回退。<br/><span class="dont">不写：</span>业务代码与自由脚本。<div class="out">产出：项目包 + 逐项证据 + 遗留项</div></div>
+      <div class="member"><b>验收人</b><span class="do">负责：</span>按 A01–A23 逐行签收、核对证据类型与数值、判定 S/I/H 是否混用。<br/><span class="dont">不改：</span>配置与阈值。<div class="out">产出：签收记录 + 未通过项的阻塞说明</div></div>
+      <div class="member"><b>终端客户</b><span class="do">负责：</span>监控、报警处理、启停与人工功率、追溯查询、备份与升级操作。<br/><span class="dont">不碰：</span>配置、发布与权限模型。<div class="out">产出：使用反馈与故障现象描述</div></div>
+    </div>
+    <div class="discipline">
+      <div class="disc"><b>改内核或协议</b>平台维护者执行：新扩展包 + 全量回归 + 平台版本号提升；不得直接改客户项目内的点表。</div>
+      <div class="disc"><b>改点表或映射</b>交付人员执行：A15 逐点复验 + 更新映射 CSV + 重新确认阻断项，旧证据作废。</div>
+      <div class="disc"><b>改策略或阈值</b>交付人员执行：A03 金标准表新增一行并冻结，重新试算；未更新金标准的改动不得发布。</div>
+      <div class="disc"><b>任何改动</b>必须同步本图的 A 行与 <code>acceptance-evidence.md</code> 的映射；没有对应证据的改动不得发布。</div>
+    </div>
+    <div class="legend-line">推进顺序：A01、A03–A05、A08、A09、A11、A12 可按现有证据直接签收；带"部分"标签的行先补缺口再签。剩余核心能力按此顺序补齐：A06 跟踪偏差 → A07 故障动作表 → A16 内部簇 → A13 冲突确认 → A19 预检阻断 → A21 → A23 → A17 → A18。A17/A18 完成前不声称"项目包可跨机、应用可生成"。</div>
+  </section>
+
+  <footer class="footer">
+    <div class="foot"><b>证据按类型收取，缺本类型必需字段不得签收</b>
+      <span class="k">配置/包</span>项目版本、来源哈希、导出/导入时间、差异哈希、预检 ID、操作者、结果<br/>
+      <span class="k">仿真</span>场景 ID、fixture 哈希、运行时间、输出哈希、金标准 diff、操作者、结果<br/>
+      <span class="k">命令</span>提交时间、回读样本时间与值、实测窗口、命令状态、操作者、结果<br/>
+      <span class="k">安全</span>请求时间、主体、响应码、操作者、结果<br/>
+      <span class="k">版本/交接</span>前后版本、审计区间、切换时间、操作者、结果<br/>
+      不适用的字段显式写 N/A，不得编造时间戳。
+    </div>
+    <div class="foot"><b>技术基线（如实）</b>单 Go 业务服务 + 离线 Docker；JetStream 管配置与热状态；审计与命令日志为追加式 JSONL。协议现状：Modbus 闭环、OPC-UA 声明式接入、<b style="display:inline">MQTT 仅上行遥测（下行命令与设备凭据/ACL 未实现）</b>。<b style="display:inline;color:#8a5b20">PostgreSQL/TimescaleDB 与幂等 Outbox 尚未实现</b>，均为扩展项，不得作为已交付能力声明。</div>
+    <div class="foot external"><b>必须另签的外部项</b>M5 多厂商真机与四柜 800 kW、ARM64 性能、现场 RS485/LAN、品牌 A/B 更换、独立用户试用；CAN / HTTP-REST / OCPP / 外部 Broker 属扩展。<br/><b style="display:inline">图例：</b>实线框＝V1 范围内；橙底行＝未实现；<code>（扩展）</code>＝不在本次验收。</div>
+  </footer>
+  <div class="blueprint-note">这是一张验收地图，不是完成声明；V1 之外的空白被如实标出，而不是用措辞掩盖。</div>
+</div>
+</body>
+</html>

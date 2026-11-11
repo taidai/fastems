@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>应用导航总览 · 两个工作台 + 共用层</title>
+<style>
+  :root{--ink:#26323c;--muted:#74838f;--line:#b9c4cc;--blue:#2b6c9c;--green:#4d8f5e;--amber:#c08a2e;--red:#a3473c}
+  *{box-sizing:border-box}
+  html,body{margin:0;width:1920px;background:#e9edf0;color:var(--ink);font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif}
+  .page{width:1920px;padding:22px 26px 16px;background:#f7f9fa}
+  .head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:12px}
+  h1{font-size:24px;margin:0 0 4px;font-weight:700}
+  .sub{font-size:12px;color:var(--muted)}
+  .legend{font-size:11px;color:var(--muted);text-align:right;line-height:1.7}
+  .legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
+  .i-have{background:#4d8f5e}.i-part{background:#d9a441}.i-none{background:#fff;border:1.2px solid #a3473c}
+
+  .shell{border:1.5px solid #3a4650;border-radius:8px;background:#fff;padding:12px 18px;display:grid;grid-template-columns:1fr 200px 1fr;gap:18px;align-items:center}
+  .half{display:grid;grid-template-columns:190px 24px 1fr;gap:10px;align-items:center}
+  .half.rev{grid-template-columns:1fr 24px 190px}
+  .mid{text-align:center;font-size:10.5px;color:#8b99a4;line-height:1.5;border-left:1px dashed #d5dee5;border-right:1px dashed #d5dee5;padding:4px 8px}
+  .role{border:1.4px solid var(--line);border-radius:6px;padding:8px 12px;background:#fbfcfd}
+  .role b{display:block;font-size:12.5px;margin-bottom:2px}
+  .role span{font-size:10.5px;color:#7b8994}
+  .role.delivery{border-color:#9dbfd4;background:#f2f8fc}
+  .role.customer{border-color:#b9d8c2;background:#f1f8f3}
+  .role.platform{border-color:#d8cba6;background:#fdf8ec}
+  .arw{text-align:center;color:#8b99a4;font-size:16px}
+  .role-target{font-size:11.5px;color:#5d6d7a;line-height:1.6}
+  .role-target b{color:#33424e}
+
+  .cols{display:grid;grid-template-columns:1fr 292px 1fr;gap:14px;margin-top:14px;align-items:start}
+  .wb{border:1.5px solid var(--line);border-radius:8px;background:#fff;overflow:hidden}
+  .wb>header{padding:9px 14px;border-bottom:1.5px solid var(--line);display:flex;align-items:baseline;gap:10px}
+  .wb>header h2{font-size:15px;margin:0}
+  .wb>header span{font-size:10.5px;color:#7b8994}
+  .wb.delivery>header{background:#f2f8fc}
+  .wb.customer>header{background:#f1f8f3}
+  .body{padding:8px 12px 12px}
+  .grp{margin-top:7px}
+  .grp h3{font-size:10.5px;margin:0 0 3px;color:#8b99a4;letter-spacing:.8px;font-weight:600}
+  .items{display:grid;grid-template-columns:1fr 1fr;column-gap:34px}
+  .it{display:flex;align-items:center;gap:7px;font-size:11.5px;line-height:1.55;padding:2.5px 0;border-bottom:1px dotted #e6ebef;color:#33424e}
+  .it .s{width:8px;height:8px;border-radius:50%;flex:none}
+  .s.have{background:#4d8f5e}.s.part{background:#d9a441}.s.none{background:#fff;border:1.3px solid #a3473c}
+  .it .n{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .it .r{font-size:9.5px;color:#9aa8b3;width:46px;text-align:right;flex:none}
+  .it.new{color:#8a5b20}
+
+  .shared{border:1.5px solid #3a4650;border-radius:8px;background:#fbfcfd;padding:10px 12px}
+  .shared h2{font-size:13px;margin:0 0 3px;color:#33424e}
+  .shared .note{font-size:10px;color:#8b99a4;line-height:1.5;margin-bottom:8px}
+  .sh{font-size:11px;line-height:1.5;padding:5px 7px;border:1px dashed #cfdae2;border-radius:5px;background:#fff;margin-bottom:5px;display:flex;gap:6px;align-items:center}
+  .sh .s{width:8px;height:8px;border-radius:50%;flex:none}
+  .sh b{font-weight:600;font-size:11px}
+  .shared .rule{margin-top:8px;font-size:10px;color:#7b8994;line-height:1.6;border-top:1px dashed #d5dee5;padding-top:7px}
+
+  .map{margin-top:14px;border:1.5px solid var(--line);border-radius:8px;background:#fff;overflow:hidden}
+  .map>header{padding:8px 14px;border-bottom:1.5px solid var(--line);font-size:13px;font-weight:700;background:#fbfcfd}
+  table{width:100%;border-collapse:collapse;font-size:11px}
+  th{text-align:left;padding:6px 10px;background:#f0f4f7;color:#5d6d7a;font-weight:600;border-bottom:1px solid #e3e9ee;white-space:nowrap}
+  td{padding:5px 10px;border-bottom:1px solid #eef2f5;color:#3d4d5a;line-height:1.45}
+  tr:last-child td{border-bottom:none}
+  td.who{white-space:nowrap;color:#5d6d7a}
+  td.to{white-space:nowrap;font-weight:600;color:#2f4a5e}
+  td.new{color:#8a5b20}
+  .pill{display:inline-block;padding:0 6px;border-radius:8px;font-size:9.5px;border:1px solid #cfd8de;color:#687985;background:#fff;margin-right:4px}
+  .pill.d{border-color:#9dbfd4;color:#2b6c9c;background:#f2f8fc}
+  .pill.c{border-color:#b9d8c2;color:#3d7a4a;background:#f1f8f3}
+  .pill.p{border-color:#d8cba6;color:#8a6420;background:#fdf8ec}
+
+  .princ{margin-top:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .pr{border-left:4px solid #2b6c9c;background:#fff;border-radius:4px;padding:8px 12px;font-size:11px;line-height:1.6;color:#4c606f}
+  .pr b{display:block;color:#22405a;font-size:11.5px;margin-bottom:2px}
+  .foot{margin-top:10px;font-size:10.5px;color:#93a2ae;text-align:right}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="head">
+    <div>
+      <h1>应用导航总览 · 两个工作台 + 一个共用层</h1>
+      <div class="sub">同一套应用、同一份运行数据；角色决定登录后落到哪个工作台，页面按任务归属，不按模块归属</div>
+    </div>
+    <div class="legend">
+      <i class="i-have"></i>已有　<i class="i-part"></i>部分　<i class="i-none"></i>缺失（与验收地图同口径）<br/>
+      括号内为验收编号
+    </div>
+  </div>
+
+  <!-- 外壳 -->
+  <div class="shell">
+    <div class="half">
+      <div class="role delivery"><b>交付人员</b><span>开发与实施合一 · 不碰代码</span></div>
+      <div class="arw">→</div>
+      <div class="role-target"><b>交付工作台</b><br/>建站 → 接入 → 建模 → 策略 → 联调 → 发布 → 升级</div>
+    </div>
+    <div class="mid">同一套应用<br/>同一份运行数据<br/>同一套权限与审计</div>
+    <div class="half rev">
+      <div class="role-target"><b>客户工作台</b><br/>监控 → 报警 → 控制 → 追溯 → 历史 → 运维</div>
+      <div class="arw">←</div>
+      <div class="role customer"><b>终端客户</b><span>监控、报警、控制、追溯、运维</span></div>
+    </div>
+  </div>
+
+  <div class="cols">
+    <!-- 交付工作台 -->
+    <section class="wb delivery">
+      <header><h2>交付工作台</h2><span>可见：交付人员、平台管理员；客户不可见</span></header>
+      <div class="body">
+        <div class="grp"><h3>项目</h3>
+          <div class="items">
+            <div class="it"><span class="s have"></span><span class="n">项目列表 / 站点树</span><span class="r"></span></div>
+            <div class="it new"><span class="s none"></span><span class="n">建站向导（11 步）</span><span class="r">A01</span></div>
+            <div class="it new"><span class="s none"></span><span class="n">项目包与版本</span><span class="r">A17</span></div>
+            <div class="it"><span class="s part"></span><span class="n">升级与回退</span><span class="r">A13</span></div>
+          </div>
+        </div>
+        <div class="grp"><h3>接入建模</h3>
+          <div class="items">
+            <div class="it"><span class="s have"></span><span class="n">通道（Modbus / OPC-UA / MQTT 上行）</span><span class="r">A12</span></div>
+            <div class="it"><span class="s have"></span><span class="n">点位表与型号模板</span><span class="r">A02</span></div>
+            <div class="it"><span class="s part"></span><span class="n">Profile 库与批量应用</span><span class="r">A02</span></div>
+            <div class="it"><span class="s part"></span><span class="n">映射与差异校验</span><span class="r">A15</span></div>
+            <div class="it"><span class="s have"></span><span class="n">设备台账</span><span class="r">A12</span></div>
+            <div class="it"><span class="s have"></span><span class="n">虚拟聚合</span><span class="r"></span></div>
+          </div>
+        </div>
+        <div class="grp"><h3>EMS 业务</h3>
+          <div class="items">
+            <div class="it"><span class="s have"></span><span class="n">能源设备（EnergyUnit）</span><span class="r">A05</span></div>
+            <div class="it"><span class="s part"></span><span class="n">PCC 绑定与逐相</span><span class="r">A04</span></div>
+            <div class="it"><span class="s have"></span><span class="n">资源集群（ResourceGroup）</span><span class="r">A04</span></div>
+            <div class="it"><span class="s none"></span><span class="n">STS 绑定</span><span class="r">A23</span></div>
+            <div class="it"><span class="s have"></span><span class="n">决策表与试算</span><span class="r">A03</span></div>
+            <div class="it"><span class="s part"></span><span class="n">计划 / 需量 / 电价</span><span class="r">A08 A09</span></div>
+          </div>
+        </div>
+        <div class="grp"><h3>交付</h3>
+          <div class="items">
+            <div class="it"><span class="s have"></span><span class="n">交付工作台（7 步 + 实时门槛）</span><span class="r">A10</span></div>
+            <div class="it"><span class="s have"></span><span class="n">预检快照与证据</span><span class="r">A10 A14</span></div>
+            <div class="it new"><span class="s none"></span><span class="n">一键发布（包级）</span><span class="r">A19</span></div>
+            <div class="it"><span class="s part"></span><span class="n">验收进度（A 行）与交接</span><span class="r">A14</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 共用层 -->
+    <section class="shared">
+      <h2>共用层</h2>
+      <div class="note">不是页面，而是两个工作台共享的能力与规则；任何页面都要经过它。</div>
+      <div class="sh"><span class="s have"></span><b>登录与角色</b>· 视图/操作/管理</div>
+      <div class="sh"><span class="s have"></span><b>树范围授权</b>· 跨站 403</div>
+      <div class="sh"><span class="s have"></span><b>命令与回读</b>· 超时未知</div>
+      <div class="sh"><span class="s have"></span><b>审计</b>· 操作与命令留痕</div>
+      <div class="sh"><span class="s have"></span><b>证据与导出</b>· 交付证据 zip</div>
+      <div class="sh"><span class="s have"></span><b>通信驱动</b>· 健康与重连</div>
+      <div class="sh"><span class="s none"></span><b>MQTT 凭据与 ACL</b>· A21</div>
+      <div class="sh"><span class="s none"></span><b>关系库与 Outbox</b>· A20</div>
+      <div class="rule">导航只决定"看得到什么"；能不能改、能不能控，由共用层的权限与范围判定，不靠隐藏菜单。</div>
+    </section>
+
+    <!-- 客户工作台 -->
+    <section class="wb customer">
+      <header><h2>客户工作台</h2><span>可见：终端客户、交付人员（联调时）、管理员</span></header>
+      <div class="body">
+        <div class="grp"><h3>运行</h3>
+          <div class="items">
+            <div class="it"><span class="s have"></span><span class="n">运行总览</span><span class="r">A14</span></div>
+            <div class="it"><span class="s have"></span><span class="n">运行画面（SCADA）</span><span class="r">A14</span></div>
+            <div class="it"><span class="s have"></span><span class="n">报警与事件</span><span class="r">A14</span></div>
+            <div class="it"><span class="s have"></span><span class="n">单元控制</span><span class="r">A07</span></div>
+            <div class="it"><span class="s part"></span><span class="n">调度追溯</span><span class="r">A06</span></div>
+            <div class="it"><span class="s have"></span><span class="n">历史与趋势</span><span class="r">A22</span></div>
+            <div class="it"><span class="s have"></span><span class="n">设备台账（只读）</span><span class="r">A12</span></div>
+          </div>
+        </div>
+        <div class="grp"><h3>运维</h3>
+          <div class="items">
+            <div class="it"><span class="s have"></span><span class="n">通信与健康</span><span class="r">A12</span></div>
+            <div class="it"><span class="s have"></span><span class="n">账号与权限</span><span class="r">A11</span></div>
+            <div class="it"><span class="s part"></span><span class="n">备份与恢复</span><span class="r">A22</span></div>
+            <div class="it new"><span class="s none"></span><span class="n">版本升级</span><span class="r">A13</span></div>
+          </div>
+        </div>
+        <div class="grp"><h3>由配置生成的页面（目标态）</h3>
+          <div class="items">
+            <div class="it new"><span class="s none"></span><span class="n">单元页</span><span class="r">A18</span></div>
+            <div class="it new"><span class="s none"></span><span class="n">PCC 页</span><span class="r">A18</span></div>
+            <div class="it new"><span class="s none"></span><span class="n">历史视图</span><span class="r">A18</span></div>
+            <div class="it"><span class="s part"></span><span class="n">现状：手写页面，换站需发版</span><span class="r">A18</span></div>
+          </div>
+        </div>
+        <div class="grp"><h3>不放在客户工作台</h3>
+          <div class="items">
+            <div class="it"><span class="s" style="background:#dfe6eb"></span><span class="n">通道、点位、Profile、映射</span><span class="r">交付</span></div>
+            <div class="it"><span class="s" style="background:#dfe6eb"></span><span class="n">决策表、站点目标、资源集群配置</span><span class="r">交付</span></div>
+            <div class="it"><span class="s" style="background:#dfe6eb"></span><span class="n">发布、交接、项目包</span><span class="r">交付</span></div>
+            <div class="it"><span class="s" style="background:#dfe6eb"></span><span class="n">跨站视图与管理员设置</span><span class="r">管理员</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- 迁移映射 -->
+  <div class="map">
+    <header>现有四层导航 → 新归属（改造时按这张表搬，不重写）</header>
+    <table>
+      <colgroup><col style="width:120px"/><col style="width:330px"/><col style="width:290px"/><col style="width:230px"/><col/></colgroup>
+      <thead><tr><th>现有层</th><th>现有页面</th><th>新归属</th><th>可见角色</th><th>变化与缺口</th></tr></thead>
+      <tbody>
+        <tr><td>运行</td><td>运行总览、运行画面</td><td class="to">客户 › 运行总览</td><td class="who"><span class="pill c">客户</span><span class="pill d">交付</span></td><td>合并为一页；交付用于联调时查看</td></tr>
+        <tr><td>运行</td><td>报警与事件</td><td class="to">客户 › 报警与事件</td><td class="who"><span class="pill c">客户</span><span class="pill d">交付</span></td><td>不变；报警前置到总览首屏</td></tr>
+        <tr><td>运行</td><td>调度追溯、历史与追溯</td><td class="to">客户 › 追溯 / 历史</td><td class="who"><span class="pill c">客户</span><span class="pill d">交付</span></td><td>拆成"追溯"与"历史"两个入口；追溯加功率跟踪偏差（A06）</td></tr>
+        <tr><td>接入建模</td><td>设备台账</td><td class="to">客户 › 设备台账（只读）<br/>交付 › 接入建模</td><td class="who"><span class="pill c">客户只读</span><span class="pill d">交付</span></td><td>同一页面两个工作台：客户只看健康与验证，接入与绑定只在交付工作台</td></tr>
+        <tr><td>接入建模</td><td>通道、点位表、虚拟聚合、能源设备接线</td><td class="to">交付 › 接入建模</td><td class="who"><span class="pill d">交付</span><span class="pill p">管理员</span></td><td>整层原样搬入；客户不可见</td></tr>
+        <tr><td>EMS 业务</td><td>决策表、功率分配器、能源设备、资源集群</td><td class="to">交付 › EMS 业务</td><td class="who"><span class="pill d">交付</span></td><td>整层原样搬入；新增 PCC 绑定与 STS（A23）</td></tr>
+        <tr><td>系统运维</td><td>部署与验收（DeployView）</td><td class="to">交付 › 交付工作台（入口）</td><td class="who"><span class="pill d">交付</span></td><td class="new">改造为 7 步工作台：实时门槛 + 预检快照 + 验收进度；扫描/点表工具移入"接入工具"页签；包级发布待实现（A19）</td></tr>
+        <tr><td>系统运维</td><td>账号与权限</td><td class="to">共用 + 客户 › 运维</td><td class="who"><span class="pill p">管理员</span><span class="pill c">客户（本人）</span></td><td>按角色拆分：客户只改自己与只读账号</td></tr>
+        <tr><td>系统运维</td><td>审计日志</td><td class="to">共用 › 审计</td><td class="who"><span class="pill p">管理员</span><span class="pill d">交付</span></td><td>客户默认不可见；可在追溯中看到与自己相关的操作</td></tr>
+        <tr><td>系统运维</td><td>运行设置、通信质量、审计保留</td><td class="to">共用 › 设置</td><td class="who"><span class="pill p">管理员</span></td><td>保持隐藏；不进入两个工作台的一级导航</td></tr>
+        <tr><td class="new">—</td><td class="new">建站向导 / 项目包 / 升级回退 / 交接清单 / 配置生成页面</td><td class="to">交付 › 项目、交付</td><td class="who"><span class="pill d">交付</span></td><td class="new">新增；对应 A01、A17、A13、A14、A18，均未实现</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="princ">
+    <div class="pr"><b>一个入口对应一个角色任务</b>客户不需要在"配置"和"运行"之间做选择；交付也不需要去运行页里找配置入口。跨角色的页面只在联调时由交付临时进入。</div>
+    <div class="pr"><b>权限靠判定，不靠隐藏</b>菜单里看不到不等于访问不了；跨站请求一律 403，隐藏只是减少误操作。交付与客户的边界必须由后端范围校验兜底。</div>
+    <div class="pr"><b>缺口页用空位表达</b>建站向导、项目包、包级发布、配置生成页面现在都不存在；导航总览把它们画成虚线空位，而不是先挂一个假入口。</div>
+  </div>
+
+  <div class="foot">导航总览只回答"东西放在哪、谁能看见"；每个页面内部长什么样，见交付工作台与客户工作台两张线框。</div>
+</div>
+</body>
+</html>

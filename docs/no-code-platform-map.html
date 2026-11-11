@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>IoT 无代码开发交付平台 · 极简总图</title>
+<style>
+  :root{--navy:#0a376f;--blue:#0d5b9e;--green:#5eaa45;--ink:#183451;--muted:#60758d;--line:#cfdfed}
+  *{box-sizing:border-box}
+  html,body{margin:0;width:1920px;height:1080px;background:#edf3f8;color:var(--ink);font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC",Arial,sans-serif;overflow:hidden}
+  .page{position:relative;width:1920px;height:1080px;padding:28px 34px;background:radial-gradient(circle at 10% 0%,#fff,transparent 34%),linear-gradient(145deg,#f5f9fc,#e7eff6)}
+  .header{height:90px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;border-radius:18px;color:#fff;background:linear-gradient(105deg,#093674,#0b5593 58%,#1689b5);box-shadow:0 9px 24px rgba(17,61,107,.18);position:relative;overflow:hidden}
+  .header:after{content:"";position:absolute;right:250px;top:-55px;width:210px;height:190px;background:linear-gradient(135deg,#75bd4f,#43a26a);transform:skewX(-28deg)}
+  h1{font-size:34px;line-height:1.25;margin:0 0 7px;font-weight:750;letter-spacing:.4px}.subtitle{font-size:16px;opacity:.94;letter-spacing:.6px}
+  .version{position:relative;z-index:2;text-align:right;font-size:13px;line-height:1.8;opacity:.95}.version b{font-size:17px}
+  .main{height:540px;display:grid;grid-template-columns:1.1fr 38px .9fr 38px 1fr 38px 1.1fr;gap:10px;margin:18px 0 16px}
+  .arrow{display:flex;align-items:center;justify-content:center;color:#2b789c;font-size:38px;font-weight:300}
+  .card{background:rgba(255,255,255,.96);border:1px solid rgba(157,188,213,.7);border-radius:18px;box-shadow:0 7px 20px rgba(35,74,111,.09);overflow:hidden;padding:20px}
+  .title{display:flex;align-items:center;gap:12px;margin-bottom:15px}.title h2{font-size:24px;margin:0;color:#0a477f;white-space:nowrap}.package .title small,.main>.card:nth-child(5) .title small{display:none}.title small{margin-left:auto;font-size:12px;color:#7a8c9e}
+  .num{width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:17px;font-weight:700;background:linear-gradient(145deg,#1684bb,#0a4d8b)}
+  .steps{display:grid;gap:10px}.step{border:1px solid var(--line);border-radius:12px;padding:13px 14px;background:linear-gradient(145deg,#f7fbff,#eef6fb)}
+  .step b{display:block;font-size:16px;color:#0a598e;margin-bottom:5px}.step span{display:block;font-size:13px;line-height:1.55;color:#566d84}
+  .step.green{background:#eff8eb;border-color:#bfdab3}.step.green b{color:#377a4b}.step.violet{background:#f4f0fb;border-color:#d8cbe9}.step.violet b{color:#725297}.step.amber{background:#fff7e8;border-color:#e8d19d}.step.amber b{color:#95611d}
+  .output{margin-top:13px;padding:10px 12px;border-radius:10px;background:#e8f2fa;color:#24587e;font-size:13px;line-height:1.55;border-left:4px solid #2d8aba}
+  .package{color:#eef7ff;background:linear-gradient(145deg,#0a3b75,#0c5c93);border-color:#1d76aa}.package .title h2,.package .title small{color:#fff}.package .title small{opacity:.75}.package .num{background:#64b14c}
+  .assets{display:grid;grid-template-columns:1fr 1fr;gap:9px}.asset{padding:12px 10px;border:1px solid rgba(198,224,244,.35);border-radius:10px;background:rgba(255,255,255,.09);font-size:13px;line-height:1.5}.asset b{display:block;color:#fff;font-size:14px;margin-bottom:3px}.asset span{opacity:.82}
+  .states{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-top:14px;padding:10px 8px;border-radius:10px;background:rgba(3,34,68,.32);font-size:12px}.state{padding:5px 8px;border-radius:6px;background:rgba(255,255,255,.12)}.state.active{background:#5da948;color:#fff;font-weight:700}.state-arrow{opacity:.55}
+  .package .output{background:rgba(255,255,255,.12);color:#fff;border-left-color:#73bd56}
+  .runtime{height:270px;padding:18px 20px}.runtime .title{margin-bottom:12px}
+  .control-flow{display:grid;grid-template-columns:1fr 25px 1fr 25px 1fr 25px 1fr 25px 1fr 25px 1fr;align-items:center;gap:5px}
+  .flow-box{height:86px;border-radius:12px;padding:13px 10px;color:#fff;text-align:center;background:linear-gradient(145deg,#0b5793,#0b6fa4)}.flow-box b{display:block;font-size:16px;margin-bottom:7px}.flow-box span{font-size:12px;line-height:1.45;opacity:.9;display:block}.flow-arrow{text-align:center;color:#43819f;font-size:23px}.flow-box:nth-child(odd){background:linear-gradient(145deg,#277e74,#47998a)}.flow-box:last-child{background:linear-gradient(145deg,#0b477f,#0a376f)}
+  .notes{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:14px}.note{border:1px solid #d4e2ed;border-radius:11px;padding:11px 13px;background:#eef5fa;font-size:13px;line-height:1.55;color:#526b82}.note b{display:block;color:#135c8d;font-size:14px;margin-bottom:4px}.note.green{background:#edf6e9;border-color:#cfe1c5}.note.green b{color:#397346}.note.amber{background:#fff6e7;border-color:#ead5ab}.note.amber b{color:#95611d}
+  .footer{height:60px;display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:12px}.foot{border:1px solid #d1dfeb;border-radius:12px;padding:11px 14px;background:rgba(255,255,255,.88);font-size:12px;line-height:1.55;color:#526a80}.foot b{display:block;color:#145685;font-size:13px;margin-bottom:3px}.foot.external b{color:#8a5b20}
+  .blueprint-note{position:absolute;right:40px;bottom:9px;font-size:11px;color:#7b8b99;letter-spacing:.3px}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="header">
+    <div><h1>IoT 无代码开发交付平台 · 极简总图</h1><div class="subtitle">两类角色　·　一个项目包　·　一条交付链　·　一个运行时</div></div>
+    <div class="version"><b>平台上长出 EMS</b><br/>目标蓝图 · 非验收基线<br/>2026-11-11</div>
+  </header>
+
+  <section class="main">
+    <div class="card">
+      <div class="title"><span class="num">1</span><h2>交付人员：重复交付</h2><small>复用已验收资产，只处理变化与例外</small></div>
+      <div class="steps">
+        <div class="step"><b>从已验收项目创建</b><span>填柜数、型号、地址和并网关系；系统列出复用项、变化项与待确认项。</span></div>
+        <div class="step green"><b>批量换厂商</b><span>Profile 一次应用整批柜体，逻辑点自动关联；缺回读等例外单列。</span></div>
+        <div class="step violet"><b>模板配策略</b><span>填计划、需量限值和 PCC；特殊要求才开决策表，用同一输入试算。</span></div>
+        <div class="step amber"><b>按清单现场联调</b><span>阻塞项直接显示原始读数、映射和验证步骤，处理后就地复验。</span></div>
+      </div>
+      <div class="output"><b>复用工程资产，不复制旧站地址、凭据和控制授权。</b><br/>新设备默认待机，全部阻塞项解除后才能投运。</div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="card package">
+      <div class="title"><span class="num">2</span><h2>唯一资产：项目包</h2><small>开发 / 交付 / 运行共用</small></div>
+      <div class="assets">
+        <div class="asset"><b>模型</b><span>站点、拓扑、物模型、能力与约束</span></div>
+        <div class="asset"><b>适配</b><span>厂商 Profile、读写、回读与故障策略</span></div>
+        <div class="asset"><b>规则</b><span>决策表、状态机、策略和参数</span></div>
+        <div class="asset"><b>应用</b><span>画面、报警、历史与角色动作</span></div>
+        <div class="asset"><b>验证</b><span>仿真场景、预期结果与验收要求</span></div>
+        <div class="asset"><b>版本</b><span>模板版本、依赖、迁移与回滚基线</span></div>
+      </div>
+      <div class="states"><span class="state">草稿</span><span class="state-arrow">→</span><span class="state">验证</span><span class="state-arrow">→</span><span class="state active">发布</span><span class="state-arrow">·</span><span class="state">需要时回退</span></div>
+      <div class="output">一个项目包贯穿设计、仿真、交付和运行，不再有多套配置真相。</div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="card">
+      <div class="title"><span class="num">3</span><h2>发布与交接</h2><small>项目包上的一个动作</small></div>
+      <div class="steps">
+        <div class="step"><b>自动校验发布</b><span>预检、仿真、打包、迁移、部署一次完成，失败即阻止投运。</span></div>
+        <div class="step green"><b>验收交接</b><span>自动汇总版本、输入、下发、回读、实测和遗留项，区分仿真与真机。</span></div>
+        <div class="step violet"><b>售后升级与回退</b><span>共享那次操作的追溯，只确认新版与现场定制的冲突；历史保留，不回放旧命令。</span></div>
+      </div>
+      <div class="output"><b>不再单设交付中心。</b>发布自动化；同事从上次位置接手，售后从真实追溯开始。</div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="card">
+      <div class="title"><span class="num">4</span><h2>终端客户：使用 EMS</h2><small>交付后即可使用</small></div>
+      <div class="steps">
+        <div class="step"><b>监控</b><span>总览、SCADA、历史、功率能量、设备健康。</span></div>
+        <div class="step green"><b>报警与控制</b><span>报警处理、启停、检修、人工接管和人工 kW。</span></div>
+        <div class="step violet"><b>追溯</b><span>规则命中、调度、命令回读、审计与失败原因。</span></div>
+        <div class="step amber"><b>日常运维</b><span>备份恢复、项目升级、参数设置和权限管理。</span></div>
+      </div>
+      <div class="output"><b>客户看到的是完整 EMS，不需要理解平台、模型或代码。</b></div>
+    </div>
+  </section>
+
+  <section class="card runtime">
+    <div class="title"><span class="num">5</span><h2>统一运行时：项目包的执行底座</h2><small>配置生成应用，安全原语内建</small></div>
+    <div class="control-flow">
+      <div class="flow-box"><b>采集</b><span>Modbus / OPC-UA / MQTT 上行<br/>连接与重连</span></div><div class="flow-arrow">→</div>
+      <div class="flow-box"><b>物模型</b><span>属性 / 命令 / 能力<br/>质量与时效</span></div><div class="flow-arrow">→</div>
+      <div class="flow-box"><b>规则策略</b><span>决策表 / 状态机<br/>EMS 调度与分配</span></div><div class="flow-arrow">→</div>
+      <div class="flow-box"><b>仲裁</b><span>安全 › 防逆流 › 需量<br/>计划 › 电价</span></div><div class="flow-arrow">→</div>
+      <div class="flow-box"><b>命令回读</b><span>幂等 / 超时未知<br/>安全回退</span></div><div class="flow-arrow">→</div>
+      <div class="flow-box"><b>追溯</b><span>请求 / 分配 / 提交 / 实测<br/>操作与版本</span></div>
+    </div>
+    <div class="notes">
+      <div class="note green"><b>资源与逐 PCC 仲裁</b>每个 PCC 明确反馈表与受影响资源；ResourceGroup 跨 Plant 不跨 Site，单元仅属一个有功组，逐 PCC 判定，不能用全站净额掩盖局部反送。</div>
+      <div class="note"><b>数据主权与版本回退</b>JetStream 管配置与热状态，审计与命令日志为追加式 JSONL；关系库与 Outbox 未实现。回退只回退工程配置，升级后新增的报警、操作与审计继续保留。</div>
+      <div class="note amber"><b>命令与故障语义</b>设定回读按编码/分辨率及提交后样本确认；实测另按容差与持续时间判断。故障动作按场景验证，不一律置零；失联显示结果未知，恢复前重读状态。</div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="foot"><b>调度与交付</b>硬优先级：安全 › 防逆流 › 逐 PCC 限值 › 组上限 › 需量 › 计划 › 电价。96 点计划与 15 分钟滑动需量已实现；缺 bin 时不做预测性削峰。升级按基线/定制/新版对照，回退保留运行历史且不回放旧命令。</div>
+    <div class="foot"><b>协议与扩展</b>Modbus 闭环 + OPC-UA 声明式接入已交付；MQTT 仅上行遥测，下行与设备凭据未实现。CAN、HTTP-REST、OCPP、外部 Broker 标扩展。</div>
+    <div class="foot external"><b>验收边界</b>模拟器与真机证据分开，M5、多厂商互操作、ARM64 性能与独立用户试用单独签收；目标图不代表已完成。</div>
+  </footer>
+  <div class="blueprint-note">删繁就简：一个底座、一个项目包、一条主链</div>
+</div>
+</body>
+</html>

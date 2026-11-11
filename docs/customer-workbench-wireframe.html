@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>客户工作台 · 单页线框</title>
+<style>
+  :root{--ink:#26323c;--muted:#74838f;--line:#b9c4cc;--soft:#eef2f5;--blue:#2b6c9c;--green:#4d8f5e;--amber:#c08a2e;--red:#a3473c}
+  *{box-sizing:border-box}
+  html,body{margin:0;width:1920px;background:#e9edf0;color:var(--ink);font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif}
+  .page{width:1920px;padding:22px 24px 16px;background:#f7f9fa}
+  .head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:12px}
+  h1{font-size:24px;margin:0 0 4px;font-weight:700}
+  .sub{font-size:12px;color:var(--muted)}
+  .legend{font-size:11px;color:var(--muted);text-align:right;line-height:1.7}
+  .legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
+  .i-have{background:#4d8f5e}.i-part{background:#d9a441}.i-none{background:#fff;border:1.2px solid #a3473c}
+
+  .wire{border:2px solid #3a4650;background:#fff;border-radius:6px;overflow:hidden;display:grid;grid-template-rows:54px 1fr 48px;height:668px;box-shadow:0 3px 0 rgba(58,70,80,.08)}
+  .tb{display:flex;align-items:center;gap:14px;border-bottom:1.5px solid #3a4650;padding:0 16px;background:#fbfcfd}
+  .tb .title{font-size:14px;font-weight:700}
+  .chip{font-size:10.5px;padding:2px 8px;border-radius:10px;border:1px solid #b9d8c2;color:#3d7a4a;background:#eef7f0}
+  .chip.gray{border-color:var(--line);color:#7b8994;background:#fff}
+  .tb .right{margin-left:auto;display:flex;align-items:center;gap:14px;font-size:11.5px;color:#5d6d7a}
+  .bell{position:relative}
+  .bell b{position:absolute;top:-6px;right:-10px;background:#a3473c;color:#fff;font-size:9px;border-radius:8px;padding:0 4px}
+
+  .body{display:grid;grid-template-columns:196px 1fr 306px}
+  .nav{border-right:1.5px solid #3a4650;background:#fcfdfe;padding:10px 0}
+  .nav a{display:flex;align-items:center;justify-content:space-between;padding:7px 16px;font-size:12px;color:#3d4d5a;text-decoration:none;border-left:3px solid transparent}
+  .nav a.on{background:#eaf2f8;border-left-color:#2b6c9c;font-weight:700;color:#1f5f8b}
+  .nav a .b{font-size:9.5px;padding:0 6px;border-radius:8px;background:#f6e3e0;color:#a3473c}
+  .nav .sep{height:1px;background:#e6ebef;margin:8px 14px}
+  .nav .tip{padding:8px 16px;font-size:10px;color:#93a2ae;line-height:1.6}
+
+  .main{padding:12px 14px;overflow:hidden}
+  .row1{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+  .kpi{border:1.4px solid var(--line);border-radius:5px;padding:7px 10px;background:#fff}
+  .kpi .k{font-size:10.5px;color:#7b8994}
+  .kpi .v{font-size:21px;font-weight:700;line-height:1.2;margin-top:1px}
+  .kpi .v small{font-size:11px;font-weight:400;color:#8b99a4;margin-left:3px}
+  .kpi .d{font-size:10px;color:#8b99a4}
+  .kpi .d.up{color:#3d7a4a}.kpi .d.down{color:#a3473c}
+
+  .flowband{display:grid;grid-template-columns:1fr 26px 1.1fr 26px 1fr 26px 1fr;gap:4px;align-items:center;margin-top:10px}
+  .fnode{border:1.4px solid var(--line);border-radius:5px;padding:7px 9px;background:#fbfcfd;text-align:center}
+  .fnode b{display:block;font-size:11.5px}
+  .fnode span{font-size:10.5px;color:#6d7d89}
+  .fnode.hub{border-color:#9dbfd4;background:#f2f8fc}
+  .far{text-align:center;color:#8b99a4;font-size:14px}
+
+  .sec{display:flex;align-items:center;justify-content:space-between;margin:12px 0 5px;font-size:11px;color:#7b8994}
+  .sec b{font-size:12px;color:#33424e}
+  .units{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+  .unit{border:1.4px solid var(--line);border-radius:5px;padding:8px 9px;background:#fff}
+  .unit .uh{display:flex;justify-content:space-between;align-items:center;font-size:11px}
+  .unit .uh b{font-size:11.5px}
+  .unit .uh .m{font-size:9.5px;padding:1px 5px;border-radius:3px;border:1px solid #cfd8de;color:#687985}
+  .unit .pw{font-size:17px;font-weight:700;margin-top:3px}
+  .unit .pw small{font-size:10px;font-weight:400;color:#8b99a4}
+  .unit .soc{margin-top:5px}
+  .unit .bar{height:5px;background:#eef1f4;border-radius:3px;overflow:hidden}
+  .unit .bar i{display:block;height:5px;background:#7fb08c}
+  .unit .meta{display:flex;justify-content:space-between;font-size:9.5px;color:#8b99a4;margin-top:3px}
+  .unit .act{margin-top:6px;font-size:10px;text-align:center;border:1px dashed #c9d4dc;border-radius:3px;padding:2px;color:#6d7d89}
+  .unit.off{background:#fbfcfd;opacity:.85}
+
+  .chart{margin-top:10px;border:1.4px solid var(--line);border-radius:5px;padding:7px 10px 4px;background:#fff}
+  .chart .ch{display:flex;justify-content:space-between;align-items:baseline;font-size:10px;color:#8b99a4;margin-bottom:3px}
+  .chart .ch b{font-size:11.5px;color:#33424e}
+  .chart svg{display:block;width:100%;height:96px}
+  .chart .ax{display:flex;justify-content:space-between;font-size:9px;color:#a3afb8;padding:0 2px}
+
+  .alarms{margin-top:10px;border:1.4px solid var(--line);border-radius:5px;overflow:hidden}  .al{display:grid;grid-template-columns:70px 1fr 90px 60px;font-size:10.5px}
+  .al>div{padding:5px 8px;border-bottom:1px solid #e9eef2}
+  .al:last-child>div{border-bottom:none}
+  .al .sev{font-weight:700}
+  .sev.hi{color:#a3473c}.sev.mid{color:#a98336}
+  .al .t{color:#8b99a4;text-align:right}
+  .al .st{color:#6d7d89;text-align:right}
+
+  .right{border-left:1.5px solid #3a4650;background:#fcfdfe;padding:12px 13px;overflow:hidden}
+  .rsec{margin-bottom:10px}
+  .rsec h4{font-size:10.5px;margin:0 0 4px;color:#7b8994;letter-spacing:.6px;font-weight:600}
+  .ritem{font-size:10.8px;line-height:1.5;padding:4px 0;border-bottom:1px dotted #e6ebef;color:#465763}
+  .ritem:last-child{border-bottom:none}
+  .ritem .tm{color:#9aa8b3;font-size:9.8px;margin-left:4px}
+  .ritem .bad{color:#a3473c;font-weight:700}
+  .empty{font-size:10.5px;color:#9aa8b3;border:1px dashed #d3dce2;border-radius:4px;padding:6px 8px;line-height:1.5}
+  .qbtns{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .qb{border:1.3px solid #3a4650;border-radius:4px;padding:5px 6px;text-align:center;font-size:10.5px;background:#fff}
+  .qb.pri{background:#2b6c9c;border-color:#2b6c9c;color:#fff}
+
+  .bb{display:flex;align-items:center;gap:12px;border-top:1.5px solid #3a4650;padding:0 16px;background:#fbfcfd;font-size:11px;color:#687985}
+  .bb .spacer{margin-left:auto}
+  .btn{font-size:11.5px;padding:5px 11px;border:1.4px solid #3a4650;border-radius:4px;background:#fff}
+  .btn.pri{background:#2b6c9c;border-color:#2b6c9c;color:#fff;font-weight:600}
+
+  .flow{margin-top:12px}
+  .flow h3{font-size:13px;margin:0 0 7px;color:#3d4d5a}
+  .steps{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+  .sc{border:1.4px solid var(--line);border-radius:6px;background:#fff;padding:8px 9px;min-height:86px}
+  .sc .sdot{float:right;width:9px;height:9px;border-radius:50%;margin-top:3px}
+  .sdot.have{background:#4d8f5e}.sdot.part{background:#d9a441}.sdot.none{background:#fff;border:1.3px solid #a3473c}
+  .sc .n{font-size:9.5px;color:#8b99a4}
+  .sc b{display:block;font-size:11.5px;margin:2px 0 3px;color:#2f3f4c}
+  .sc span.d{font-size:10px;color:#6d7d89;line-height:1.5;display:block}
+  .sc.gap{border-style:dashed;background:#fdfaf6}
+  .foot{margin-top:9px;font-size:10.5px;color:#93a2ae;text-align:right}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="head">
+    <div>
+      <h1>客户工作台 · 单页线框（运行总览）</h1>
+      <div class="sub">客户打开就在这一页：先看到"现在怎么样、有没有事、我能做什么"，再按需进入报警、控制、追溯与运维</div>
+    </div>
+    <div class="legend">
+      <i class="i-have"></i>已有　<i class="i-part"></i>部分　<i class="i-none"></i>缺失（与验收地图同口径）<br/>
+      线框只表达结构与控件，不代表视觉样式
+    </div>
+  </div>
+
+  <div class="wire">
+    <!-- 顶栏 -->
+    <div class="tb">
+      <span class="title">苏州一期 光储站</span>
+      <span class="chip">自动运行</span>
+      <span class="chip gray">并网 · PCC-A</span>
+      <div class="right">
+        <span class="bell">报警 <b>2</b></span>
+        <span>10:42</span>
+        <span>张工 ▾</span>
+      </div>
+    </div>
+
+    <div class="body">
+      <!-- 左导航 -->
+      <nav class="nav">
+        <a class="on">运行总览</a>
+        <a>报警与事件 <span class="b">2</span></a>
+        <a>单元控制</a>
+        <a>调度追溯</a>
+        <a>历史与趋势</a>
+        <a>通信与健康</a>
+        <div class="sep"></div>
+        <a>账号与权限</a>
+        <a>备份与升级</a>
+        <div class="tip">客户只看到运行所需入口；配置、通道、点位与发布不在这个工作台里。</div>
+      </nav>
+
+      <!-- 主区 -->
+      <main class="main">
+        <div class="row1">
+          <div class="kpi"><div class="k">当前功率</div><div class="v">+120<small>kW</small></div><div class="d up">放电中 · 较 1 小时前 +12</div></div>
+          <div class="kpi"><div class="k">并网点</div><div class="v">+35<small>kW</small></div><div class="d">购电 · 未越限</div></div>
+          <div class="kpi"><div class="k">平均 SOC</div><div class="v">62<small>%</small></div><div class="d">可用 486 kWh</div></div>
+          <div class="kpi"><div class="k">今日放电</div><div class="v">420<small>kWh</small></div><div class="d up">收益 ¥318</div></div>
+        </div>
+
+        <div class="flowband">
+          <div class="fnode"><b>光伏</b><span>200 kW 发电</span></div>
+          <div class="far">→</div>
+          <div class="fnode hub"><b>并网点 PCC-A</b><span>购电 +35 kW</span></div>
+          <div class="far">←</div>
+          <div class="fnode"><b>储能</b><span>120 kW 放电</span></div>
+          <div class="far">→</div>
+          <div class="fnode"><b>负荷</b><span>300 kW</span></div>
+        </div>
+
+        <div class="sec"><b>储能单元</b><span>4 台 · 自动调度中 · 每 1 秒刷新</span></div>
+        <div class="units">
+          <div class="unit">
+            <div class="uh"><b>EU-01</b><span class="m">自动</span></div>
+            <div class="pw">60<small> kW 放电</small></div>
+            <div class="soc"><div class="bar"><i style="width:62%"></i></div><div class="meta"><span>SOC 62%</span><span>522 kWh</span></div></div>
+            <div class="act">查看 · 人工接管</div>
+          </div>
+          <div class="unit">
+            <div class="uh"><b>EU-02</b><span class="m">自动</span></div>
+            <div class="pw">60<small> kW 放电</small></div>
+            <div class="soc"><div class="bar"><i style="width:58%"></i></div><div class="meta"><span>SOC 58%</span><span>261 kWh</span></div></div>
+            <div class="act">查看 · 人工接管</div>
+          </div>
+          <div class="unit off">
+            <div class="uh"><b>EU-03</b><span class="m">检修</span></div>
+            <div class="pw">0<small> kW</small></div>
+            <div class="soc"><div class="bar"><i style="width:71%"></i></div><div class="meta"><span>SOC 71%</span><span>522 kWh</span></div></div>
+            <div class="act">退出检修需确认</div>
+          </div>
+          <div class="unit off">
+            <div class="uh"><b>PCC-A 电表</b><span class="m">仅监测</span></div>
+            <div class="pw">35<small> kW 购电</small></div>
+            <div class="soc"><div class="bar"><i style="width:100%;background:#c9d4dc"></i></div><div class="meta"><span>数据 1 s 前</span><span>三相</span></div></div>
+            <div class="act">不可控制</div>
+          </div>
+        </div>
+
+        <div class="chart">
+          <div class="ch"><b>24 小时功率与 SOC</b><span>功率 kW（灰） · SOC %（绿） · 数据来自历史点位</span></div>
+          <svg viewBox="0 0 760 96" preserveAspectRatio="none">
+            <g stroke="#e6ebef" stroke-width="1">
+              <line x1="0" y1="12" x2="760" y2="12"/><line x1="0" y1="44" x2="760" y2="44"/><line x1="0" y1="76" x2="760" y2="76"/>
+            </g>
+            <g stroke="#c9d4dc" stroke-width="1" stroke-dasharray="3 3">
+              <line x1="190" y1="0" x2="190" y2="96"/><line x1="380" y1="0" x2="380" y2="96"/><line x1="570" y1="0" x2="570" y2="96"/>
+            </g>
+            <polyline fill="none" stroke="#8b99a4" stroke-width="1.6"
+              points="0,74 40,66 80,70 120,58 160,62 200,50 240,54 280,44 320,48 360,40 400,44 440,36 480,40 520,52 560,48 600,58 640,56 680,64 720,62 760,68"/>
+            <polyline fill="none" stroke="#4d8f5e" stroke-width="1.6" stroke-dasharray="5 3"
+              points="0,62 60,56 120,48 180,42 240,46 300,52 360,58 420,64 480,70 540,74 600,68 660,60 720,54 760,50"/>
+          </svg>
+          <div class="ax"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div>
+        </div>
+
+        <div class="sec"><b>需要处理</b><span>2 条未确认 · 查看全部 →</span></div>
+        <div class="alarms">
+          <div class="al"><div class="sev hi">严重</div><div>3 号柜通信中断，已停止下发</div><div class="st">未确认</div><div class="t">09:58</div></div>
+          <div class="al"><div class="sev mid">警告</div><div>PCC-B 电压偏高，接近限值</div><div class="st">未确认</div><div class="t">10:32</div></div>
+        </div>
+      </main>
+
+      <!-- 右栏 -->
+      <aside class="right">
+        <div class="rsec">
+          <h4>当前模式</h4>
+          <div class="ritem">自动调度 · 防逆流优先</div>
+          <div class="ritem">最近调度 <span class="tm">1 秒前</span></div>
+          <div class="ritem">今日人工 <span class="tm">0 次</span></div>
+        </div>
+
+        <div class="rsec">
+          <h4>最近命令</h4>
+          <div class="ritem">10:05 人工设定 50 kW<span class="tm">已确认</span></div>
+          <div class="ritem">09:58 停机 EU-03<span class="tm">已确认</span></div>
+          <div class="ritem">09:57 通信失败<span class="tm bad">结果未知</span></div>
+        </div>
+
+        <div class="rsec">
+          <h4>今日计划 / 需量</h4>
+          <div class="empty">尚未接入：96 点计划与 15 分钟需量窗口未实现（A08 / A09）。当前仅按分时电价与防逆流运行。</div>
+        </div>
+
+        <div class="rsec">
+          <h4>快捷操作</h4>
+          <div class="qbtns">
+            <div class="qb pri">人工接管</div>
+            <div class="qb">停机</div>
+            <div class="qb">确认报警</div>
+            <div class="qb">备份</div>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <div class="bb">
+      <span>自动调度运行中</span>
+      <span>·</span>
+      <span>最近一次调度 1 秒前，下发 120 kW，回读已确认</span>
+      <span class="spacer"></span>
+      <span class="btn">查看调度追溯</span>
+      <span class="btn pri">人工接管</span>
+    </div>
+  </div>
+
+  <div class="flow">
+    <h3>客户工作台的其余入口（同一外壳，主区切换）</h3>
+    <div class="steps">
+      <div class="sc"><span class="sdot have"></span><span class="n">01</span><b>运行总览</b><span class="d">功率、SOC、能源流、单元卡片、待处理报警</span></div>
+      <div class="sc"><span class="sdot have"></span><span class="n">02</span><b>报警与事件</b><span class="d">实时报警、确认、维护、导出；按根因分组</span></div>
+      <div class="sc"><span class="sdot have"></span><span class="n">03</span><b>单元控制</b><span class="d">启停、检修、故障确认、人工/自动、人工 kW</span></div>
+      <div class="sc"><span class="sdot part"></span><span class="n">04</span><b>调度追溯</b><span class="d">来源、优先级、阶段、胜出原因；功率跟踪偏差未实现（A06）</span></div>
+      <div class="sc"><span class="sdot have"></span><span class="n">05</span><b>历史与趋势</b><span class="d">点位历史、功率与 SOC 曲线、通信质量窗口</span></div>
+      <div class="sc"><span class="sdot part"></span><span class="n">06</span><b>运维</b><span class="d">权限、备份恢复（部分）；客户侧升级未实现（A13）</span></div>
+    </div>
+    <div class="steps" style="margin-top:8px">
+      <div class="sc gap"><span class="sdot none"></span><span class="n">07</span><b>配置生成的页面</b><span class="d">单元页/PCC 页应由项目包生成；当前为手写 React，换站需发版（A18）</span></div>
+      <div class="sc"><span class="sdot have"></span><span class="n">08</span><b>命令确认</b><span class="d">启停与人工设定必须由提交后回读确认；超时显示"结果未知"</span></div>
+      <div class="sc"><span class="sdot have"></span><span class="n">09</span><b>权限边界</b><span class="d">viewer 只读、操作员可控制、管理员可配置；跨站 403</span></div>
+      <div class="sc"><span class="sdot part"></span><span class="n">10</span><b>证据</b><span class="d">操作与命令自动进审计；交接证据仍靠导出（A14）</span></div>
+      <div class="sc"><span class="sdot have"></span><span class="n">11</span><b>通信健康</b><span class="d">5 分钟/1 小时成功率与延迟；断线即报警</span></div>
+      <div class="sc"><span class="sdot none"></span><span class="n">12</span><b>MQTT 设备</b><span class="d">当前仅上行遥测；下行与凭据未实现（A21）</span></div>
+    </div>
+  </div>
+
+  <div class="foot">线框的核心判断：客户的第一屏必须同时回答"现在怎么样、有没有事、我能做什么"；不能把配置和证据塞进这一屏，那是交付人员的工作台。</div>
+</div>
+</body>
+</html>
