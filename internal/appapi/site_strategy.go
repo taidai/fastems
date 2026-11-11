@@ -59,6 +59,13 @@ func (h *Handler) computeSiteUnitGoals(siteID string) map[string]decision.Goal {
 		return goals
 	}
 	target, ok := loadSiteTarget(nodes[0])
+	source := "site"
+	// 96 点计划优先于单一站级目标：当前时段有计划时按计划走，没有计划才回落到站级目标。
+	if plan, found := loadPlan96(nodes[0]); found {
+		if value, has := plan.targetAt(time.Now()); has {
+			target, ok, source = value, true, "plan"
+		}
+	}
 	if !ok || target == 0 {
 		return goals
 	}
@@ -141,7 +148,7 @@ func (h *Handler) computeSiteUnitGoals(siteID string) map[string]decision.Goal {
 				continue
 			}
 			goals[unitAllocation.EnergyUnitID] = decision.Goal{
-				Priority: decision.GoalSchedule, RequestKW: unitAllocation.SetpointKW, Source: "site",
+				Priority: decision.GoalSchedule, RequestKW: unitAllocation.SetpointKW, Source: source,
 			}
 		}
 	}

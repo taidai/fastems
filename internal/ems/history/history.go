@@ -4,6 +4,7 @@ package history
 
 import (
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -82,6 +83,32 @@ func (s *Store) Query(deviceID, pointID string, start, end time.Time, limit int)
 			continue
 		}
 		filtered = append(filtered, sample)
+	}
+	s.mu.RUnlock()
+	sort.SliceStable(filtered, func(i, j int) bool { return filtered[i].SourceTime.Before(filtered[j].SourceTime) })
+	if limit > 0 && len(filtered) > limit {
+		filtered = filtered[len(filtered)-limit:]
+	}
+	return filtered
+}
+
+// QueryByPoint 跨设备查询一个点位的历史，供站级计算（如滑动需量）使用。
+func (s *Store) QueryByPoint(pointID string, start, end time.Time, limit int) []Sample {
+	s.mu.RLock()
+	filtered := make([]Sample, 0)
+	for key, list := range s.points {
+		if !strings.HasSuffix(key, "\x00"+pointID) {
+			continue
+		}
+		for _, sample := range list {
+			if !start.IsZero() && sample.SourceTime.Before(start) {
+				continue
+			}
+			if !end.IsZero() && sample.SourceTime.After(end) {
+				continue
+			}
+			filtered = append(filtered, sample)
+		}
 	}
 	s.mu.RUnlock()
 	sort.SliceStable(filtered, func(i, j int) bool { return filtered[i].SourceTime.Before(filtered[j].SourceTime) })

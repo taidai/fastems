@@ -2,6 +2,7 @@ package appapi
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/nats-io/nats.go"
 	siotclient "github.com/simpleiot/simpleiot/client"
@@ -51,17 +52,22 @@ func (h *Handler) RunPlantAntiReverse(plantID string) ([]decision.EnergyAllocati
 
 // RunPlantPeakShaving 执行一次 PCC 需量削减闭环。
 func (h *Handler) RunPlantPeakShaving(plantID string) ([]decision.EnergyAllocation, error) {
-	binding, reading, ok := ReadPlantPCC(h.nc, plantID)
+	binding, _, ok := ReadPlantPCC(h.nc, plantID)
 	if !ok {
 		return nil, fmt.Errorf("plant %s has no PCC feedback binding", plantID)
 	}
-	shave, usable := decision.PeakShavingFromFeedback(binding, reading)
-	if !usable {
-		return nil, fmt.Errorf("PCC feedback unusable: %s", reading.Reason)
+	// 预测性削峰只使用 15 分钟滑动需量；缺 bin 时不做，避免用瞬时值冒充窗口需量。
+	window, err := h.plantDemandWindow(binding, time.Now())
+	if err != nil {
+		return nil, err
 	}
-	if shave <= 0 {
+	if !window.Available {
+		return nil, fmt.Errorf("demand window unavailable: %d missing bins", len(window.MissingBins))
+	}
+	if binding.UpperLimitKW <= 0 || window.DemandKW <= binding.UpperLimitKW {
 		return nil, nil
 	}
+	shave := window.DemandKW - binding.UpperLimitKW
 	units, err := siotclient.GetNodes(h.nc, plantID, "all", NodeTypeEnergyUnit, false)
 	if err != nil {
 		return nil, err

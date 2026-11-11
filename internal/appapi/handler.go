@@ -308,6 +308,44 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.deliveryCheck(w, identity)
 	case path == "delivery/evidence" && r.Method == http.MethodGet:
 		h.deliveryEvidence(w, r, identity)
+	case path == "delivery/gates" && r.Method == http.MethodGet:
+		h.deliveryGates(w, identity)
+	case path == "delivery/preflight" && r.Method == http.MethodPost:
+		h.runPreflight(w, identity)
+	case path == "delivery/preflight" && r.Method == http.MethodGet:
+		h.latestPreflight(w, identity)
+	case path == "projects/reuse/preview" && r.Method == http.MethodGet:
+		h.reusePreviewHandler(w, identity, r.URL.Query().Get("source"))
+	case path == "projects/reuse" && r.Method == http.MethodPost:
+		var req reuseRequest
+		if !decodeJSON(w, r, &req) {
+			return
+		}
+		h.reuseProjectHandler(w, identity, req)
+	case path == "projects/publish" && r.Method == http.MethodPost:
+		var req publishRequest
+		if !decodeJSON(w, r, &req) {
+			return
+		}
+		h.publishHandler(w, identity, req.Site, req.Note)
+	case path == "projects/versions" && r.Method == http.MethodGet:
+		h.versionsHandler(w, identity, r.URL.Query().Get("site"))
+	case path == "projects/rollback" && r.Method == http.MethodPost:
+		var req rollbackRequest
+		if !decodeJSON(w, r, &req) {
+			return
+		}
+		h.rollbackHandler(w, identity, req.Site, req.Version)
+	case path == "demand" && r.Method == http.MethodGet:
+		h.demandHandler(w, identity, r.URL.Query().Get("site"))
+	case path == "projects/plan96" && r.Method == http.MethodGet:
+		h.plan96Handler(w, identity, r.URL.Query().Get("site"))
+	case path == "projects/plan96" && r.Method == http.MethodPut:
+		var req plan96Request
+		if !decodeJSON(w, r, &req) {
+			return
+		}
+		h.savePlan96Handler(w, identity, req)
 	case path == "history" && r.Method == http.MethodGet:
 		h.history(w, r, identity, false)
 	case path == "history/export" && r.Method == http.MethodGet:
@@ -339,6 +377,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.unitModel(w, r, identity, parts[1], server)
+	case len(parts) == 4 && parts[0] == "modbus" && parts[2] == "units" && parts[3] == "apply" && r.Method == http.MethodPost:
+		h.applyProfilesHandler(w, r, identity, parts[1])
 	case len(parts) == 5 && parts[0] == "modbus" && parts[2] == "units" && parts[4] == "commands" && (r.Method == http.MethodGet || r.Method == http.MethodPost):
 		server, err := strconv.Atoi(parts[3])
 		if err != nil {
