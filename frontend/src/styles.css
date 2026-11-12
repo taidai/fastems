@@ -1186,8 +1186,10 @@ h1, h2, h3 { color: var(--ink); }
 }
 @media (max-width: 900px) {
   .console-brand small { display: none; }
+  .console-brand > strong { display: none; }
   .console-user { display: none; }
-  .console-topbar { gap: 10px; }
+  .console-topbar { gap: 10px; flex-wrap: wrap; row-gap: 6px; }
+  .console-top-actions { flex-wrap: wrap; }
 }
 @media (max-width: 720px) {
   .console-topbar { top: 6px; margin: 6px 10px 0; gap: 8px; padding: 8px 12px; border-radius: 14px; }
@@ -1198,13 +1200,13 @@ h1, h2, h3 { color: var(--ink); }
   .console-chip .chip-label { display: none; }
   .console-top-actions { gap: 4px; }
   .console-top-actions time { display: none; }
-  .console-main { padding: 14px 14px 20px; }
-  .console-page-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 2px 10px; }
-  .console-page-head > div:first-child { grid-column: 1; grid-row: 1; }
-  .console-head-actions { grid-column: 2; grid-row: 1; align-self: start; flex-wrap: nowrap; }
+  .console-main { padding: 14px 14px 96px; }
+  .console-page-head { display: grid; grid-template-columns: 1fr; align-items: start; gap: 6px; }
+  .console-page-head > div:first-child { grid-column: 1; grid-row: auto; }
+  .console-head-actions { grid-column: 1; grid-row: auto; align-self: start; flex-wrap: wrap; justify-content: flex-start; }
   .console-head-actions .head-link, .console-head-actions .live-status { display: none; }
   .site-pill { margin-top: 4px; }
-  .console-page-head h1 { font-size: 24px; }
+  .console-page-head h1 { font-size: 22px; }
   .kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
   .kpi-card { min-height: 82px; padding: 9px 11px; gap: 4px; }
   .kpi-icon { width: 24px; height: 24px; font-size: 12px; border-radius: 7px; }
@@ -2860,3 +2862,6 @@ body::after {
 .energy-unit-add { padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255, 255, 255, 0.34); display: grid; gap: 8px; }
 .energy-unit-add input { min-height: 34px; font-size: 12px; padding: 4px 8px; }
 
+
+/* 交付工作台是长时间操作的工程台面：用不透明表面，避免实景底图干扰门槛与表格的小字。 */
+.workbench-page .ems-card { background: rgba(255, 255, 255, 0.97); }

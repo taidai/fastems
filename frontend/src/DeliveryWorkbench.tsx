@@ -100,12 +100,9 @@ export default function DeliveryWorkbench({ token, nodes, canConfigure, goPage, 
 
   const loadLatest = useCallback(async () => {
     try {
-      setLatest(await request<PreflightReport>(token, "/delivery/preflight"))
+      const payload = await request<{ latest: PreflightReport | null }>(token, "/delivery/preflight")
+      setLatest(payload.latest ?? null)
     } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 404) {
-        setLatest(null)
-        return
-      }
       onError(cause instanceof Error ? cause.message : "预检记录读取失败")
     }
   }, [token, onError])
@@ -350,14 +347,14 @@ export default function DeliveryWorkbench({ token, nodes, canConfigure, goPage, 
     return result
   }, [])
 
-  return <section className="grid gap-3">
+  return <section className="workbench-page grid gap-3">
     <div className="grid items-start gap-4 lg:grid-cols-[232px_1fr]">
-      <div className="grid gap-1 rounded-xl border border-ems-line bg-white/60 p-2">
+      <div className="flex gap-1 overflow-x-auto rounded-xl border border-ems-line bg-white/60 p-2 lg:grid lg:gap-1 lg:overflow-visible">
         {steps.map((item, index) => {
           const done = stepState.done[item.key]
           const isCurrent = stepState.current === item.key
           return <button key={item.key} onClick={() => setStep(item.key)}
-            className={`flex items-center gap-2 rounded-lg px-2 py-2 text-left text-sm ${step === item.key ? "bg-white shadow-sm" : "hover:bg-white/70"}`}>
+            className={`flex shrink-0 items-center gap-2 rounded-lg px-2 py-2 text-left text-sm lg:w-auto ${step === item.key ? "bg-white shadow-sm" : "hover:bg-white/70"}`}>
             <span className={`grid h-6 w-6 flex-none place-items-center rounded-full border text-xs ${done ? "border-emerald-500 text-emerald-600" : isCurrent ? "border-sky-500 text-sky-600" : "border-slate-300 text-slate-400"}`}>
               {done ? "✓" : index + 1}
             </span>
@@ -365,13 +362,13 @@ export default function DeliveryWorkbench({ token, nodes, canConfigure, goPage, 
             {isCurrent && !done && <span className="text-[10px] text-sky-600">进行中</span>}
           </button>
         })}
-        <p className="m-0 px-2 pt-1 text-[10px] leading-4 text-ems-muted">状态从数据推导：有通道、有点位、有单元、有启用规则、有验证设备、最近预检通过。</p>
+        <p className="m-0 hidden shrink-0 px-2 pt-1 text-[10px] leading-4 text-ems-muted lg:block">状态从数据推导：有通道、有点位、有单元、有启用规则、有验证设备、最近预检通过。</p>
       </div>
 
       <div className="grid gap-3">
         <EmsCard>
           <EmsSectionHeader kicker="当前步骤" title={current.label} description={currentSummary.detail}
-            status={<span className="text-xl font-semibold">{currentSummary.text}</span>}
+            status={<span className="text-lg font-semibold">{currentSummary.text}</span>}
             actions={current.page ? <EmsButton variant="secondary" onClick={() => goPage(current.page as Page)}>打开{steps.find((item) => item.key === step)?.label}页 →</EmsButton> : undefined} />
         </EmsCard>
 
@@ -428,7 +425,7 @@ export default function DeliveryWorkbench({ token, nodes, canConfigure, goPage, 
                 <input className="ems-input" aria-label="站号范围" value={applyServers} placeholder="1-4,6" onChange={(event) => { setApplyServers(event.target.value); setApplyResult(null) }} />
               </label>
               <EmsButton variant="secondary" busy={applyBusy} onClick={() => void runApply(true)}>预览</EmsButton>
-              <EmsButton busy={applyBusy} disabled={!applyResult || !applyResult.dry_run} onClick={() => void runApply(false)}>应用</EmsButton>
+              <EmsButton busy={applyBusy} disabled={!applyResult || !applyResult.dry_run} onClick={() => void runApply(false)}>应用此 Profile</EmsButton>
             </div>
             {applyResult
               ? <div className="grid gap-2 text-xs">
@@ -462,8 +459,9 @@ export default function DeliveryWorkbench({ token, nodes, canConfigure, goPage, 
               </div>)}
               {demand && demand.plants.length === 0 && <p className="m-0 text-sm text-ems-muted">该站点还没有电站或 PCC 反馈。</p>}
             </div>
-            <div className="grid gap-1">
-              {[0, 1, 2, 3].map((row) => <div key={row} className="grid grid-cols-[42px_1fr] items-center gap-2">
+            <div className="overflow-x-auto">
+              <div className="grid gap-1" style={{ minWidth: 760 }}>
+                {[0, 1, 2, 3].map((row) => <div key={row} className="grid grid-cols-[42px_1fr] items-center gap-2">
                 <span className="text-[10px] text-ems-muted">{String(row * 15).padStart(2, "0")} 分</span>
                 <div className="grid gap-1" style={{ gridTemplateColumns: "repeat(24, minmax(0, 1fr))" }}>
                   {Array.from({ length: 24 }, (_, hour) => {
@@ -482,8 +480,10 @@ export default function DeliveryWorkbench({ token, nodes, canConfigure, goPage, 
                       }} />
                   })}
                 </div>
-              </div>)}
+                </div>)}
+              </div>
             </div>
+            <p className="m-0 text-[10px] text-ems-muted lg:hidden">左右滑动查看全天时段</p>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-xs text-ems-muted">{planMessage || (planLoaded ? "计划已加载；留空表示该时段无计划" : "正在读取计划…")}</span>
               <EmsButton busy={planBusy} disabled={!currentSite} onClick={() => void savePlan()}>保存 96 点计划</EmsButton>

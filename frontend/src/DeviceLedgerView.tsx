@@ -68,7 +68,7 @@ export default function DeviceLedgerView({ token, onError, canConfigure, canOper
   }
 
   return <section className="grid gap-4">
-    <EmsSectionHeader kicker="设备对象" title="设备台账" description="一台设备一行：业务节点、通道站号、Profile、健康与验证。"
+    <EmsSectionHeader kicker="设备对象" title="设备与验证" description="一台设备一行：业务节点、通道站号、Profile、健康与验证。"
       actions={<>
         <EmsButton variant="secondary" busy={loading} busyLabel="刷新中…" onClick={() => void load()}>刷新</EmsButton>
         {canConfigure && <EmsButton onClick={goChannels}>+ 接入新设备</EmsButton>}

@@ -99,7 +99,7 @@ const title = async (page) => (await page.locator(".console-page-head h1").first
     await page.waitForTimeout(900)
     const applyText = await page.locator("main").textContent()
     ok(applyText.includes("映射") && (applyText.includes("缺失") || applyText.includes("阻断")), "批量应用预览应显示映射与缺失/阻断")
-    await page.getByRole("button", { name: "应用", exact: true }).click()
+    await page.getByRole("button", { name: "应用此 Profile", exact: true }).click()
     await page.waitForTimeout(900)
     ok((await page.locator("main").textContent()).includes("已应用"), "应用后应提示已应用")
   }

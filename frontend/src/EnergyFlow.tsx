@@ -201,8 +201,8 @@ export default function EnergyFlow({ points, onOpenPoint, onOpenTrends, event, d
     <div className="flow-bar">
       <div className="flow-status">
         <span className="flow-live"><i />调度 {dispatch ? `${dispatch.rule} · ${stateLabel(dispatch.state)}` : "未启用"}</span>
-        <span>{dispatch ? timeLabel(dispatch.at) : "等待首次评估"}</span>
-        <span className="flow-action" title={actionLabel(dispatch)}>{actionLabel(dispatch)}</span>
+        {dispatch && <span>{timeLabel(dispatch.at)}</span>}
+        {dispatch && <span className="flow-action" title={actionLabel(dispatch)}>{actionLabel(dispatch)}</span>}
         <button type="button" className="inline-link" onClick={event?.onOpenRules}>调度详情 ›</button>
       </div>
       <div className="flow-tools">
@@ -260,7 +260,7 @@ export default function EnergyFlow({ points, onOpenPoint, onOpenTrends, event, d
       <span>{dispatch ? `最近评估 ${timeLabel(dispatch.at)} · ${dispatch.rule} · ${rowLabel(dispatch)}` : "暂无可核实的调度事件"}</span>
       {event.latestAlarm
         ? <span className={`event-alarm ${event.latestAlarm.severity}`}>最新报警 {event.latestAlarm.title} · {timeLabel(event.latestAlarm.at)}</span>
-        : <span>{dispatch ? actionLabel(dispatch) : "等待首次评估"}</span>}
+        : <span>{dispatch ? actionLabel(dispatch) : "—"}</span>}
       <button onClick={event.onOpenRules}>活动报警 {event.alarmCount} 条 · 点位 {event.pointCount} 个 ›</button>
     </div>}
   </section>

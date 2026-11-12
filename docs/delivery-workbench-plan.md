@@ -41,7 +41,7 @@
 |---|---|---|---|
 | GET | `/api/delivery/gates` | ActionConfigure | 实时计算门槛，不写任何存储；供页面 5–10 秒轮询 |
 | POST | `/api/delivery/preflight` | ActionConfigure | 计算同一批门槛，生成快照 ID、写 `preflight.jsonl` 与审计 |
-| GET | `/api/delivery/preflight` | ActionConfigure | 读取最近一次预检（文件尾行），没有则 404 |
+| GET | `/api/delivery/preflight` | ActionConfigure | 读取最近一次预检（文件尾行），没有时返回 200 与 null |
 
 预检响应：
 

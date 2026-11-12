@@ -96,11 +96,12 @@ func (h *Handler) latestPreflight(w http.ResponseWriter, identity Identity) {
 		return
 	}
 	report, err := h.readLatestPreflight()
-	if err != nil || report == nil {
-		writeError(w, http.StatusNotFound, "no_preflight")
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "preflight_read_failed")
 		return
 	}
-	writeJSON(w, report)
+	// 没有历史时返回 200 与 null，避免浏览器控制台把"还没有预检"记成错误。
+	writeJSON(w, map[string]any{"latest": report})
 }
 
 func preflightResult(status string) string {

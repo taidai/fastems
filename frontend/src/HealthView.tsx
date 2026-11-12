@@ -127,7 +127,7 @@ export default function HealthView({ token, onError }: { token: string; onError:
   }), [ledger])
 
   return <section className="grid gap-4">
-    <EmsSectionHeader kicker="运行保障" title="通信与健康" description="通道与设备的成功率、延迟和最近错误；只读，不提供配置入口。"
+    <EmsSectionHeader kicker="运行保障" title="通道与设备" description="通道与设备的成功率、延迟和最近错误；只读，不提供配置入口。"
       actions={<>
         <span className="text-xs text-ems-muted">{updatedAt ? `更新于 ${clock(updatedAt.toISOString())}` : "读取中…"}</span>
         <EmsButton variant="secondary" busy={loading} busyLabel="刷新中…" onClick={() => void load()}>刷新</EmsButton>

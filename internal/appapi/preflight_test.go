@@ -190,18 +190,29 @@ func TestDeliveryPreflight(t *testing.T) {
 	if recorder.Code != 200 {
 		t.Fatalf("latest = %d", recorder.Code)
 	}
-	var latest preflightReport
-	if err := json.Unmarshal(recorder.Body.Bytes(), &latest); err != nil {
+	var latestPayload struct {
+		Latest *preflightReport `json:"latest"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &latestPayload); err != nil {
 		t.Fatal(err)
 	}
-	if latest.ID != snapshot.ID {
-		t.Fatalf("latest id = %s, want %s", latest.ID, snapshot.ID)
+	if latestPayload.Latest == nil || latestPayload.Latest.ID != snapshot.ID {
+		t.Fatalf("latest = %#v, want %s", latestPayload.Latest, snapshot.ID)
 	}
 
 	empty := &Handler{dataDir: t.TempDir()}
 	recorder = httptest.NewRecorder()
 	empty.latestPreflight(recorder, admin)
-	if recorder.Code != 404 {
-		t.Fatalf("empty latest = %d, want 404", recorder.Code)
+	if recorder.Code != 200 {
+		t.Fatalf("empty latest = %d, want 200", recorder.Code)
+	}
+	var emptyPayload struct {
+		Latest *preflightReport `json:"latest"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &emptyPayload); err != nil {
+		t.Fatal(err)
+	}
+	if emptyPayload.Latest != nil {
+		t.Fatalf("empty latest = %#v, want null", emptyPayload.Latest)
 	}
 }
