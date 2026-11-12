@@ -52,7 +52,7 @@ export default function ResourceGroupsView({ token, onError }: { token: string; 
   }
 
   return <section className="grid gap-4">
-    <EmsSectionHeader kicker="EMS 业务" title="资源集群" description="一组能源设备共享馈线或功率上限；分配先受组上限约束，缺口如实上报。"
+    <EmsSectionHeader kicker="EMS 业务" title="资源集群" description="一组能源设备共享馈线（共用进线）或功率上限；分配先受组上限约束，缺口如实上报。"
       actions={<EmsButton variant="secondary" onClick={() => setShowAdd(!showAdd)}>{showAdd ? "收起" : "+ 新建集群"}</EmsButton>} />
 
     {showAdd && <EmsCard variant="subtle"><IonCardContent className="grid gap-4">

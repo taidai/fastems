@@ -564,7 +564,11 @@ export default function DecisionEditor({ token, rule, nodes, onRefresh, onError,
               <button className="danger-text" disabled={readOnly} onClick={() => setRows(rows.filter((_, i) => i !== rowIndex))}>删除</button>
             </td>
           </tr>)}
-          {rows.length === 0 && <tr><td colSpan={6}><div className="empty-state">还没有规则，先添加一行。</div></td></tr>}
+          {rows.length === 0 && <tr><td colSpan={6}><div className="empty-state">
+            <strong>{available.length ? "还没有规则" : "先接入点位，再写规则"}</strong>
+            <span>{available.length ? "添加一行，选择输入条件和输出动作。" : "当前没有可用的输入点位。先到设备页接入 Modbus 或添加变量，再回来配置。"}</span>
+            {!readOnly && available.length > 0 && <button type="button" className="secondary-button" onClick={() => addRow(false)}>添加规则行</button>}
+          </div></td></tr>}
         </tbody>
       </table>
     </div>}
@@ -761,6 +765,7 @@ export default function DecisionEditor({ token, rule, nodes, onRefresh, onError,
       {rows.length === 0 && <div className="empty-state">
         <strong>{available.length ? "还没有规则" : "先接入点位，再写规则"}</strong>
         <span>{available.length ? "添加一行，选择输入条件和输出动作。" : "当前没有可用的输入点位。先到设备页接入 Modbus 或添加变量，再回来配置。"}</span>
+        {!readOnly && available.length > 0 && <button type="button" className="secondary-button" onClick={() => addRow(false)}>添加规则行</button>}
       </div>}
       <div ref={rowsEnd} />
     </div>

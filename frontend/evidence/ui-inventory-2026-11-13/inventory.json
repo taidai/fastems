@@ -67,9 +67,9 @@
     "role": "admin",
     "workbench": "交付",
     "tab": "EMS 业务",
-    "item": "能源设备",
-    "title": "能源设备",
-    "file": "evidence/ui-inventory-2026-11-13/admin/admin-交付-EMS-业务-能源设备.png"
+    "item": "能源设备与策略",
+    "title": "能源设备与策略",
+    "file": "evidence/ui-inventory-2026-11-13/admin/admin-交付-EMS-业务-能源设备与策略.png"
   },
   {
     "role": "admin",
@@ -227,9 +227,9 @@
     "role": "implementer",
     "workbench": "交付",
     "tab": "EMS 业务",
-    "item": "能源设备",
-    "title": "能源设备",
-    "file": "evidence/ui-inventory-2026-11-13/implementer/implementer-交付-EMS-业务-能源设备.png"
+    "item": "能源设备与策略",
+    "title": "能源设备与策略",
+    "file": "evidence/ui-inventory-2026-11-13/implementer/implementer-交付-EMS-业务-能源设备与策略.png"
   },
   {
     "role": "implementer",

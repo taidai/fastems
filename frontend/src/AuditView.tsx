@@ -18,6 +18,21 @@ function queryString(filters: Filters) {
 
 type AuditSetting = { max_mb: number; backups: number; retention_days: number }
 
+function friendlyObject(object?: string) {
+  if (!object) return "—"
+  if (object.startsWith("nodes/")) return `节点 ${object.slice(6)}`
+  if (object.startsWith("projects/")) return `项目 ${object.split("/")[1] || ""}`
+  if (object.startsWith("pv-")) return `版本 ${object.slice(0, 12)}…`
+  if (object.startsWith("users")) return "账号列表"
+  if (object.startsWith("rules")) return "决策表"
+  return object
+}
+
+function friendlyAction(record: AuditRecord) {
+  if (record.action === "其他" && record.object?.startsWith("nodes/")) return "配置变更"
+  return record.action
+}
+
 export default function AuditView({ token, onError }: { token: string; onError: (message: string) => void }) {
   const [auditSetting, setAuditSetting] = useState<AuditSetting>({ max_mb: 5, backups: 1, retention_days: 0 })
   const [settingBusy, setSettingBusy] = useState(false)
@@ -85,15 +100,15 @@ export default function AuditView({ token, onError }: { token: string; onError: 
       columns={[
         { key: "time", label: "时间", render: (record) => new Date(record.time).toLocaleString("zh-CN", { hour12: false }) },
         { key: "actor", label: "操作人", render: (record) => record.actor },
-        { key: "action", label: "动作", render: (record) => record.action },
-        { key: "object", label: "对象", render: (record) => record.object || "—" },
+        { key: "action", label: "动作", render: (record) => friendlyAction(record) },
+        { key: "object", label: "对象", render: (record) => <span title={record.object || undefined}>{friendlyObject(record.object)}</span> },
         { key: "result", label: "结果", render: (record) => <StatusBadge tone={record.result === "success" ? "success" : "danger"}>{record.result === "success" ? "成功" : "失败"}</StatusBadge> },
         { key: "ip", label: "IP", render: (record) => record.ip || "—" },
       ]}
       mobileCard={(record) => <button className="grid gap-2 text-left" onClick={() => setSelected(record)}>
-        <div className="flex items-center justify-between gap-2"><strong>{record.action}</strong><StatusBadge tone={record.result === "success" ? "success" : "danger"}>{record.result === "success" ? "成功" : "失败"}</StatusBadge></div>
+        <div className="flex items-center justify-between gap-2"><strong>{friendlyAction(record)}</strong><StatusBadge tone={record.result === "success" ? "success" : "danger"}>{record.result === "success" ? "成功" : "失败"}</StatusBadge></div>
         <span className="text-xs text-ems-muted">{new Date(record.time).toLocaleString("zh-CN", { hour12: false })} · {record.actor}</span>
-        <span className="text-xs text-ems-ink">{record.object || "—"}</span>
+        <span className="text-xs text-ems-ink" title={record.object || undefined}>{friendlyObject(record.object)}</span>
       </button>}
     />
 
@@ -112,7 +127,7 @@ export default function AuditView({ token, onError }: { token: string; onError: 
       {selected && <dl className="grid gap-4 text-sm">
         <div><dt className="text-xs text-ems-muted">时间</dt><dd>{new Date(selected.time).toLocaleString("zh-CN", { hour12: false })}</dd></div>
         <div><dt className="text-xs text-ems-muted">操作人</dt><dd>{selected.actor}</dd></div>
-        <div><dt className="text-xs text-ems-muted">对象</dt><dd>{selected.object || "—"}</dd></div>
+        <div><dt className="text-xs text-ems-muted">对象</dt><dd title={selected.object || undefined}>{friendlyObject(selected.object)}</dd></div>
         <div><dt className="text-xs text-ems-muted">详情</dt><dd className="whitespace-pre-wrap">{selected.detail || "—"}</dd></div>
         <div><dt className="text-xs text-ems-muted">IP</dt><dd>{selected.ip || "—"}</dd></div>
         <div><dt className="text-xs text-ems-muted">记录 ID</dt><dd><code className="break-all">{selected.id}</code></dd></div>

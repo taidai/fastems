@@ -117,15 +117,15 @@ export default function PlantStrategyPanel({ token, nodes, onError }: {
   return <>
     <EmsCard>
     <IonCardContent className="grid gap-4">
-      <EmsSectionHeader title="电站策略" description="选并网点主表，设反送与需量上限，保存后每秒自动闭环。"
+      <EmsSectionHeader title="电站策略" description="选并网点主表（PCC，公共连接点），设反送与需量上限；保存只写配置，启用后调度器从下一周期开始自动闭环。"
         status={saved ? <StatusBadge tone="success">已启用</StatusBadge> : undefined} />
-      <EmsSelect label="PCC 主表" aria-label="PCC 主表点位" value={meterId} onIonChange={(event) => setMeterId(event.detail.value)}>
+      <EmsSelect label="PCC 主表（并网点）" aria-label="PCC 主表点位" value={meterId} onIonChange={(event) => setMeterId(event.detail.value)}>
         <EmsSelectOption value="">选择关口表点位</EmsSelectOption>
         {meters.map((node) => <EmsSelectOption key={node.id} value={node.id}>{node.points.find((p) => p.type === "description")?.text || node.id}</EmsSelectOption>)}
       </EmsSelect>
       <div className="grid gap-3 sm:grid-cols-2">
         <EmsInput label="反送上限（kW，0=禁止反送）" aria-label="反送上限" type="number" value={reverseLimit} onIonInput={(event) => setReverseLimit(Number(event.detail.value))} />
-        <EmsInput label="需量上限（kW，0=不限）" aria-label="需量上限" type="number" value={demandLimit} onIonInput={(event) => setDemandLimit(Number(event.detail.value))} />
+        <EmsInput label="需量上限（kW，0=不限，按 15 分钟滑窗）" aria-label="需量上限" type="number" value={demandLimit} onIonInput={(event) => setDemandLimit(Number(event.detail.value))} />
       </div>
       <div className="grid gap-3 rounded-xl border border-ems-line p-3">
         <strong className="text-sm text-ems-ink">削峰填谷（分时电价）</strong>
@@ -154,6 +154,7 @@ export default function PlantStrategyPanel({ token, nodes, onError }: {
         </div>
       </div>
       <InlineNotice tone="info">启用后，电站按硬优先级自动调节：防逆流 → 需量（{demandLimit || "不限"} kW）→ 削峰填谷（{pvPower > 0 ? `${pvPower} kW` : "未启用"}）。</InlineNotice>
+      <p className="m-0 text-xs text-ems-muted">启用后由调度器自动调节，所有指令仍经过设备回读确认；保存本身不会立即下发功率。</p>
       <div className="flex justify-end"><EmsButton busy={busy} busyLabel="保存中…" onClick={() => {
         if (!plantId) { onError("未选择电站"); return }
         if (!meterId) { onError("请选择 PCC 主表点位"); return }

@@ -29,7 +29,7 @@ export const pageDefs: PageDef[] = [
   { key: "aggregate", label: "虚拟聚合", workbench: "delivery" },
   { key: "unitWiring", label: "能源设备接线", workbench: "delivery", configOnly: true },
   { key: "opcua", label: "OPC-UA", workbench: "delivery", configOnly: true },
-  { key: "energyUnits", label: "能源设备", workbench: "delivery", configOnly: true },
+  { key: "energyUnits", label: "能源设备与策略", workbench: "delivery", configOnly: true },
   { key: "resourceGroups", label: "资源集群", workbench: "delivery", configOnly: true },
   { key: "allocators", label: "功率分配器", workbench: "delivery", configOnly: true },
   { key: "rules", label: "决策表", workbench: "delivery", configOnly: true },

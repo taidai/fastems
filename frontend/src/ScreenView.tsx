@@ -84,7 +84,7 @@ export default function ScreenView({ token, snapshot, points, groups, isAdmin, c
       const fallback: ScreenConfig = {
         title: `${selected ? nameOf(selected) : "运行"}画面`,
         columns: 3,
-        point_ids: points.slice(0, 4).map((item) => item.id),
+        point_ids: points.filter((item) => item.points.some((p) => p.type === "value")).slice(0, 4).map((item) => item.id),
       }
       setConfig(fallback)
       setDraft(fallback)

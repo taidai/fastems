@@ -58,7 +58,7 @@ export default function OpcuaView({ token, onError }: { token: string; onError: 
   }
 
   return <section className="grid gap-4">
-    <EmsSectionHeader kicker="接入建模" title="OPC-UA" description="连接 OPC-UA 服务器并按完整 NodeID 映射测点；首版支持匿名轮询读取与写入。" />
+    <EmsSectionHeader kicker="接入建模" title="OPC-UA" description="连接 OPC-UA 服务器并按完整 NodeID（OPC-UA 节点标识）映射测点；首版支持匿名轮询读取与写入。" />
     <EmsCard><IonCardContent className="grid gap-4">
       <strong className="text-sm text-ems-ink">新增端点</strong>
       <div className="grid gap-3 sm:grid-cols-2">

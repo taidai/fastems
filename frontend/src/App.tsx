@@ -533,7 +533,7 @@ export default function App() {
     aggregate: { title: "虚拟聚合", subtitle: "只读虚拟设备：求和、平均、最值、计数与质量传播" },
     deploy: { title: "交付工作台", subtitle: "7 步交付主链：门槛、预检与验收进度" },
     allocators: { title: "功率分配器", subtitle: "一个总目标，按每台 PCS 当前能力分配" },
-    energyUnits: { title: "能源设备", subtitle: "能力级规则、站级策略、资源集群与调度追溯" },
+    energyUnits: { title: "能源设备与策略", subtitle: "每台能源设备的运行策略，以及电站级防逆流、需量与站级计划" },
     unitWiring: { title: "能源设备接线", subtitle: "为能源设备挂 PCS 并映射功率设定点位（点位只在此层出现）" },
     resourceGroups: { title: "资源集群", subtitle: "一组能源设备共享馈线或功率上限，分配先受组上限约束" },
     dispatchTrace: { title: "调度追溯", subtitle: "每次调度的请求、能力、分配与设备设定，按 dispatchID 复盘" },
@@ -651,7 +651,7 @@ export default function App() {
             ? `站点 ${Math.max(1, siteNodes.findIndex((node) => node.id === siteID) + 1)} / ${siteNodes.length}`
             : `项目 1 / ${snapshot.roots.length}`}</span>
           {page === "devices" && <>
-            <button className="secondary-button head-action" onClick={() => setCommandsOpen(true)}>常用命令</button>
+            {canOperate && <button className="secondary-button head-action" onClick={() => setCommandsOpen(true)}>常用命令</button>}
             <button className="secondary-button head-action" onClick={() => setShiftOpen(true)}>班次交接</button>
             <button className="secondary-button head-action" onClick={() => setKpiConfigOpen(true)}>显示设置</button>
           </>}
@@ -708,7 +708,7 @@ export default function App() {
 
       {page === "health" && <HealthView token={token} onError={setError} />}
 
-      {page === "history" && <HistoryView key={historyPoint || "history"} token={token} points={points} initialPoint={historyPoint || undefined} onError={setError} isAdmin={canConfigure} />}
+      {page === "history" && <HistoryView key={historyPoint || "history"} token={token} points={points} initialPoint={historyPoint || undefined} onError={setError} isAdmin={canConfigure} onOpenPoints={() => setPage(canConfigure ? "points" : "health")} />}
 
       {page === "rules" && canConfigure && <section className="rules-page">
         <div className="page-toolbar">
@@ -785,7 +785,7 @@ function DevicesView({ snapshot, points, siteName, groups, rules, activeRules, e
     .sort((a, b) => b.item.time.localeCompare(a.item.time)).slice(0, 6), [snapshot])
 
   return <>
-    <KpiStrip points={points} tariff={tariff} config={kpiConfig} onOpen={openPoint} />
+    <KpiStrip points={points} tariff={tariff} config={kpiConfig} onOpen={openPoint} onSetup={canConfigure ? goChannels : undefined} />
 
     <EnergyFlow points={points} siteName={siteName} onOpenPoint={openPoint} onOpenTrends={goHistory} dispatch={dispatch} event={{
       activeRules, rules, alarmCount, errors, pointCount: points.length, onOpenRules: goRules,

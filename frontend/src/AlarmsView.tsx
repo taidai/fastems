@@ -234,13 +234,15 @@ export default function AlarmsView({ token, rootID, nodes, canOperate, canConfig
     </div>
   }
 
+  const tabs: { value: "records" | "types" | "stats"; label: string }[] = [
+    { value: "records", label: "报警记录" },
+    ...(canConfigure ? [{ value: "types" as const, label: "类型管理" }] : []),
+    ...(canConfigure || canOperate ? [{ value: "stats" as const, label: "统计与提醒" }] : []),
+  ]
+
   return <section className="alarm-page min-w-0">
     <div className="alarm-view-tabs min-w-0">
-      <SegmentedTabs value={tab} onChange={setTab} ariaLabel="报警与类型" options={[
-        { value: "records", label: "报警记录" },
-        { value: "types", label: "类型管理" },
-        { value: "stats", label: "统计与提醒" },
-      ]} />
+      <SegmentedTabs value={tab} onChange={setTab} ariaLabel="报警与类型" options={tabs} />
     </div>
     {tab === "types" ? <AlarmTypesPanel token={token} rootID={rootID} nodes={nodes} canConfigure={canConfigure} onError={onError} /> : tab === "stats" ? <AlarmStatsPanel token={token} onError={onError} sound={sound} onSound={updateSound} onTest={playTone} /> : <>
       <EmsCard><IonCardContent className="grid min-w-0 gap-4">

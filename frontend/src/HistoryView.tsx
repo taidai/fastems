@@ -47,7 +47,7 @@ function aggregate(samples: Point[], interval: string): { time: number; value: n
   return [...buckets.entries()].sort((a, b) => a[0] - b[0]).map(([time, bucket]) => ({ time, value: bucket.sum / bucket.count }))
 }
 
-function Trend({ series, alarms, start, end }: { series: TrendSeries[]; alarms: AlarmMark[]; start: number; end: number }) {
+function Trend({ series, alarms, start, end, onOpenPoints }: { series: TrendSeries[]; alarms: AlarmMark[]; start: number; end: number; onOpenPoints?: () => void }) {
   const width = 760
   const height = 260
   const pad = 30
@@ -76,7 +76,10 @@ function Trend({ series, alarms, start, end }: { series: TrendSeries[]; alarms: 
         <em>{item.latestValue === undefined ? "无数据" : `${item.latestValue}${item.units}`}</em>
       </span>)}
     </div>
-    {values.length < 2 ? <div className="trend-empty">这段时间内没有足够的数据点</div> : <svg className="trend-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="历史趋势">
+    {values.length < 2 ? <div className="trend-empty">
+      <span>这段时间内没有足够的数据点。确认点位已在“接入建模”中采集；历史每 30 秒归档一次。</span>
+      {onOpenPoints && <button type="button" className="secondary-button" onClick={onOpenPoints}>去检查点位</button>}
+    </div> : <svg className="trend-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="历史趋势">
       {[0.25, 0.5, 0.75].map((ratio) => <line key={ratio} x1={pad} x2={width - pad} y1={pad + ratio * plotH} y2={pad + ratio * plotH} className="trend-grid" />)}
       {marks.map((alarm) => {
         const x = xOf(alarm.at)
@@ -92,12 +95,13 @@ function Trend({ series, alarms, start, end }: { series: TrendSeries[]; alarms: 
   </div>
 }
 
-export default function HistoryView({ token, points, initialPoint, onError, isAdmin = false }: {
+export default function HistoryView({ token, points, initialPoint, onError, isAdmin = false, onOpenPoints }: {
   token: string
   points: Node[]
   initialPoint?: string
   onError: (message: string) => void
   isAdmin?: boolean
+  onOpenPoints?: () => void
 }) {
   const [selected, setSelected] = useState<string[]>(() => {
     const first = initialPoint && points.some((item) => item.id === initialPoint) ? initialPoint : recentPoint(points)
@@ -364,7 +368,7 @@ export default function HistoryView({ token, points, initialPoint, onError, isAd
       <EmsSectionHeader kicker="最近变化" title={title} actions={selected.length === 1 && primary ? <div className="trend-value">{primary.latestValue ?? "—"}<small>{primary.units}</small></div> : undefined} />
       <div className="trend-body mt-4">
         <div className="trend-main">
-          {loading ? <InlineNotice tone="busy">正在读取历史…</InlineNotice> : <Trend series={series} alarms={alarmMarks} start={bounds.start.getTime()} end={bounds.end.getTime()} />}
+          {loading ? <InlineNotice tone="busy">正在读取历史…</InlineNotice> : <Trend series={series} alarms={alarmMarks} start={bounds.start.getTime()} end={bounds.end.getTime()} onOpenPoints={onOpenPoints} />}
         </div>
         <aside className="quality-summary min-w-0" aria-label="数据质量摘要">
           <EmsSectionHeader kicker="数据质量" title="所选时间段" />

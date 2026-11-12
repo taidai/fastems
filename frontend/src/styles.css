@@ -2927,3 +2927,6 @@ body::after {
   .kpi-strip:not(.expanded) .kpi-card.kpi-extra { display: none; }
   .kpi-toggle { display: block; grid-column: 1 / -1; min-height: 34px; border: 1px dashed var(--line); border-radius: 10px; background: rgba(255, 255, 255, 0.6); color: var(--blue); font-size: 12px; }
 }
+
+/* 空数据引导 */
+.kpi-empty-hint { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; border: 1px dashed var(--line); border-radius: 12px; background: rgba(255, 255, 255, 0.62); color: var(--muted); font-size: 12.5px; margin: 0 0 12px; }

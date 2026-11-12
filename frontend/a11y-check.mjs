@@ -42,7 +42,7 @@ for (const spec of pages) {
     await page.locator(".topnav-dropdown button", { hasText: spec.item }).click()
   }
   await page.waitForFunction((title) => document.querySelector(".console-page-head h1")?.textContent?.trim() === title, spec.title, { timeout: 15000 }).catch(() => {})
-  await page.waitForTimeout(500)
+  await page.waitForTimeout(900)
   const scan = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()
   const violations = scan.violations.map((violation) => ({
     id: violation.id,

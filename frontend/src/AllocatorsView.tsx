@@ -245,7 +245,7 @@ export default function AllocatorsView({ token, nodes, groups, points, isAdmin, 
     </div>
 
     <div className="panel allocator-help">
-      <strong>一个总目标，按各台 PCS 当前能力分配</strong>
+      <strong>一个总目标，按各台 PCS（储能变流器）当前能力分配</strong>
       <p>保存只写配置，不会立即下发功率。决策表绑定这个业务节点后，按可用功率比例分配；每台回读成功后才操作下一台，超时停止后续。</p>
     </div>
 

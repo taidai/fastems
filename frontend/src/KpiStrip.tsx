@@ -82,17 +82,20 @@ function thresholdHit(card: Card, threshold?: KpiThreshold) {
   return threshold.direction === "over" ? card.value >= threshold.value : card.value <= threshold.value
 }
 
-export default function KpiStrip({ points, tariff, config, onOpen }: {
+export default function KpiStrip({ points, tariff, config, onOpen, onSetup }: {
   points: Node[]
   tariff: number | null
   config: KpiConfig
   onOpen: (keywords: string[]) => void
+  onSetup?: () => void
 }) {
   const cards = buildCards(points, tariff)
+  const hasValue = cards.some((card) => !card.compact && card.value !== null)
   const [expanded, setExpanded] = useState(false)
   const byKey = new Map(cards.map((card) => [card.key, card]))
   const ordered = config.order.map((key) => byKey.get(key)).filter((card): card is Card => Boolean(card))
-  return <section className={`kpi-strip${expanded ? " expanded" : ""}`} aria-label="站点关键指标">
+  return <>
+  <section className={`kpi-strip${expanded ? " expanded" : ""}`} aria-label="站点关键指标">
     {ordered.map((card, index) => {
       const hit = thresholdHit(card, config.thresholds[card.key])
       return <button
@@ -109,4 +112,9 @@ export default function KpiStrip({ points, tariff, config, onOpen }: {
     })}
     {ordered.length > 4 && <button type="button" className="kpi-toggle" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>{expanded ? "收起指标" : `全部 ${ordered.length} 项指标`}</button>}
   </section>
+  {!hasValue && <div className="kpi-empty-hint">
+    <span>还没有可展示的指标：先接入通道与点位，这里会自动出现收益、用电与需量。</span>
+    {onSetup && <button type="button" className="head-link" onClick={onSetup}>去接入通道 →</button>}
+  </div>}
+  </>
 }
