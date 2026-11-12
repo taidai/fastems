@@ -78,11 +78,11 @@ const title = async (page) => (await page.locator(".console-page-head h1").first
   await siteSelect.selectOption(sourceValue)
   await page.getByLabel("新站名称").fill("二期验收")
   await page.getByRole("button", { name: "预览复用" }).click()
-  await page.waitForTimeout(900)
+  await page.waitForFunction(() => document.body.innerText.includes("待确认"), null, { timeout: 8000 }).catch(() => {})
   const previewText = await page.locator("main").textContent()
   ok(previewText.includes("复用") && previewText.includes("待确认"), "复用预览应显示复用/变化/待确认")
   await page.getByRole("button", { name: "创建新站" }).click()
-  await page.waitForTimeout(1600)
+  await page.waitForFunction(() => document.body.innerText.includes("已创建"), null, { timeout: 15000 }).catch(() => {})
   ok((await page.locator("main").textContent()).includes("已创建"), "创建新站后应显示结果摘要")
 
   // 96 点计划：保存一个时段并看到确认。
@@ -90,7 +90,7 @@ const title = async (page) => (await page.locator(".console-page-head h1").first
   await page.waitForTimeout(700)
   await page.getByLabel("计划时段 00:00").fill("50")
   await page.getByRole("button", { name: "保存 96 点计划" }).click()
-  await page.waitForTimeout(900)
+  await page.waitForFunction(() => document.body.innerText.includes("计划已保存"), null, { timeout: 8000 }).catch(() => {})
   ok((await page.locator("main").textContent()).includes("计划已保存"), "保存计划后应提示已保存")
 
   // 批量换厂商：预览逐点判定并应用。
@@ -102,11 +102,11 @@ const title = async (page) => (await page.locator(".console-page-head h1").first
     await page.getByLabel("目标 Profile").selectOption("enjo-pcs")
     await page.getByLabel("站号范围").fill("1")
     await page.getByRole("button", { name: "预览", exact: true }).click()
-    await page.waitForTimeout(900)
+    await page.waitForFunction(() => document.body.innerText.includes("缺失"), null, { timeout: 8000 }).catch(() => {})
     const applyText = await page.locator("main").textContent()
     ok(applyText.includes("映射") && (applyText.includes("缺失") || applyText.includes("阻断")), "批量应用预览应显示映射与缺失/阻断")
     await page.getByRole("button", { name: "应用此 Profile", exact: true }).click()
-    await page.waitForTimeout(900)
+    await page.waitForFunction(() => document.body.innerText.includes("已应用"), null, { timeout: 8000 }).catch(() => {})
     ok((await page.locator("main").textContent()).includes("已应用"), "应用后应提示已应用")
   }
 
@@ -114,14 +114,15 @@ const title = async (page) => (await page.locator(".console-page-head h1").first
   await page.getByRole("tab", { name: "版本与发布" }).click()
   await page.waitForTimeout(400)
   await page.getByRole("button", { name: "冻结版本" }).click()
-  await page.waitForTimeout(900)
+  await page.waitForFunction(() => document.body.innerText.includes("已冻结版本") || document.body.innerText.includes("预检未通过"), null, { timeout: 8000 }).catch(() => {})
   const blocked = await page.getByRole("button", { name: /预检未通过，仍要冻结版本/ }).count()
   if (blocked > 0) {
     await page.getByRole("button", { name: /预检未通过，仍要冻结版本/ }).first().click()
-    await page.waitForTimeout(1000)
+    await page.waitForFunction(() => document.body.innerText.includes("已冻结版本"), null, { timeout: 8000 }).catch(() => {})
   }
   const versionText = await page.locator("main").textContent()
   ok(versionText.includes("已冻结版本"), "冻结后应显示版本号")
+  await page.waitForFunction(() => document.body.innerText.includes("回退到此版本"), null, { timeout: 8000 }).catch(() => {})
   ok(await page.getByRole("button", { name: "回退到此版本" }).count() > 0, "版本列表应出现回退按钮")
 
   // 回到投运门槛，运行预检。

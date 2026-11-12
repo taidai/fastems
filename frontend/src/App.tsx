@@ -564,7 +564,7 @@ export default function App() {
         ? <select className="console-station" aria-label="当前项目" value={view.roots[0]} onChange={(event) => setStationID(event.target.value)}>
           {snapshot.roots.map((root) => <option key={root} value={root}>{labelForRoot(root)}</option>)}
         </select>
-        : <span className="console-station-label" title="当前项目">{labelForRoot(view.roots[0])}</span>}
+        : labelForRoot(view.roots[0]) !== "FastIOT" && <span className="console-station-label" title="当前项目">{labelForRoot(view.roots[0])}</span>}
       {siteNodes.length > 1 && <select className="console-site" aria-label="当前站点" value={siteID}
         onChange={(event) => { setSiteID(event.target.value); window.localStorage.setItem("fastiot-site", event.target.value) }}>
         {siteNodes.map((site) => <option key={site.id} value={site.id}>{nameOf(site)}</option>)}
