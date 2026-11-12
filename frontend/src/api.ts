@@ -61,7 +61,7 @@ export type TimeCheck = { start?: string; end?: string; weekday_mask?: number; s
 export type Evaluation = { row_id?: string; actions?: Action[]; time_checks?: TimeCheck[] }
 
 export class ApiError extends Error {
-  constructor(message: string, public status: number) {
+  constructor(message: string, public status: number, public code = "") {
     super(message)
   }
 }
@@ -94,7 +94,7 @@ export async function request<T>(token: string, path: string, method = "GET", bo
   })
   if (!response.ok) {
     const result = await response.json().catch(() => ({ error: "" }))
-    throw new ApiError(errorMessage(result.error, response.status), response.status)
+    throw new ApiError(errorMessage(result.error, response.status), response.status, result.error || "")
   }
   return (await response.json()) as T
 }

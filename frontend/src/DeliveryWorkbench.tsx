@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ApiError, nameOf, point, request, type Node } from "./api"
 import { EmsButton, EmsCard, EmsSectionHeader, InlineNotice, SegmentedTabs, StatusBadge, type EmsTone } from "./components/ems"
 import DeployView from "./DeployView"
@@ -94,6 +94,28 @@ export default function DeliveryWorkbench({ token, nodes, siteID, canConfigure, 
 
   const sites = useMemo(() => nodes.filter((node) => node.type === "site"), [nodes])
   const currentSite = siteID || sites[0]?.id || ""
+  // 切换站点后，异步响应可能晚到；用 ref 判断响应是否仍属于当前站点。
+  const currentSiteRef = useRef(currentSite)
+  currentSiteRef.current = currentSite
+
+  useEffect(() => {
+    // 站点作用域的状态必须随站点清空，避免把 A 站的预检/计划/确认状态带到 B 站。
+    setGates(null)
+    setLatest(null)
+    setLedger([])
+    setVersions([])
+    setPlanSlots(Array(96).fill(null))
+    setPlanLoaded(false)
+    setPlanMessage("")
+    setDemand(null)
+    setPublishBlocked(false)
+    setVersionMessage("")
+    setConfirmRollback("")
+    setReusePreview(null)
+    setReuseResult(null)
+    setApplyResult(null)
+    setApplyMessage("")
+  }, [currentSite])
 
   useEffect(() => {
     let cancelled = false
@@ -109,30 +131,38 @@ export default function DeliveryWorkbench({ token, nodes, siteID, canConfigure, 
   }, [token])
 
   const loadGates = useCallback(async () => {
+    const site = currentSite
     try {
-      const query = currentSite ? `?site=${encodeURIComponent(currentSite)}` : ""
-      setGates(await request<PreflightReport>(token, `/delivery/gates${query}`))
+      const query = site ? `?site=${encodeURIComponent(site)}` : ""
+      const report = await request<PreflightReport>(token, `/delivery/gates${query}`)
+      if (site !== currentSiteRef.current) return
+      setGates(report)
       setRefreshedAt(new Date())
     } catch (cause) {
+      if (site !== currentSiteRef.current) return
       if (cause instanceof ApiError && cause.status === 404) return
       onError(cause instanceof Error ? cause.message : "门槛读取失败")
     }
   }, [token, currentSite, onError])
 
   const loadLatest = useCallback(async () => {
+    const site = currentSite
     try {
-      const query = currentSite ? `?site=${encodeURIComponent(currentSite)}` : ""
+      const query = site ? `?site=${encodeURIComponent(site)}` : ""
       const payload = await request<{ latest: PreflightReport | null }>(token, `/delivery/preflight${query}`)
+      if (site !== currentSiteRef.current) return
       setLatest(payload.latest ?? null)
     } catch (cause) {
-      onError(cause instanceof Error ? cause.message : "预检记录读取失败")
+      if (site === currentSiteRef.current) onError(cause instanceof Error ? cause.message : "预检记录读取失败")
     }
   }, [token, currentSite, onError])
 
   const loadLedger = useCallback(async () => {
+    const site = currentSite
     try {
-      const query = currentSite ? `?site=${encodeURIComponent(currentSite)}` : ""
+      const query = site ? `?site=${encodeURIComponent(site)}` : ""
       const result = await request<{ devices: { verified: boolean }[] }>(token, `/device-ledger${query}`)
+      if (site !== currentSiteRef.current) return
       setLedger(result.devices || [])
     } catch {
       // 台账读取失败不阻塞工作台；步骤 6 会显示为未完成。
@@ -169,8 +199,10 @@ export default function DeliveryWorkbench({ token, nodes, siteID, canConfigure, 
 
   const loadVersions = useCallback(async () => {
     if (!currentSite) return
+    const site = currentSite
     try {
-      const result = await request<{ versions: VersionSummary[] }>(token, `/projects/versions?site=${encodeURIComponent(currentSite)}`)
+      const result = await request<{ versions: VersionSummary[] }>(token, `/projects/versions?site=${encodeURIComponent(site)}`)
+      if (site !== currentSiteRef.current) return
       setVersions(result.versions || [])
     } catch {
       // 没有版本或读取失败时保持空列表，不阻塞工作台。
@@ -218,18 +250,21 @@ export default function DeliveryWorkbench({ token, nodes, siteID, canConfigure, 
 
   useEffect(() => {
     if (step !== "rules" || !currentSite) return
+    const site = currentSite
     void (async () => {
       try {
-        const plan = await request<{ slots: (number | null)[] }>(token, `/projects/plan96?site=${encodeURIComponent(currentSite)}`)
+        const plan = await request<{ slots: (number | null)[] }>(token, `/projects/plan96?site=${encodeURIComponent(site)}`)
+        if (site !== currentSiteRef.current) return
         setPlanSlots(Array.isArray(plan.slots) && plan.slots.length === 96 ? plan.slots : Array(96).fill(null))
         setPlanLoaded(true)
       } catch {
-        setPlanLoaded(false)
+        if (site === currentSiteRef.current) setPlanLoaded(false)
       }
       try {
-        setDemand(await request<DemandResponse>(token, `/demand?site=${encodeURIComponent(currentSite)}`))
+        const result = await request<DemandResponse>(token, `/demand?site=${encodeURIComponent(site)}`)
+        if (site === currentSiteRef.current) setDemand(result)
       } catch {
-        setDemand(null)
+        if (site === currentSiteRef.current) setDemand(null)
       }
     })()
   }, [step, currentSite, token])
@@ -345,7 +380,7 @@ export default function DeliveryWorkbench({ token, nodes, siteID, canConfigure, 
       points: points === "pass",
       model: counts.units > 0,
       rules: rules === "pass",
-      commission: counts.verified > 0 && commands === "pass",
+      commission: counts.devices > 0 && counts.verified === counts.devices && commands === "pass",
       preflight: latest?.status === "pass",
     }
     const warn: Record<StepKey, boolean> = {
@@ -354,7 +389,7 @@ export default function DeliveryWorkbench({ token, nodes, siteID, canConfigure, 
       points: points === "warn",
       model: false,
       rules: rules === "warn",
-      commission: commands === "warn",
+      commission: commands === "warn" || (counts.devices > 0 && counts.verified < counts.devices),
       preflight: latest?.status === "warn",
     }
     const current = steps.find((item) => !done[item.key])?.key || "preflight"
@@ -391,22 +426,22 @@ export default function DeliveryWorkbench({ token, nodes, siteID, canConfigure, 
 
   return <section className="workbench-page grid gap-3">
     <div className="grid items-start gap-4 lg:grid-cols-[232px_1fr]">
-      <div className="flex gap-1 overflow-x-auto rounded-xl border border-ems-line bg-white/60 p-2 lg:grid lg:gap-1 lg:overflow-visible">
+      <div className="workbench-steps flex gap-1 overflow-x-auto rounded-xl border border-ems-line bg-white/60 p-2 lg:grid lg:gap-1 lg:overflow-visible">
         {steps.map((item, index) => {
           const done = stepState.done[item.key]
           const warn = stepState.warn[item.key]
           const isCurrent = stepState.current === item.key
           return <button key={item.key} onClick={() => setStep(item.key)}
             className={`flex shrink-0 items-center gap-2 rounded-lg px-2 py-2 text-left text-sm lg:w-auto ${step === item.key ? "bg-white shadow-sm" : "hover:bg-white/70"}`}>
-            <span className={`grid h-6 w-6 flex-none place-items-center rounded-full border text-xs ${done ? "border-emerald-500 text-emerald-600" : warn ? "border-amber-500 text-amber-600" : isCurrent ? "border-sky-500 text-sky-600" : "border-slate-300 text-slate-400"}`}>
+            <span className={`grid h-6 w-6 flex-none place-items-center rounded-full border text-xs ${done ? "border-emerald-500 text-emerald-600" : warn ? "border-amber-500 text-amber-700" : isCurrent ? "border-sky-500 text-sky-700" : "border-slate-300 text-slate-400"}`}>
               {done ? "✓" : index + 1}
             </span>
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            {!done && warn && <span className="text-[10px] text-amber-600">部分</span>}
-            {!done && !warn && isCurrent && <span className="text-[10px] text-sky-600">进行中</span>}
+            {!done && warn && <span className="text-[11px] text-amber-700">部分</span>}
+            {!done && !warn && isCurrent && <span className="text-[11px] text-sky-700">进行中</span>}
           </button>
         })}
-        <p className="m-0 hidden shrink-0 px-2 pt-1 text-[10px] leading-4 text-ems-muted lg:block">状态从数据推导：有通道、有点位、有单元、有启用规则、有验证设备、最近预检通过。</p>
+        <p className="m-0 hidden shrink-0 px-2 pt-1 text-[11px] leading-4 text-ems-muted lg:block">状态从数据推导：有通道、有点位、有单元、有启用规则、有验证设备、最近预检通过。</p>
       </div>
 
       <div className="grid gap-3">
@@ -506,12 +541,12 @@ export default function DeliveryWorkbench({ token, nodes, siteID, canConfigure, 
             <div className="overflow-x-auto">
               <div className="grid gap-1" style={{ minWidth: 760 }}>
                 {[0, 1, 2, 3].map((row) => <div key={row} className="grid grid-cols-[42px_1fr] items-center gap-2">
-                <span className="text-[10px] text-ems-muted">{String(row * 15).padStart(2, "0")} 分</span>
+                <span className="text-[11px] text-ems-muted">{String(row * 15).padStart(2, "0")} 分</span>
                 <div className="grid gap-1" style={{ gridTemplateColumns: "repeat(24, minmax(0, 1fr))" }}>
                   {Array.from({ length: 24 }, (_, hour) => {
                     const index = hour * 4 + row
                     const value = planSlots[index]
-                    return <input key={index} className="ems-input w-full px-1 text-center text-[10px]" inputMode="decimal"
+                    return <input key={index} className="ems-input w-full px-1 text-center text-[11px]" inputMode="decimal"
                       aria-label={`计划时段 ${String(hour).padStart(2, "0")}:${String(row * 15).padStart(2, "0")}`}
                       value={value === null ? "" : String(value)} placeholder="—"
                       onChange={(event) => {
@@ -527,7 +562,7 @@ export default function DeliveryWorkbench({ token, nodes, siteID, canConfigure, 
                 </div>)}
               </div>
             </div>
-            <p className="m-0 text-[10px] text-ems-muted lg:hidden">左右滑动查看全天时段</p>
+            <p className="m-0 text-[11px] text-ems-muted lg:hidden">左右滑动查看全天时段</p>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-xs text-ems-muted">{planMessage || (planLoaded ? "计划已加载；留空表示该时段无计划" : "正在读取计划…")}</span>
               <EmsButton busy={planBusy} disabled={!currentSite} onClick={() => void savePlan()}>保存 96 点计划</EmsButton>

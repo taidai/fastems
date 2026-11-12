@@ -90,8 +90,9 @@ function commandStatus(node: Node) {
 
 function errorMessage(error: unknown) {
   if (!(error instanceof Error)) return "操作失败"
-  if (error.message.startsWith("used_by_rule")) return "此对象仍被规则引用，请先换绑或删除相关规则"
-  if (error.message.startsWith("move_would_break_rule")) return "移动会使规则失去目标，请先调整绑定"
+  const code = error instanceof ApiError && error.code ? error.code : error.message
+  if (code.startsWith("used_by_rule")) return "此对象仍被规则引用，请先换绑或删除相关规则"
+  if (code.startsWith("move_would_break_rule")) return "移动会使规则失去目标，请先调整绑定"
   const messages: Record<string, string> = {
     unauthorized: "登录已过期，请重新登录",
     no_access: "此账号尚未分配 FastIOT 权限",
@@ -107,7 +108,7 @@ function errorMessage(error: unknown) {
     invalid_move: "不能移动到此位置",
     move_would_break_rule: "移动会使规则失去目标，请先调整绑定",
   }
-  return messages[error.message] || error.message
+  return messages[code] || error.message
 }
 
 function channelState(node: Node) {
@@ -344,23 +345,6 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (!token) return
-    const load = async () => {
-      try {
-        const result = await fetchAlarms(token)
-        const list = result.alarms || []
-        setAlarms(list)
-        setAlarmCount(list.filter((alarm) => alarm.active && !(alarm.maintenance_until && new Date(alarm.maintenance_until).getTime() > Date.now())).length)
-      } catch {
-        // 顶栏报警计数失败不阻塞工作台
-      }
-    }
-    void load()
-    const timer = window.setInterval(() => void load(), 5000)
-    return () => window.clearInterval(timer)
-  }, [token])
-
-  useEffect(() => {
     if (!navMenu) return
     const close = (event: PointerEvent) => {
       if (!navRef.current?.contains(event.target as globalThis.Node)) setNavMenu(null)
@@ -407,6 +391,27 @@ export default function App() {
     const base = subtreeSnapshot(snapshot, stationID || snapshot.roots[0] || "")
     return siteID ? siteSnapshot(base, siteID) : base
   }, [snapshot, stationID, siteID])
+
+  useEffect(() => {
+    if (!token) return
+    const load = async () => {
+      try {
+        const result = await fetchAlarms(token)
+        const scope = new Set((activeSnapshot?.nodes || []).map((node) => node.id))
+        const visible = (result.alarms || []).filter((alarm) => {
+          const refs = [alarm.point_id, alarm.device_id, alarm.group_id].filter(Boolean) as string[]
+          return refs.length === 0 || refs.some((id) => scope.has(id))
+        })
+        setAlarms(visible)
+        setAlarmCount(visible.filter((alarm) => alarm.active && !(alarm.maintenance_until && new Date(alarm.maintenance_until).getTime() > Date.now())).length)
+      } catch {
+        // 顶栏报警计数失败不阻塞工作台
+      }
+    }
+    void load()
+    const timer = window.setInterval(() => void load(), 5000)
+    return () => window.clearInterval(timer)
+  }, [token, activeSnapshot])
 
   const siteNodes = useMemo(() => snapshot?.nodes.filter((node) => node.type === "site") ?? [], [snapshot])
   useEffect(() => {
@@ -548,6 +553,8 @@ export default function App() {
     return node ? nameOf(node) : "本站"
   }
   const stationName = labelForRoot(view.roots[0])
+  const currentSite = siteNodes.find((node) => node.id === siteID)
+  const currentSiteName = currentSite ? nameOf(currentSite) : stationName
   const tabs = [
     { key: "run", label: "运行", icon: "home" as IconName, workbench: "customer" as Workbench, pages: ["devices", "screen", "alarms", "dispatchTrace", "history", "health", "ledger"] },
     { key: "ems", label: "EMS 业务", icon: "sliders" as IconName, workbench: "delivery" as Workbench, pages: ["energyUnits", "resourceGroups", "allocators", "rules"] },
@@ -621,14 +628,14 @@ export default function App() {
           </div>}
         </div>
         <button className="console-icon" title="活动报警" aria-label="活动报警" onClick={() => setPage("alarms")}><Icon name="bell" size={25} />{alarmCount > 0 && <em>{alarmCount}</em>}</button>
-        <span className="console-user">楼顶 · {roleNames[view.user.policy.role] || "用户"}</span>
+        <span className="console-user">{(view.user.email || "当前账号")} · {roleNames[view.user.policy.role] || "用户"}</span>
         <time>{clock.toLocaleTimeString("zh-CN", { hour12: false })}</time>
         {isAdmin && <button className="console-profile" aria-label="账号与权限" title={view.user.email || view.user.user_id} onClick={() => setPage("users")}><Icon name="user" size={23} /><span>{(view.user.email || view.user.user_id).split("@")[0]}</span></button>}
         <button className="console-exit" title="退出登录" aria-label="退出登录" onClick={() => { sessionStorage.removeItem("fastiot-token"); setToken(""); setSnapshot(null) }}>退出</button>
       </div>
     </header>
 
-    <main className="console-main">
+    <main className={`console-main${page === "devices" ? " overview-page" : ""}`}>
       <div className={`console-page-head ${page === "devices" ? "overview-heading" : ""}`}>
         <h1>{currentInfo.title}</h1>
         {page === "devices" && <HealthSummary
@@ -655,7 +662,7 @@ export default function App() {
 
       <div className="console-stage">
       {page === "devices" && <DevicesView
-        snapshot={view} points={points} groups={groups} rules={rules.length} activeRules={activeRules.length} errors={errors.length}
+        snapshot={view} points={points} siteName={currentSiteName} groups={groups} rules={rules.length} activeRules={activeRules.length} errors={errors.length}
         alarmCount={alarmCount} busy={busy} isAdmin={canConfigure} canConfigure={canConfigure} canOperate={canOperate} run={run} openPoint={openPoint}
         goRules={() => setPage("rules")} goHistory={() => setPage("history")} goChannels={() => setPage("channels")} goEnergyUnits={() => setPage("energyUnits")} goDispatchTrace={() => setPage("dispatchTrace")} goAlarms={() => setPage("alarms")} dispatch={dispatch} latestAlarm={latestAlarm} tariff={tariff}
         kpiConfig={kpiConfig}
@@ -693,7 +700,7 @@ export default function App() {
 
       {page === "energyUnits" && canConfigure && <EnergyUnitsView token={token} nodes={view.nodes} onError={setError} />}
       {page === "resourceGroups" && canConfigure && <ResourceGroupsView token={token} onError={setError} />}
-      {page === "dispatchTrace" && <DispatchTraceView token={token} onError={setError} />}
+      {page === "dispatchTrace" && <DispatchTraceView token={token} nodes={view.nodes} onError={setError} />}
       {page === "opcua" && canConfigure && <OpcuaView token={token} onError={setError} />}
       {page === "unitWiring" && canConfigure && <UnitWiringView token={token} nodes={view.nodes} onError={setError} />}
 
@@ -752,8 +759,8 @@ export default function App() {
 
 type Run = (action: () => Promise<unknown>) => Promise<boolean>
 
-function DevicesView({ snapshot, points, groups, rules, activeRules, errors, alarmCount, busy, isAdmin, canConfigure, canOperate, run, openPoint, goRules, goHistory, goChannels, goEnergyUnits, goDispatchTrace, goAlarms, dispatch, latestAlarm, tariff, kpiConfig, onError }: {
-  snapshot: Snapshot; points: Node[]; groups: Node[]; rules: number; activeRules: number; errors: number; alarmCount: number
+function DevicesView({ snapshot, points, siteName, groups, rules, activeRules, errors, alarmCount, busy, isAdmin, canConfigure, canOperate, run, openPoint, goRules, goHistory, goChannels, goEnergyUnits, goDispatchTrace, goAlarms, dispatch, latestAlarm, tariff, kpiConfig, onError }: {
+  snapshot: Snapshot; points: Node[]; siteName: string; groups: Node[]; rules: number; activeRules: number; errors: number; alarmCount: number
   busy: boolean; isAdmin: boolean; canConfigure: boolean; canOperate: boolean; run: Run; goRules: () => void; goHistory: () => void; goChannels: () => void; goEnergyUnits: () => void; goDispatchTrace: () => void; goAlarms: () => void; dispatch: DispatchInfo | null
   latestAlarm: EmsAlarm | null
   tariff: number | null
@@ -780,7 +787,7 @@ function DevicesView({ snapshot, points, groups, rules, activeRules, errors, ala
   return <>
     <KpiStrip points={points} tariff={tariff} config={kpiConfig} onOpen={openPoint} />
 
-    <EnergyFlow points={points} onOpenPoint={openPoint} onOpenTrends={goHistory} dispatch={dispatch} event={{
+    <EnergyFlow points={points} siteName={siteName} onOpenPoint={openPoint} onOpenTrends={goHistory} dispatch={dispatch} event={{
       activeRules, rules, alarmCount, errors, pointCount: points.length, onOpenRules: goRules,
       onOpenTrace: goDispatchTrace, onOpenAlarms: goAlarms,
       latestAlarm: latestAlarm ? { title: latestAlarm.title, severity: latestAlarm.severity, at: latestAlarm.created_at } : undefined,

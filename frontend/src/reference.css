@@ -42,7 +42,7 @@
   .console-top-actions time { padding: 10px 0 10px 14px; border-left: 1px solid rgba(255,255,255,.6); color: #111b23; font-size: 18px; }
   .console-profile { min-height: 44px; padding: 0 0 0 12px; display: flex; align-items: center; gap: 7px; border: 0; border-left: 1px solid rgba(255,255,255,.6); background: none; color: #111b23; font-size: 17px; }
   .console-profile span { max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .console-exit { min-height: 44px; padding: 0 2px; color: #6b7d8d; font-size: 12px; }
+  .console-exit { min-height: 44px; padding: 0 2px; color: #3f4f61; font-size: 12px; }
 
   .console-main { flex: 1; min-height: 0; width: 100%; max-width: none; margin: 0; padding: 0 22px; display: flex; flex-direction: column; overflow: hidden; }
   .console-page-head { flex: 0 0 50px; height: 50px; min-height: 50px; margin: 0 0 10px; padding: 0 10px; display: flex; align-items: center; gap: 20px; }
@@ -315,7 +315,7 @@
    玻璃风本身可以很好看，关键是别做得太透、布局别乱。 */
 :root {
   --ink: #1A2A33;
-  --muted: #6B7C88;
+  --muted: #4c5d72;
   --line: #E4E9EE;
   --accent: #0E7C7B;
 }

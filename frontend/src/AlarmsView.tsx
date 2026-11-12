@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { IonCardContent } from "@ionic/react"
 import { ackAlarm, closeAlarm, EmsAlarm, fetchAlarms, maintainAlarm, nameOf, Node, releaseAlarm } from "./api"
 import AlarmTypesPanel from "./AlarmTypesPanel"
@@ -47,6 +47,13 @@ export default function AlarmsView({ token, rootID, nodes, canOperate, canConfig
 
   const names = new Map(nodes.map((node) => [node.id, nameOf(node)]))
   const nameOfDevice = (id?: string) => (id ? names.get(id) || id : "—")
+
+  // 页面标题与设备树都按站点裁剪，报警列表也必须一致：只展示引用到当前站点节点（或无引用）的报警。
+  const scopeIDs = useMemo(() => new Set(nodes.map((node) => node.id)), [nodes])
+  const scopedAlarms = useMemo(() => alarms.filter((alarm) => {
+    const refs = [alarm.point_id, alarm.device_id, alarm.group_id].filter(Boolean) as string[]
+    return refs.length === 0 || refs.some((id) => scopeIDs.has(id))
+  }), [alarms, scopeIDs])
 
   const load = useCallback(async () => {
     try {
@@ -100,7 +107,7 @@ export default function AlarmsView({ token, rootID, nodes, canOperate, canConfig
   }
 
   useEffect(() => {
-    const active = alarms.filter((alarm) => alarm.active && !(alarm.maintenance_until && new Date(alarm.maintenance_until).getTime() > Date.now()))
+    const active = scopedAlarms.filter((alarm) => alarm.active && !(alarm.maintenance_until && new Date(alarm.maintenance_until).getTime() > Date.now()))
     const keys = new Set(active.map((alarm) => alarm.id))
     for (const key of soundedRef.current) if (!keys.has(key)) soundedRef.current.delete(key)
     if (!sound.enabled || inSilenceWindow(sound)) return
@@ -108,7 +115,7 @@ export default function AlarmsView({ token, rootID, nodes, canOperate, canConfig
     if (fresh.length === 0) return
     for (const alarm of fresh) soundedRef.current.add(alarm.id)
     playTone()
-  }, [alarms, sound])
+  }, [scopedAlarms, sound])
 
   async function act(alarm: EmsAlarm, action: "ack" | "close" | "release") {
     if (action === "ack") { setAckTarget(alarm); return }
@@ -149,20 +156,20 @@ export default function AlarmsView({ token, rootID, nodes, canOperate, canConfig
   }
 
   const needsAttention = (alarm: EmsAlarm) => alarm.active && !isMaintained(alarm)
-  const active = alarms.filter(needsAttention)
+  const active = scopedAlarms.filter(needsAttention)
   const unacked = active.filter((alarm) => alarm.state === "active")
-  const maintained = alarms.filter((alarm) => alarm.active && isMaintained(alarm))
-  const resolved = alarms.filter((alarm) => !alarm.active && alarm.state !== "closed")
+  const maintained = scopedAlarms.filter((alarm) => alarm.active && isMaintained(alarm))
+  const resolved = scopedAlarms.filter((alarm) => !alarm.active && alarm.state !== "closed")
 
   const childrenByGroup = new Map<string, EmsAlarm[]>()
-  for (const alarm of alarms) {
+  for (const alarm of scopedAlarms) {
     if (!alarm.group_id) continue
     const list = childrenByGroup.get(alarm.group_id) || []
     list.push(alarm)
     childrenByGroup.set(alarm.group_id, list)
   }
   const visibleChildren = (id: string) => (childrenByGroup.get(id) || []).filter((child) => filter === "all" || needsAttention(child))
-  const shown = alarms.filter((alarm) => !alarm.group_id && (filter === "all" || needsAttention(alarm) || visibleChildren(alarm.id).length > 0))
+  const shown = scopedAlarms.filter((alarm) => !alarm.group_id && (filter === "all" || needsAttention(alarm) || visibleChildren(alarm.id).length > 0))
 
   function toggleGroup(id: string) {
     setExpanded((current) => {
@@ -175,7 +182,7 @@ export default function AlarmsView({ token, rootID, nodes, canOperate, canConfig
 
   function exportAlarms() {
     const rows = [["时间", "级别", "标题", "详情", "对象", "根因", "次数", "状态", "确认人", "处理说明"]]
-    for (const alarm of alarms) {
+    for (const alarm of scopedAlarms) {
       rows.push([timeOf(alarm.created_at), alarm.severity, alarm.title, alarm.detail || "", nameOfDevice(alarm.device_id), nameOfDevice(alarm.root_cause), String(alarm.count || 1), alarm.state, alarm.acked_by || "", alarm.ack_note || ""])
     }
     const csv = rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",")).join(String.fromCharCode(10))

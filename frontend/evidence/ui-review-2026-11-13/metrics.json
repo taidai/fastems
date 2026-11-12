@@ -1,0 +1,275 @@
+[
+  {
+    "page": "overview",
+    "width": "375",
+    "vw": 375,
+    "scrollW": 375,
+    "topbarH": 106,
+    "mainW": 375,
+    "h1": "站点总览",
+    "overflows": []
+  },
+  {
+    "page": "delivery",
+    "width": "375",
+    "vw": 375,
+    "scrollW": 375,
+    "topbarH": 106,
+    "mainW": 375,
+    "h1": "交付工作台",
+    "overflows": [
+      {
+        "tag": "div",
+        "cls": "topnav-item",
+        "right": 391
+      },
+      {
+        "tag": "button",
+        "cls": "topnav-trigger",
+        "right": 391
+      },
+      {
+        "tag": "span",
+        "cls": "topnav-caret",
+        "right": 379
+      },
+      {
+        "tag": "div",
+        "cls": "topnav-item active",
+        "right": 510
+      },
+      {
+        "tag": "button",
+        "cls": "topnav-trigger",
+        "right": 510
+      },
+      {
+        "tag": "svg",
+        "cls": "[object SVGAnimatedString]",
+        "right": 421
+      },
+      {
+        "tag": "circle",
+        "cls": "[object SVGAnimatedString]",
+        "right": 415
+      },
+      {
+        "tag": "path",
+        "cls": "[object SVGAnimatedString]",
+        "right": 419
+      }
+    ]
+  },
+  {
+    "page": "ledger",
+    "width": "375",
+    "vw": 375,
+    "scrollW": 375,
+    "topbarH": 106,
+    "mainW": 375,
+    "h1": "设备台账",
+    "overflows": [
+      {
+        "tag": "div",
+        "cls": "topnav-item",
+        "right": 446
+      },
+      {
+        "tag": "button",
+        "cls": "topnav-trigger",
+        "right": 446
+      },
+      {
+        "tag": "span",
+        "cls": "",
+        "right": 419
+      },
+      {
+        "tag": "span",
+        "cls": "topnav-caret",
+        "right": 434
+      }
+    ]
+  },
+  {
+    "page": "trace",
+    "width": "375",
+    "vw": 375,
+    "scrollW": 375,
+    "topbarH": 106,
+    "mainW": 375,
+    "h1": "调度追溯",
+    "overflows": []
+  },
+  {
+    "page": "alarms",
+    "width": "375",
+    "vw": 375,
+    "scrollW": 375,
+    "topbarH": 106,
+    "mainW": 375,
+    "h1": "报警与事件",
+    "overflows": []
+  },
+  {
+    "page": "overview",
+    "width": "768",
+    "vw": 768,
+    "scrollW": 768,
+    "topbarH": 105,
+    "mainW": 768,
+    "h1": "站点总览",
+    "overflows": []
+  },
+  {
+    "page": "delivery",
+    "width": "768",
+    "vw": 768,
+    "scrollW": 768,
+    "topbarH": 105,
+    "mainW": 768,
+    "h1": "交付工作台",
+    "overflows": [
+      {
+        "tag": "button",
+        "cls": "flex shrink-0 items-center gap-2 rounded",
+        "right": 794
+      },
+      {
+        "tag": "span",
+        "cls": "min-w-0 flex-1 truncate",
+        "right": 786
+      }
+    ]
+  },
+  {
+    "page": "ledger",
+    "width": "768",
+    "vw": 768,
+    "scrollW": 768,
+    "topbarH": 105,
+    "mainW": 768,
+    "h1": "设备台账",
+    "overflows": []
+  },
+  {
+    "page": "trace",
+    "width": "768",
+    "vw": 768,
+    "scrollW": 768,
+    "topbarH": 105,
+    "mainW": 768,
+    "h1": "调度追溯",
+    "overflows": []
+  },
+  {
+    "page": "alarms",
+    "width": "768",
+    "vw": 768,
+    "scrollW": 768,
+    "topbarH": 105,
+    "mainW": 768,
+    "h1": "报警与事件",
+    "overflows": []
+  },
+  {
+    "page": "overview",
+    "width": "1280",
+    "vw": 1280,
+    "scrollW": 1280,
+    "topbarH": 59,
+    "mainW": 1270,
+    "h1": "站点总览",
+    "overflows": []
+  },
+  {
+    "page": "delivery",
+    "width": "1280",
+    "vw": 1280,
+    "scrollW": 1280,
+    "topbarH": 59,
+    "mainW": 1270,
+    "h1": "交付工作台",
+    "overflows": []
+  },
+  {
+    "page": "ledger",
+    "width": "1280",
+    "vw": 1280,
+    "scrollW": 1280,
+    "topbarH": 59,
+    "mainW": 1270,
+    "h1": "设备台账",
+    "overflows": []
+  },
+  {
+    "page": "trace",
+    "width": "1280",
+    "vw": 1280,
+    "scrollW": 1280,
+    "topbarH": 59,
+    "mainW": 1270,
+    "h1": "调度追溯",
+    "overflows": []
+  },
+  {
+    "page": "alarms",
+    "width": "1280",
+    "vw": 1280,
+    "scrollW": 1280,
+    "topbarH": 59,
+    "mainW": 1270,
+    "h1": "报警与事件",
+    "overflows": []
+  },
+  {
+    "page": "overview",
+    "width": "1632",
+    "vw": 1632,
+    "scrollW": 1632,
+    "topbarH": 75,
+    "mainW": 1617,
+    "h1": "站点总览",
+    "overflows": []
+  },
+  {
+    "page": "delivery",
+    "width": "1632",
+    "vw": 1632,
+    "scrollW": 1632,
+    "topbarH": 75,
+    "mainW": 1617,
+    "h1": "交付工作台",
+    "overflows": []
+  },
+  {
+    "page": "ledger",
+    "width": "1632",
+    "vw": 1632,
+    "scrollW": 1632,
+    "topbarH": 75,
+    "mainW": 1617,
+    "h1": "设备台账",
+    "overflows": []
+  },
+  {
+    "page": "trace",
+    "width": "1632",
+    "vw": 1632,
+    "scrollW": 1632,
+    "topbarH": 75,
+    "mainW": 1617,
+    "h1": "调度追溯",
+    "overflows": []
+  },
+  {
+    "page": "alarms",
+    "width": "1632",
+    "vw": 1632,
+    "scrollW": 1632,
+    "topbarH": 75,
+    "mainW": 1617,
+    "h1": "报警与事件",
+    "overflows": []
+  }
+]

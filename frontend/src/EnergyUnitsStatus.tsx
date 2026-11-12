@@ -49,7 +49,7 @@ export default function EnergyUnitsStatus({ nodes, onOpen, token, canOperate, ca
   canOperate?: boolean
   canConfigure?: boolean
 }) {
-  const [pending, setPending] = useState<{ id: string; action: string } | null>(null)
+  const [pending, setPending] = useState<{ id: string; action: string; mode?: "auto" | "manual" } | null>(null)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<{ tone: "success" | "warning" | "danger"; text: string } | null>(null)
   const units = useMemo(() => nodes.filter((node) => node.type === "energyUnit"), [nodes])
@@ -83,6 +83,10 @@ export default function EnergyUnitsStatus({ nodes, onOpen, token, canOperate, ca
       setBusy(false)
     }
   }
+
+  const pendingLabel = (target: { action: string; mode?: "auto" | "manual" }) => target.action === "mode"
+    ? (target.mode === "manual" ? "人工接管" : "恢复自动")
+    : ({ start: "启动", stop: "停机", enter_maintenance: "进入检修", exit_maintenance: "退出检修", fault_clear: "确认故障解除" }[target.action] || target.action)
 
   return <EmsCard>
     <IonCardContent className="grid gap-4">
@@ -122,16 +126,16 @@ export default function EnergyUnitsStatus({ nodes, onOpen, token, canOperate, ca
             {canOperate && token && <div className="grid gap-2 border-t border-ems-line pt-2">
               {pending?.id === unit.id
                 ? <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs text-ems-muted">确认对 {nameOf(unit)} 执行“{pending.action === "start" ? "启动" : "停机"}”？</span>
-                    <EmsButton size="small" busy={busy} busyLabel="提交中…" onClick={() => void act(unit, pending.action)}>确认</EmsButton>
-                    <EmsButton size="small" variant="quiet" onClick={() => setPending(null)}>取消</EmsButton>
+                    <span className="text-xs text-ems-muted">确认对 {nameOf(unit)} 执行“{pendingLabel(pending)}”？</span>
+                    <EmsButton size="small" busy={busy} busyLabel="提交中…" onClick={() => void act(unit, pending.action, pending.mode)}>确认</EmsButton>
+                    <EmsButton size="small" variant="quiet" disabled={busy} onClick={() => setPending(null)}>取消</EmsButton>
                   </div>
                 : <div className="flex flex-wrap gap-2">
-                    {canStart && <EmsButton size="small" onClick={() => setPending({ id: unit.id, action: "start" })}>启动</EmsButton>}
-                    {canStop && <EmsButton size="small" variant="secondary" onClick={() => setPending({ id: unit.id, action: "stop" })}>停机</EmsButton>}
-                    {state !== "fault" && <EmsButton size="small" variant="secondary" onClick={() => void act(unit, inMaintenance ? "exit_maintenance" : "enter_maintenance")}>{inMaintenance ? "退出检修" : "进入检修"}</EmsButton>}
-                    {state === "fault" && <EmsButton size="small" variant="danger" onClick={() => void act(unit, "fault_clear")}>确认故障解除</EmsButton>}
-                    <EmsButton size="small" variant="quiet" onClick={() => void act(unit, "mode", manual === "人工" ? "auto" : "manual")}>
+                    {canStart && <EmsButton size="small" disabled={busy} onClick={() => setPending({ id: unit.id, action: "start" })}>启动</EmsButton>}
+                    {canStop && <EmsButton size="small" variant="secondary" disabled={busy} onClick={() => setPending({ id: unit.id, action: "stop" })}>停机</EmsButton>}
+                    {state !== "fault" && <EmsButton size="small" variant="secondary" disabled={busy} onClick={() => setPending({ id: unit.id, action: inMaintenance ? "exit_maintenance" : "enter_maintenance" })}>{inMaintenance ? "退出检修" : "进入检修"}</EmsButton>}
+                    {state === "fault" && <EmsButton size="small" variant="danger" disabled={busy} onClick={() => setPending({ id: unit.id, action: "fault_clear" })}>确认故障解除</EmsButton>}
+                    <EmsButton size="small" variant="quiet" disabled={busy} onClick={() => setPending({ id: unit.id, action: "mode", mode: manual === "人工" ? "auto" : "manual" })}>
                       {manual === "人工" ? "恢复自动" : "人工接管"}
                     </EmsButton>
                   </div>}

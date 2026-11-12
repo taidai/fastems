@@ -4,12 +4,12 @@
   color: #203044;
   font-synthesis: none;
   --ink: #203044;
-  --muted: #637489;
-  --faint: #8b99aa;
-  --mint: #2d8f78;
-  --blue: #3e79b1;
-  --amber: #b07a2a;
-  --danger: #b14b53;
+  --muted: #4c5d72;
+  --faint: #5d6f83;
+  --mint: #23705f;
+  --blue: #31669b;
+  --amber: #8f5f19;
+  --danger: #a13f48;
   --line: rgba(110, 135, 165, 0.14);
   --card-line: rgba(255, 255, 255, 0.78);
   --glass: rgba(255, 255, 255, 0.7);
@@ -149,7 +149,7 @@ h3 { margin-bottom: 0; }
   backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
   box-shadow: 0 12px 30px rgba(38, 69, 105, 0.09);
 }
-.live-status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.live-status { display: flex; align-items: center; gap: 8px; color: #34434f; font-size: 12px; white-space: nowrap; }
 .pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 0 4px rgba(45, 143, 120, 0.1); }
 .panel, .rule-editor {
   border: 1px solid var(--card-line);
@@ -893,10 +893,20 @@ h1, h2, h3 { color: var(--ink); }
   background: linear-gradient(145deg, #ffffff, #dbe3e7); color: #2c3b44; font-weight: 700; font-size: 12px;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.8), 0 2px 6px rgba(31, 46, 58, 0.1);
 }
-.console-exit { border: 0; background: none; color: var(--faint); font-size: 11px; padding: 6px; }
+.console-exit { border: 0; background: none; color: #3f4f61; font-size: 11px; padding: 6px; }
 .console-exit:hover { color: var(--ink); }
 
 .console-main { max-width: 1680px; margin: 0 auto; padding: 18px clamp(16px, 3vw, 34px) 28px; }
+/* 运行/建模等文字型页面：内容放在浅色底板上，避免文字直接叠在场景图上。 */
+.console-main:not(.overview-page) .console-stage {
+  padding: clamp(10px, 1.2vw, 18px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 16px;
+  background: rgba(248, 251, 253, 0.92);
+  backdrop-filter: blur(18px) saturate(1.05);
+  -webkit-backdrop-filter: blur(18px) saturate(1.05);
+  box-shadow: 0 18px 40px rgba(38, 69, 105, 0.1);
+}
 .console-main :is(button, input, select, summary, a) { scroll-margin-top: 86px; }
 .console-page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
 .console-crumb { color: var(--faint); font-size: 11px; letter-spacing: 0.08em; }
@@ -1465,8 +1475,8 @@ h1, h2, h3 { color: var(--ink); }
 :root {
   font-family: "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   --ink: #1f3550;
-  --muted: #5b7590;
-  --faint: #647b91;
+  --muted: #4c5d72;
+  --faint: #5a6f84;
   --blue: #2f6f9f;
   --mint: #2B8A57;
   --danger: #b23a32;
@@ -2897,3 +2907,16 @@ body::after {
 /* 当前站点选择：与项目选择同款外观，窄屏收窄。 */
 .console-site { height: 38px; min-height: 38px; max-width: 180px; padding: 0 30px 0 10px; border: 1px solid #b7c8dc; border-radius: 8px; background-color: rgba(248, 251, 255, 0.8); color: #131b22; font-size: 13px; }
 @media (max-width: 720px) { .console-site { max-width: 110px; font-size: 12px; padding: 0 24px 0 8px; } }
+
+/* 列表行可键盘激活 */
+.ems-row-clickable { cursor: pointer; }
+.ems-row-clickable:focus-visible,
+.ems-record-card[role="button"]:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+
+/* 窄屏：步骤条换行展示，导航露出可滑动提示，能源管家收成图标 */
+@media (max-width: 720px) {
+  .workbench-steps.workbench-steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; overflow: visible; }
+  .workbench-steps > button { width: auto; }
+  .console-topnav.console-topnav { mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent); -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent); }
+  .assistant-fab.assistant-fab { width: 44px; min-width: 44px; height: 44px; padding: 0; justify-content: center; right: 12px; bottom: 12px; }
+}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ComponentProps, type ReactNode } from "react"
+import { useEffect, useRef, type ComponentProps, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 import { IonBadge, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonInput, IonSelect, IonSelectOption } from "@ionic/react"
 
@@ -35,10 +35,10 @@ export function EmsSelect({ label, hint, error, className = "", children, ...pro
 }
 export { IonSelectOption as EmsSelectOption }
 
-export function EmsButton({ children, variant = "primary", busy, busyLabel, ...props }: ComponentProps<typeof IonButton> & { variant?: "primary" | "secondary" | "quiet" | "danger"; busy?: boolean; busyLabel?: string }) {
+export function EmsButton({ children, variant = "primary", busy, busyLabel, className = "", ...props }: ComponentProps<typeof IonButton> & { variant?: "primary" | "secondary" | "quiet" | "danger"; busy?: boolean; busyLabel?: string }) {
   const fill = variant === "primary" ? "solid" : variant === "quiet" ? "clear" : "outline"
   const color = variant === "danger" ? "danger" : "primary"
-  return <IonButton fill={fill} color={color} className={`ems-button ems-button-${variant}`} disabled={busy || props.disabled} {...props}>{busy ? busyLabel || "处理中…" : children}</IonButton>
+  return <IonButton {...props} fill={fill} color={color} className={`ems-button ems-button-${variant} ${className}`} disabled={busy || props.disabled}>{busy ? busyLabel || "处理中…" : children}</IonButton>
 }
 
 export function StatusBadge({ children, tone = "neutral", dot = true }: { children: ReactNode; tone?: EmsTone; dot?: boolean }) {
@@ -107,8 +107,13 @@ export type EmsColumn<T> = { key: string; label: string; render: (row: T) => Rea
 
 export function EmsRecordList<T>({ rows, columns, keyOf, empty, mobileCard, onRowClick }: { rows: T[]; columns: EmsColumn<T>[]; keyOf: (row: T) => string; empty: ReactNode; mobileCard?: (row: T) => ReactNode; onRowClick?: (row: T) => void }) {
   if (!rows.length) return <>{empty}</>
+  const activate = (row: T) => (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (event.key !== "Enter" && event.key !== " ") return
+    event.preventDefault()
+    onRowClick?.(row)
+  }
   return <div className="ems-records">
-    <div className="hidden overflow-x-auto md:block"><table className="ems-table"><thead><tr>{columns.map((column) => <th key={column.key}>{column.label}</th>)}</tr></thead><tbody>{rows.map((row) => <tr key={keyOf(row)} onClick={() => onRowClick?.(row)} className={onRowClick ? "cursor-pointer" : ""}>{columns.map((column) => <td key={column.key} className={column.className}>{column.render(row)}</td>)}</tr>)}</tbody></table></div>
-    <div className="grid gap-2 md:hidden">{rows.map((row) => <div className="ems-record-card" key={keyOf(row)} onClick={() => onRowClick?.(row)} role={onRowClick ? "button" : undefined} tabIndex={onRowClick ? 0 : undefined}>{mobileCard ? mobileCard(row) : columns.map((column) => <div key={column.key}><span className="ems-record-label">{column.label}</span>{column.render(row)}</div>)}</div>)}</div>
+    <div className="hidden overflow-x-auto md:block"><table className="ems-table"><thead><tr>{columns.map((column) => <th key={column.key}>{column.label}</th>)}</tr></thead><tbody>{rows.map((row) => <tr key={keyOf(row)} onClick={() => onRowClick?.(row)} onKeyDown={activate(row)} tabIndex={onRowClick ? 0 : undefined} className={onRowClick ? "ems-row-clickable" : ""}>{columns.map((column) => <td key={column.key} className={column.className}>{column.render(row)}</td>)}</tr>)}</tbody></table></div>
+    <div className="grid gap-2 md:hidden">{rows.map((row) => <div className="ems-record-card" key={keyOf(row)} onClick={() => onRowClick?.(row)} onKeyDown={activate(row)} role={onRowClick ? "button" : undefined} tabIndex={onRowClick ? 0 : undefined}>{mobileCard ? mobileCard(row) : columns.map((column) => <div key={column.key}><span className="ems-record-label">{column.label}</span>{column.render(row)}</div>)}</div>)}</div>
   </div>
 }

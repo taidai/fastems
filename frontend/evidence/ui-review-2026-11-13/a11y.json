@@ -1,0 +1,27 @@
+[
+  {
+    "page": "overview",
+    "title": "站点总览",
+    "violations": []
+  },
+  {
+    "page": "delivery",
+    "title": "交付工作台",
+    "violations": []
+  },
+  {
+    "page": "ledger",
+    "title": "设备台账",
+    "violations": []
+  },
+  {
+    "page": "trace",
+    "title": "调度追溯",
+    "violations": []
+  },
+  {
+    "page": "alarms",
+    "title": "报警与事件",
+    "violations": []
+  }
+]

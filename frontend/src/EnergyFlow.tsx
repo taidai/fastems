@@ -141,8 +141,9 @@ const paths: Record<string, string> = {
   charge: "M1306 205 1343 240 1324 279",
 }
 
-export default function EnergyFlow({ points, onOpenPoint, onOpenTrends, event, dispatch }: {
+export default function EnergyFlow({ points, siteName, onOpenPoint, onOpenTrends, event, dispatch }: {
   points: Node[]
+  siteName?: string
   onOpenPoint?: (keywords: string[], fallback?: "channels" | "alarms") => void
   onOpenTrends?: () => void
   event?: FlowEvent
@@ -192,7 +193,7 @@ export default function EnergyFlow({ points, onOpenPoint, onOpenTrends, event, d
     <div className="flow-head">
       <div className="flow-title">
         <h2>站点能源流 · {viewName}</h2>
-        <span className="flow-sub">首站 · 交流耦合</span>
+        <span className="flow-sub">{siteName || "当前站点"}</span>
       </div>
       <div className="flow-views" role="group" aria-label="能流视图">
         {([{ key: "scene", label: "能流图" }, { key: "2d", label: "2D能流" }, { key: "3d", label: "3D能流" }] as const).map((item) =>

@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { IonCardContent } from "@ionic/react"
 import { EmsButton, EmsCard, EmsRecordList, EmsSectionHeader, EmsSelect, EmsSelectOption, EmptyState, MetricStrip, StatusBadge } from "./components/ems"
-import { fetchDispatchRecords, fetchEnergyUnits, type DispatchRecord, type EnergyUnitSummary } from "./api"
+import { fetchDispatchRecords, fetchEnergyUnits, type DispatchRecord, type EnergyUnitSummary, type Node } from "./api"
 
 const sourceLabel: Record<string, string> = {
   anti_reverse: "防逆流", demand: "需量", peak_valley: "削峰填谷", schedule: "单柜规则", group: "资源集群", manual: "人工", site: "站级计划",
@@ -12,29 +12,59 @@ const stageLabel: Record<string, string> = {
 
 // 调度追溯（运行层）：按设备查看每次调度的 dispatchID、来源、请求/下发/缺口与设备拆解，
 // 回答“当时谁赢了、为什么没做到”。
-export default function DispatchTraceView({ token, onError }: { token: string; onError: (message: string) => void }) {
+export default function DispatchTraceView({ token, nodes, onError }: { token: string; nodes: Node[]; onError: (message: string) => void }) {
   const [units, setUnits] = useState<EnergyUnitSummary[]>([])
   const [unitId, setUnitId] = useState("")
   const [records, setRecords] = useState<DispatchRecord[]>([])
   const [selected, setSelected] = useState<DispatchRecord | null>(null)
+  const [loading, setLoading] = useState(false)
+  const seq = useRef(0)
+
+  const visibleIDs = useMemo(() => new Set(nodes.filter((node) => node.type === "energyUnit").map((node) => node.id)), [nodes])
+  const visibleUnits = useMemo(() => units.filter((unit) => visibleIDs.has(unit.id)), [units, visibleIDs])
 
   useEffect(() => {
     void fetchEnergyUnits(token).then((result) => {
       setUnits(result.units || [])
-      if (result.units?.[0]) setUnitId(result.units[0].id)
     }).catch(() => onError("能源设备读取失败"))
   }, [token, onError])
 
   useEffect(() => {
-    if (!unitId) return
-    void fetchDispatchRecords(token, unitId).then((result) => setRecords(result.records || [])).catch(() => onError("调度记录读取失败"))
+    // 当前单元不在所选站点时，切到该站点第一个可见单元；没有则清空。
+    if (visibleUnits.length === 0) {
+      if (unitId) setUnitId("")
+      return
+    }
+    if (!visibleUnits.some((unit) => unit.id === unitId)) setUnitId(visibleUnits[0].id)
+  }, [visibleUnits, unitId])
+
+  useEffect(() => {
+    const current = ++seq.current
+    setRecords([])
+    setSelected(null)
+    if (!unitId) {
+      setLoading(false)
+      return
+    }
+    setLoading(true)
+    void fetchDispatchRecords(token, unitId)
+      .then((result) => {
+        if (current !== seq.current) return
+        setRecords(result.records || [])
+      })
+      .catch(() => {
+        if (current === seq.current) onError("调度记录读取失败")
+      })
+      .finally(() => {
+        if (current === seq.current) setLoading(false)
+      })
   }, [token, unitId, onError])
 
   const last = records[0]
   return <section className="grid gap-4">
     <EmsSectionHeader kicker="运行" title="调度追溯" description="每次调度都带 dispatchID：请求、能力快照、分配与设备设定可复盘。"
       actions={<EmsSelect aria-label="能源设备" value={unitId} onIonChange={(event) => setUnitId(event.detail.value)}>
-        {units.map((unit) => <EmsSelectOption key={unit.id} value={unit.id}>{unit.description || unit.asset_code || unit.id}</EmsSelectOption>)}
+        {visibleUnits.map((unit) => <EmsSelectOption key={unit.id} value={unit.id}>{unit.description || unit.asset_code || unit.id}</EmsSelectOption>)}
       </EmsSelect>} />
 
     <MetricStrip items={[
@@ -45,7 +75,9 @@ export default function DispatchTraceView({ token, onError }: { token: string; o
     ]} />
 
     <EmsRecordList rows={records} keyOf={(record) => record.dispatch_id} onRowClick={setSelected}
-      empty={<EmptyState title="还没有调度记录" description="发布策略并接入设备后，每秒调度都会留下一条可复盘记录。" />}
+      empty={loading
+        ? <EmptyState title="读取中…" description="正在读取该设备的调度记录。" />
+        : <EmptyState title="还没有调度记录" description="发布策略并接入设备后，每秒调度都会留下一条可复盘记录。" />}
       columns={[
         { key: "at", label: "时间", render: (record) => new Date(record.at).toLocaleString("zh-CN", { hour12: false }) },
         { key: "id", label: "dispatchID", render: (record) => <code className="break-all text-xs">{record.dispatch_id}</code> },

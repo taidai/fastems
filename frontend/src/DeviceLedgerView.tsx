@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { EmsButton, EmsRecordList, EmsSectionHeader, EmptyState, FilterToolbar, MetricStrip, StatusBadge, type EmsTone } from "./components/ems"
 import { request } from "./api"
 import DeviceDetail from "./DeviceDetail"
@@ -23,17 +23,35 @@ export default function DeviceLedgerView({ token, site, onError, canConfigure, c
   const [health, setHealth] = useState("all")
   const [selected, setSelected] = useState<LedgerDevice | null>(null)
   const [loading, setLoading] = useState(false)
+  const siteRef = useRef(site)
+  siteRef.current = site
+  const lastErrorRef = useRef("")
+
+  useEffect(() => {
+    // 切换站点时先清空旧站数据，避免新站点标题下仍显示上一站的设备和详情。
+    setDevices([])
+    setSelected(null)
+    lastErrorRef.current = ""
+  }, [site])
 
   const load = useCallback(async () => {
+    const requestedSite = site
     setLoading(true)
     try {
-      const query = site ? `?site=${encodeURIComponent(site)}` : ""
+      const query = requestedSite ? `?site=${encodeURIComponent(requestedSite)}` : ""
       const result = await request<{ devices: LedgerDevice[] }>(token, `/device-ledger${query}`)
+      if (requestedSite !== siteRef.current) return
+      lastErrorRef.current = ""
       setDevices(result.devices || [])
     } catch (cause) {
-      onError(cause instanceof Error ? cause.message : "设备台账读取失败")
+      if (requestedSite !== siteRef.current) return
+      const message = cause instanceof Error ? cause.message : "设备台账读取失败"
+      if (message !== lastErrorRef.current) {
+        lastErrorRef.current = message
+        onError(message)
+      }
     } finally {
-      setLoading(false)
+      if (requestedSite === siteRef.current) setLoading(false)
     }
   }, [token, site, onError])
 
