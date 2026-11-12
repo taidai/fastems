@@ -73,6 +73,15 @@ func Bootstrap(nc *nats.Conn, dataDir string) error {
 	if err != nil || len(accounts) == 0 {
 		return fmt.Errorf("verify initialized administrator")
 	}
+	// 项目名默认取品牌名；根节点 ID 是存储身份，不能随品牌改名。
+	root, err := client.GetRootNode(nc)
+	if err != nil {
+		return fmt.Errorf("initialize project name: %w", err)
+	}
+	namePoint := data.NewPointString(data.PointTypeDescription, "", "FastIOT")
+	if err := client.SendNodePoints(nc, root.ID, data.Points{namePoint}, false); err != nil {
+		return fmt.Errorf("initialize project name: %w", err)
+	}
 	if generated {
 		credentials := "账号: admin\n密码: " + password + "\n首次登录后请妥善保存并删除此文件。\n"
 		if err := os.WriteFile(filepath.Join(dataDir, "initial-password.txt"), []byte(credentials), 0600); err != nil {

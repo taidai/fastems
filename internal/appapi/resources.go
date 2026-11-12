@@ -20,7 +20,8 @@ func (h *Handler) updateNode(w http.ResponseWriter, r *http.Request, identity Id
 	if !ok {
 		return
 	}
-	if node.Type != data.NodeTypeGroup && node.Type != data.NodeTypeVariable &&
+	// 根节点（parent 为虚拟 root）允许改项目名；其余节点走各自编辑器。
+	if node.Parent != "root" && node.Type != data.NodeTypeGroup && node.Type != data.NodeTypeVariable &&
 		node.Type != "decisionTable" && node.Type != "deviceTemplate" {
 		writeError(w, http.StatusBadRequest, "use_specific_editor")
 		return
