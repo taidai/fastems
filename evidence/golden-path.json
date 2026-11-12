@@ -1,62 +1,62 @@
 {
-  "run": "20261112143823",
+  "run": "20261112144417",
   "base": "http://127.0.0.1:4412",
-  "generatedAt": "2026-11-12T14:38:36.323Z",
-  "totalMs": 5398,
+  "generatedAt": "2026-11-12T14:44:41.498Z",
+  "totalMs": 7788,
   "steps": [
     {
       "key": "landing",
       "label": "登录后进入交付验收",
-      "ms": 136,
+      "ms": 262,
       "ok": true,
       "note": "交付验收任务清单"
     },
     {
       "key": "preflight",
       "label": "运行预检并读取门槛",
-      "ms": 1804,
+      "ms": 3597,
       "ok": true,
       "note": "1 项阻断"
     },
     {
       "key": "reuse",
       "label": "复用预览（列出待确认项）",
-      "ms": 376,
+      "ms": 423,
       "ok": true,
       "note": "待确认清单已生成"
     },
     {
       "key": "access",
       "label": "接入：通道与点位表",
-      "ms": 984,
+      "ms": 423,
       "ok": true,
       "note": "通道、点位表可到达"
     },
     {
       "key": "assets",
       "label": "能源设备：储能柜",
-      "ms": 367,
+      "ms": 328,
       "ok": true,
       "note": "储能柜页可到达"
     },
     {
       "key": "strategy",
       "label": "策略：决策表",
-      "ms": 261,
+      "ms": 248,
       "ok": true,
       "note": "决策表可到达"
     },
     {
       "key": "acceptance",
       "label": "回到交付验收",
-      "ms": 100,
+      "ms": 351,
       "ok": true,
       "note": "验收清单可到达"
     },
     {
       "key": "freeze",
       "label": "冻结版本并留下证据",
-      "ms": 1370,
+      "ms": 2156,
       "ok": true,
       "note": "版本已冻结"
     }
@@ -101,8 +101,8 @@
     {
       "key": "alarms",
       "title": "活动报警",
-      "status": "pass",
-      "detail": "没有活动报警"
+      "status": "warn",
+      "detail": "活动报警 1 项"
     },
     {
       "key": "history",
