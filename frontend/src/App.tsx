@@ -540,7 +540,7 @@ export default function App() {
         })}
       </nav>
       <div className="console-top-actions">
-        <button className="console-icon" title="运行画面" aria-label="运行画面" onClick={() => setPage("screen")}><Icon name="map" size={25} /></button>
+        <button className="console-icon screen-shortcut" title="运行画面" aria-label="运行画面" onClick={() => setPage("screen")}><Icon name="map" size={25} /></button>
         <div className="console-display" ref={displayRef}>
           <button className="console-icon" title="显示设置" aria-label="显示设置" aria-expanded={displayOpen} onClick={() => { setDisplayOpen(!displayOpen); setTariffDraft(tariff === null ? "" : tariff.toFixed(2)) }}><Icon name="sun" size={17} /></button>
           {displayOpen && <div className="display-panel" role="dialog" aria-label="显示设置">

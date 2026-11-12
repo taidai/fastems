@@ -1200,6 +1200,14 @@ h1, h2, h3 { color: var(--ink); }
   .console-chip .chip-label { display: none; }
   .console-top-actions { gap: 4px; }
   .console-top-actions time { display: none; }
+  /* 窄屏顶栏压成两行：品牌 + 站点 + 图标一行，工作台切换与导航一行；导航可横向滚动。 */
+  .console-brand { order: 1; }
+  .console-station { order: 2; }
+  .console-top-actions { order: 3; margin-left: auto; flex-wrap: nowrap; }
+  .console-workbench { order: 4; margin-left: 0; }
+  .console-topnav { order: 5; flex: 1 1 0; min-width: 0; margin-left: 4px; overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
+  .console-topnav::-webkit-scrollbar { display: none; }
+  .console-topnav .topnav-trigger { flex: none; }
   .console-main { padding: 14px 14px 96px; }
   .console-page-head { display: grid; grid-template-columns: 1fr; align-items: start; gap: 6px; }
   .console-page-head > div:first-child { grid-column: 1; grid-row: auto; }

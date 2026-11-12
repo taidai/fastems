@@ -116,13 +116,17 @@
   .console-main .flow-panel { flex: 0 0 auto; height: clamp(300px, 42vh, 620px); }
 
   /* 窄屏：主导航可横向滑动，不撑破外壳；触摸目标保持 40px。 */
-  @media (max-width: 767px) {
+  @media (max-width: 720px) {
     .console-topbar { flex-wrap: wrap; row-gap: 6px; }
+    .console-top-actions { order: 3; margin-left: auto; flex-wrap: nowrap; }
+    .console-workbench { order: 4; margin-left: 0; }
     .console-topnav {
-      order: 3; flex: 1 1 100%; min-width: 0; max-width: 100%;
+      order: 5; flex: 1 1 0; min-width: 0; max-width: 100%;
       overflow-x: auto; overflow-y: hidden; flex-wrap: nowrap;
       -webkit-overflow-scrolling: touch; scrollbar-width: none;
     }
+    /* 运行画面在导航里已有入口，窄屏隐藏这个重复快捷图标，给顶栏腾出宽度。 */
+    .screen-shortcut { display: none; }
     .console-topnav::-webkit-scrollbar { display: none; }
     .topnav-item { flex: 0 0 auto; }
     .topnav-trigger { min-height: 40px; }
