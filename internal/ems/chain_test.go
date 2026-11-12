@@ -4,10 +4,10 @@ import (
 	"testing"
 	"time"
 
-	"fastems/internal/ems/alloc"
-	"fastems/internal/ems/rule"
-	"fastems/internal/ems/safety"
-	"fastems/internal/ems/signal"
+	"fastiot/internal/ems/alloc"
+	"fastiot/internal/ems/rule"
+	"fastiot/internal/ems/safety"
+	"fastiot/internal/ems/signal"
 )
 
 var now = time.Date(2026, 11, 4, 12, 0, 0, 0, time.UTC)

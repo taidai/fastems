@@ -14,7 +14,7 @@ import (
 	"github.com/simpleiot/simpleiot/data"
 	"github.com/simpleiot/simpleiot/server"
 
-	"fastems/internal/decision"
+	"fastiot/internal/decision"
 )
 
 // TestPlantAntiReverseClosesLoop 验证 PCC 反馈闭环：Plant 绑定主表，主表

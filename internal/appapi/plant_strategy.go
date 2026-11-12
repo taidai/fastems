@@ -9,7 +9,7 @@ import (
 	siotclient "github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 
-	"fastems/internal/decision"
+	"fastiot/internal/decision"
 )
 
 // 电站策略（②级）：需量控制与分时电价削峰填谷。与防逆流一起构成站级

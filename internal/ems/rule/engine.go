@@ -5,7 +5,7 @@ import (
 	"sort"
 	"time"
 
-	"fastems/internal/ems/signal"
+	"fastiot/internal/ems/signal"
 )
 
 // LimitResult is what the safety layer allows for one requested action.

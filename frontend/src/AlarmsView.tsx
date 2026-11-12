@@ -175,7 +175,7 @@ export default function AlarmsView({ token, rootID, nodes, alarms, onRefreshAlar
     const url = URL.createObjectURL(new Blob([String.fromCharCode(0xFEFF) + csv], { type: "text/csv;charset=utf-8" }))
     const link = document.createElement("a")
     link.href = url
-    link.download = "fastems-alarms.csv"
+    link.download = "fastiot-alarms.csv"
     link.click()
     URL.revokeObjectURL(url)
   }

@@ -15,7 +15,7 @@ import (
 	"github.com/simpleiot/simpleiot/data"
 	"github.com/simpleiot/simpleiot/server"
 
-	"fastems/internal/decision"
+	"fastiot/internal/decision"
 )
 
 // TestFaultInterlocksDispatch 验证 CTL-01 互锁：EnergyUnit 置为 fault 后，

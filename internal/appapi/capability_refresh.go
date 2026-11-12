@@ -12,7 +12,7 @@ import (
 	siotclient "github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 
-	"fastems/internal/decision"
+	"fastiot/internal/decision"
 )
 
 // 动态能力刷新（CAP-03/CAP-06）：从 EnergyUnit 配置的 BMS/SOC/温度点位读取

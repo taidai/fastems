@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"os"
 
-	"fastems/internal/app"
+	"fastiot/internal/app"
 )
 
 //encore:service

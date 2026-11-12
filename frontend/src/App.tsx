@@ -95,7 +95,7 @@ function errorMessage(error: unknown) {
   if (code.startsWith("move_would_break_rule")) return "移动会使规则失去目标，请先调整绑定"
   const messages: Record<string, string> = {
     unauthorized: "登录已过期，请重新登录",
-    no_access: "此账号尚未分配 FastEMS 权限",
+    no_access: "此账号尚未分配 FastIOT 权限",
     forbidden: "没有执行此操作的权限",
     admin_required: "仅管理员可以配置",
     operation_not_allowed: "此账号只能查看，不能操作",
@@ -454,7 +454,7 @@ export default function App() {
 
   if (!token) return <IonApp><IonContent fullscreen><main className="login-page">
     <section className="login-intro">
-      <div className="brand"><span className="brand-mark">F</span> FastEMS</div>
+      <div className="brand"><span className="brand-mark">F</span> FastIOT</div>
       <h1>让能源设备，<br />按清晰的规则运行。</h1>
       <p>设备接入、实时状态与有序决策表，收进同一个工作台。</p>
       <div className="login-proof"><span>一个应用</span><span>本地数据</span><span>无需编写代码</span></div>
@@ -544,7 +544,8 @@ export default function App() {
   const currentInfo = pageInfo[page] || pageInfo.devices
   const labelForRoot = (root: string) => {
     const node = snapshot.nodes.find((item) => item.id === root)
-    return node ? nameOf(node) : "本站"
+    const label = node ? nameOf(node) : "本站"
+    return label === "FastEMS" ? "FastIOT" : label
   }
   const stationName = labelForRoot(view.roots[0])
   const currentSite = siteNodes.find((node) => node.id === siteID)
@@ -556,12 +557,12 @@ export default function App() {
 
   return <IonApp><IonContent fullscreen><div className="console-viewport"><div className="console-shell" style={{ "--console-scale": String(stageScale) } as CSSProperties}>
     <header className="console-topbar">
-      <div className="console-brand"><img className="brand-mark" src="/zizu-brand.png" alt="" /><strong>FastEMS <small>3.0</small></strong></div>
+      <div className="console-brand"><img className="brand-mark" src="/zizu-brand.png" alt="" /><strong>FastIOT <small>3.0</small></strong></div>
       {snapshot.roots.length > 1
         ? <select className="console-station" aria-label="当前项目" value={view.roots[0]} onChange={(event) => setStationID(event.target.value)}>
           {snapshot.roots.map((root) => <option key={root} value={root}>{labelForRoot(root)}</option>)}
         </select>
-        : labelForRoot(view.roots[0]) !== "FastEMS" && <span className="console-station-label" title="当前项目">{labelForRoot(view.roots[0])}</span>}
+        : labelForRoot(view.roots[0]) !== "FastIOT" && <span className="console-station-label" title="当前项目">{labelForRoot(view.roots[0])}</span>}
       {siteNodes.length > 1 && <select className="console-site" aria-label="当前站点" value={siteID}
         onChange={(event) => { setSiteID(event.target.value); window.localStorage.setItem("fastems-site", event.target.value) }}>
         {siteNodes.map((site) => <option key={site.id} value={site.id}>{nameOf(site)}</option>)}
@@ -929,7 +930,7 @@ function ChannelWorkspace({ token, channels, ioCounts, isAdmin, canOperate, node
       const url = URL.createObjectURL(new Blob([String.fromCharCode(0xFEFF) + csv], { type: "text/csv;charset=utf-8" }))
       const link = document.createElement("a")
       link.href = url
-      link.download = `fastems-通信报告-${new Date().toISOString().slice(0, 10)}.csv`
+      link.download = `fastiot-通信报告-${new Date().toISOString().slice(0, 10)}.csv`
       link.click()
       URL.revokeObjectURL(url)
     } catch {

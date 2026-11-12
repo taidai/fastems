@@ -12,10 +12,10 @@ import (
 
 	"github.com/simpleiot/simpleiot/data"
 
-	"fastems/internal/audit"
-	"fastems/internal/decision"
-	"fastems/internal/ems/channel"
-	"fastems/internal/ems/signal"
+	"fastiot/internal/audit"
+	"fastiot/internal/decision"
+	"fastiot/internal/ems/channel"
+	"fastiot/internal/ems/signal"
 )
 
 // 交付工作台的投运门槛：把"能不能投运"拆成可判定的几道门。

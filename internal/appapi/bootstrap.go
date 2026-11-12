@@ -78,7 +78,7 @@ func Bootstrap(nc *nats.Conn, dataDir string) error {
 	if err != nil {
 		return fmt.Errorf("initialize project name: %w", err)
 	}
-	namePoint := data.NewPointString(data.PointTypeDescription, "", "FastEMS")
+	namePoint := data.NewPointString(data.PointTypeDescription, "", "FastIOT")
 	if err := client.SendNodePoints(nc, root.ID, data.Points{namePoint}, false); err != nil {
 		return fmt.Errorf("initialize project name: %w", err)
 	}

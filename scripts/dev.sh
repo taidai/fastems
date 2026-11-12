@@ -6,8 +6,8 @@ export FASTEMS_API="${FASTEMS_API:-http://127.0.0.1:62943}"
 if command -v air >/dev/null 2>&1; then
   (cd "$ROOT" && air) &
 else
-  echo "air not found; starting existing fastems.exe (Go changes need a manual rebuild)."
-  (cd "$ROOT" && ./fastems.exe -port 62943 -nats-port 9820 -data "$ROOT/data/dev") &
+  echo "air not found; starting existing fastiot.exe (Go changes need a manual rebuild)."
+  (cd "$ROOT" && ./fastiot.exe -port 62943 -nats-port 9820 -data "$ROOT/data/dev") &
 fi
 trap 'kill $! 2>/dev/null || true' EXIT
 cd "$ROOT/frontend"

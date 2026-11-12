@@ -16,7 +16,7 @@ import (
 	"github.com/simpleiot/simpleiot/data"
 	"github.com/simpleiot/simpleiot/server"
 
-	"fastems/internal/decision"
+	"fastiot/internal/decision"
 )
 
 func TestRewriteReferences(t *testing.T) {

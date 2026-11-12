@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"time"
 
-	"fastems/internal/ems/alarm"
-	"fastems/internal/ems/channel"
-	"fastems/internal/ems/command"
-	"fastems/internal/ems/device"
-	"fastems/internal/ems/signal"
-	"fastems/internal/ems/state"
+	"fastiot/internal/ems/alarm"
+	"fastiot/internal/ems/channel"
+	"fastiot/internal/ems/command"
+	"fastiot/internal/ems/device"
+	"fastiot/internal/ems/signal"
+	"fastiot/internal/ems/state"
 )
 
 // Dispatcher queues a command's writes onto one channel.

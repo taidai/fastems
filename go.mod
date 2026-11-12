@@ -1,4 +1,4 @@
-module fastems
+module fastiot
 
 go 1.27.3
 

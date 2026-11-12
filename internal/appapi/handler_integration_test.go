@@ -24,7 +24,7 @@ import (
 	siotmodbus "github.com/simpleiot/simpleiot/modbus"
 	"github.com/simpleiot/simpleiot/server"
 
-	"fastems/internal/decision"
+	"fastiot/internal/decision"
 )
 
 func TestProductAPIVerticalSlice(t *testing.T) {

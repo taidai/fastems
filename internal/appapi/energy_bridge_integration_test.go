@@ -15,8 +15,8 @@ import (
 	"github.com/simpleiot/simpleiot/data"
 	"github.com/simpleiot/simpleiot/server"
 
-	"fastems/internal/decision"
-	"fastems/internal/ems/bridge"
+	"fastiot/internal/decision"
+	"fastiot/internal/ems/bridge"
 )
 
 // TestCapabilityDispatchWritesPowerPoint 验证能力级调度把 valueSet 写到

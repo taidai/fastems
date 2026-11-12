@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# 黄金路径：启动一个隔离的 FastEMS 实例（独立数据目录、随机管理员密码），
+# 黄金路径：启动一个隔离的 FastIOT 实例（独立数据目录、随机管理员密码），
 # 按 docs/jobs.md 的 J1–J5 驱动真实界面，输出 evidence/golden-path.json。
 # 用法：scripts/golden-path.sh [端口，默认 4412]
 set -euo pipefail
-# Git Bash 会把 /fastems 改写成 Windows 路径；容器内路径必须原样传递。
+# Git Bash 会把 /fastiot 改写成 Windows 路径；容器内路径必须原样传递。
 export MSYS_NO_PATHCONV=1
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PORT="${1:-4412}"
 IMAGE="${FASTEMS_IMAGE:-easyems:local}"
-BIN="${FASTEMS_BIN:-$ROOT/.tmp-build/fastems}"
-NAME="fastems-golden-$PORT"
+BIN="${FASTEMS_BIN:-$ROOT/.tmp-build/fastiot}"
+NAME="fastiot-golden-$PORT"
 DATA="$ROOT/.tmp-golden/$PORT"
 
 if [ ! -s "$BIN" ]; then
@@ -30,10 +30,10 @@ trap cleanup EXIT
 docker run -d --name "$NAME" \
   -p "127.0.0.1:$PORT:4412" \
   -v "$DATA:/data" \
-  -v "$BIN:/fastems:ro" \
+  -v "$BIN:/fastiot:ro" \
   -e FASTEMS_ADMIN_PASSWORD="$PASSWORD" \
   -e FASTEMS_SEED_DEMO=1 \
-  --entrypoint /fastems \
+  --entrypoint /fastiot \
   "$IMAGE" -port 4412 -data /data >/dev/null
 
 ready=0

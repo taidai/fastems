@@ -707,7 +707,7 @@ export default function CommunicationView({ token, nodes, roots, groups, canConf
               {modelNotice && <div className="success-message" role="status">{modelNotice}</div>}
               <div className="comm-modal-actions">
                 <button className="secondary-button" onClick={() => setModelUnit(null)}>取消</button>
-                {canConfigure && <button className="secondary-button" onClick={() => void downloadCSV(token, "/profile-verifications?format=csv", "fastems-profile-verifications.csv").catch((cause) => onError(cause instanceof Error ? cause.message : "导出失败"))}>导出验证记录</button>}
+                {canConfigure && <button className="secondary-button" onClick={() => void downloadCSV(token, "/profile-verifications?format=csv", "fastiot-profile-verifications.csv").catch((cause) => onError(cause instanceof Error ? cause.message : "导出失败"))}>导出验证记录</button>}
                 {canConfigure && <button className="primary-button" disabled={modelBusy || !modelDraft.profile_id} onClick={() => void saveUnitModel()}>{modelBusy ? "保存中…" : "保存设备模型"}</button>}
               </div>
             </>}

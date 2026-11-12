@@ -1,5 +1,8 @@
+/fastiot
+/fastiot.exe
 /fastems
 /fastems.exe
+/fastems-verify.exe
 /.tmp-build/
 /.tmp-golden/
 /data/
@@ -15,5 +18,5 @@ encore.gen.cue
 /evidence/*.png
 /evidence/verify/
 /evidence/verify-encore/
-/fastems-verify.exe
+/fastiot-verify.exe
 /modbus-simulator.exe

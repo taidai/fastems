@@ -136,7 +136,7 @@ try {
   const download = await downloadEvent
   const file = await download.path()
   const payload = await readFile(file)
-  if (!download.suggestedFilename().startsWith("fastems-evidence-") || payload.length < 500) {
+  if (!download.suggestedFilename().startsWith("fastiot-evidence-") || payload.length < 500) {
     throw new Error(`evidence download invalid: ${download.suggestedFilename()} ${payload.length}B`)
   }
   if (payload.includes(Buffer.from(password))) throw new Error("evidence zip contains the admin password")

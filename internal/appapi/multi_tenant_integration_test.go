@@ -16,7 +16,7 @@ import (
 	"github.com/simpleiot/simpleiot/data"
 	"github.com/simpleiot/simpleiot/server"
 
-	"fastems/internal/decision"
+	"fastiot/internal/decision"
 )
 
 // TestMultiTenantIsolation 验证多租户隔离：用户 A 的 anchor 是站点 A，

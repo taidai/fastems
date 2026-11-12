@@ -3,7 +3,7 @@ package safety
 import (
 	"fmt"
 
-	"fastems/internal/ems/signal"
+	"fastiot/internal/ems/signal"
 )
 
 // ConditionConfig is the wire format for one safety condition. PointID is the

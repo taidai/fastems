@@ -137,7 +137,7 @@ function downloadCSV(rows: PointRow[]) {
   const url = URL.createObjectURL(blob)
   const link = document.createElement("a")
   link.href = url
-  link.download = "fastems-points.csv"
+  link.download = "fastiot-points.csv"
   link.click()
   URL.revokeObjectURL(url)
 }

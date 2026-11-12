@@ -8,7 +8,7 @@ import (
 	"github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 
-	"fastems/internal/decision"
+	"fastiot/internal/decision"
 )
 
 func (h *Handler) updateNode(w http.ResponseWriter, r *http.Request, identity Identity, id string) {

@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"fastems/internal/ems/channel"
-	"fastems/internal/ems/signal"
+	"fastiot/internal/ems/channel"
+	"fastiot/internal/ems/signal"
 )
 
 func waitFor(t *testing.T, condition func() bool) {

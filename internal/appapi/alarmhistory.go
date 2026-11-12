@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"time"
 
-	"fastems/internal/ems/alarm"
+	"fastiot/internal/ems/alarm"
 )
 
 const alarmEventsFile = "alarm-events.jsonl"

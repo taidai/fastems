@@ -2,9 +2,9 @@ root = "."
 tmp_dir = ".air"
 
 [build]
-  cmd = "go build -o ./.air/fastems-dev.exe ./cmd/fastems"
-  bin = ".air/fastems-dev.exe"
-  full_bin = ".air/fastems-dev.exe -port 62943 -nats-port 9820 -data ./data/dev"
+  cmd = "go build -o ./.air/fastiot-dev.exe ./cmd/fastiot"
+  bin = ".air/fastiot-dev.exe"
+  full_bin = ".air/fastiot-dev.exe -port 62943 -nats-port 9820 -data ./data/dev"
   include_ext = ["go", "html", "css", "ts", "tsx"]
   exclude_dir = ["third_party", "frontend", "internal/web/dist", "data", ".air", ".git"]
   delay = 500

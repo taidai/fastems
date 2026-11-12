@@ -1,6 +1,6 @@
 # Issue tracker: GitHub
 
-Repo: `taidai/fastems` (from `git remote -v`).
+Repo: `taidai/fastiot` (from `git remote -v`).
 
 Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all operations.
 

@@ -13,8 +13,8 @@ LOG="$EVIDENCE/server.log"
 PID=""
 
 case "$(uname -s)" in
-  MINGW*|MSYS*|CYGWIN*) BIN="fastems-verify.exe"; GOOS=windows ;;
-  *) BIN="fastems-verify"; GOOS=linux ;;
+  MINGW*|MSYS*|CYGWIN*) BIN="fastiot-verify.exe"; GOOS=windows ;;
+  *) BIN="fastiot-verify"; GOOS=linux ;;
 esac
 
 cleanup() {
@@ -32,11 +32,11 @@ echo "== Go test / vet / build =="
 if command -v go >/dev/null 2>&1; then
   GOOS="$GOOS" go test ./...
   go vet ./...
-  GOOS="$GOOS" go build -trimpath -o "$BIN" ./cmd/fastems
+  GOOS="$GOOS" go build -trimpath -o "$BIN" ./cmd/fastiot
 else
   MSYS_NO_PATHCONV=1 docker run --rm -v "$ROOT":/src -v fastems-gomod:/go/pkg/mod -w /src -e CGO_ENABLED=0 golang:1.27.3 go test ./...
   MSYS_NO_PATHCONV=1 docker run --rm -v "$ROOT":/src -v fastems-gomod:/go/pkg/mod -w /src -e CGO_ENABLED=0 golang:1.27.3 go vet ./...
-  MSYS_NO_PATHCONV=1 docker run --rm -v "$ROOT":/src -v fastems-gomod:/go/pkg/mod -w /src -e CGO_ENABLED=0 -e GOOS="$GOOS" -e GOARCH=amd64 golang:1.27.3 go build -trimpath -o "$BIN" ./cmd/fastems
+  MSYS_NO_PATHCONV=1 docker run --rm -v "$ROOT":/src -v fastems-gomod:/go/pkg/mod -w /src -e CGO_ENABLED=0 -e GOOS="$GOOS" -e GOARCH=amd64 golang:1.27.3 go build -trimpath -o "$BIN" ./cmd/fastiot
 fi
 
 echo "== temp instance on :$PORT =="

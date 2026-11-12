@@ -1,9 +1,9 @@
-# FastEMS 领域模型 · 数据模型设计
+# FastIOT 领域模型 · 数据模型设计
 
 日期：2026-11-08
 输入：14 决策定案 + 技术调研（node 类型机制 + 改动面）
 
-## 节点类型（FastEMS 层定义，不碰 upstream）
+## 节点类型（FastIOT 层定义，不碰 upstream）
 
 ```go
 // internal/appapi 或 internal/ems 内定义
@@ -14,7 +14,7 @@ const (
     // Device 复用 data.NodeTypeDevice = "device"（upstream 已有）
 )
 ```
-均为纯数据节点（无 client），只在 FastEMS 层定义常量 + `node.Type == "site"` 识别。
+均为纯数据节点（无 client），只在 FastIOT 层定义常量 + `node.Type == "site"` 识别。
 
 ## 四层节点字段（存为节点 point）
 

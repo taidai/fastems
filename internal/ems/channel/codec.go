@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 
-	"fastems/internal/ems/signal"
+	"fastiot/internal/ems/signal"
 )
 
 // decode turns the words or bits of one block into a typed value. base is the

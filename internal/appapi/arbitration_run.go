@@ -5,7 +5,7 @@ import (
 
 	siotclient "github.com/simpleiot/simpleiot/client"
 
-	"fastems/internal/decision"
+	"fastiot/internal/decision"
 )
 
 // RunUnitArbitratedDispatch 统一仲裁入口（Q8/OBJ-02/G10）：收集一个
@@ -88,7 +88,7 @@ func (h *Handler) RunUnitArbitratedDispatch(energyUnitID string) error {
 		}
 	}
 	if err := appendDispatchRecord(h.nc, energyUnitID, record); err != nil {
-		fmt.Printf("fastems: append dispatch record %s: %v\n", energyUnitID, err)
+		fmt.Printf("fastiot: append dispatch record %s: %v\n", energyUnitID, err)
 	}
 	return nil
 }

@@ -14,8 +14,8 @@ import (
 	"github.com/simpleiot/simpleiot/data"
 	"github.com/simpleiot/simpleiot/server"
 
-	"fastems/internal/decision"
-	"fastems/internal/ems/bridge"
+	"fastiot/internal/decision"
+	"fastiot/internal/ems/bridge"
 )
 
 // TestPlantPeakValleyStrategy 验证削峰填谷进入站级调度：当前时刻落在谷时段

@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"fastems/internal/ems/signal"
+	"fastiot/internal/ems/signal"
 )
 
 // Function is a Modbus data area.

@@ -10,8 +10,8 @@ import (
 	"github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 
-	"fastems/internal/decision"
-	"fastems/internal/ems/alarm"
+	"fastiot/internal/decision"
+	"fastiot/internal/ems/alarm"
 )
 
 const aggregatePoint = "easyemsAggregate"

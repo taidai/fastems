@@ -14,8 +14,8 @@ import (
 	"github.com/simpleiot/simpleiot/data"
 	"github.com/simpleiot/simpleiot/server"
 
-	"fastems/internal/ems/runtime"
-	"fastems/internal/emsapi"
+	"fastiot/internal/ems/runtime"
+	"fastiot/internal/emsapi"
 )
 
 func TestScopeNodesToSite(t *testing.T) {

@@ -15,8 +15,8 @@ import (
 	"github.com/simpleiot/simpleiot/data"
 	"github.com/simpleiot/simpleiot/server"
 
-	"fastems/internal/decision"
-	"fastems/internal/ems/bridge"
+	"fastiot/internal/decision"
+	"fastiot/internal/ems/bridge"
 )
 
 // TestPlantAntiReverseWritesDevice 验证多目标仲裁：单柜规则放电 +60 与站级

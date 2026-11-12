@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"fastems/internal/ems/channel"
+	"fastiot/internal/ems/channel"
 )
 
 // Load returns the built-in registry merged with operator-maintained profiles

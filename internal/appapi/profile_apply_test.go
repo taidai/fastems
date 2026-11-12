@@ -16,9 +16,9 @@ import (
 	"github.com/simpleiot/simpleiot/data"
 	"github.com/simpleiot/simpleiot/server"
 
-	"fastems/internal/ems/profile"
-	"fastems/internal/ems/runtime"
-	"fastems/internal/emsapi"
+	"fastiot/internal/ems/profile"
+	"fastiot/internal/ems/runtime"
+	"fastiot/internal/emsapi"
 )
 
 func TestApplyProfileVerdicts(t *testing.T) {

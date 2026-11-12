@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"fastems/internal/ems/device"
-	"fastems/internal/ems/signal"
+	"fastiot/internal/ems/device"
+	"fastiot/internal/ems/signal"
 )
 
 // Connection is the narrow OPC-UA surface the runner needs; Client implements

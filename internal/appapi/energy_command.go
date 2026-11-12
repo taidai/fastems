@@ -9,8 +9,8 @@ import (
 	siotclient "github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 
-	"fastems/internal/ems/command"
-	"fastems/internal/ems/signal"
+	"fastiot/internal/ems/command"
+	"fastiot/internal/ems/signal"
 )
 
 // 功率命令执行：Modbus 点位写入统一交给共享 command.Manager（与命名命令同一

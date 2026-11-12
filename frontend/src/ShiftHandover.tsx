@@ -55,7 +55,7 @@ export default function ShiftHandover({ onClose }: { onClose: () => void }) {
     const url = URL.createObjectURL(new Blob([String.fromCharCode(0xFEFF) + csv], { type: "text/csv;charset=utf-8" }))
     const link = document.createElement("a")
     link.href = url
-    link.download = `fastems-班次交接-${new Date().toISOString().slice(0, 10)}.csv`
+    link.download = `fastiot-班次交接-${new Date().toISOString().slice(0, 10)}.csv`
     link.click()
     URL.revokeObjectURL(url)
   }

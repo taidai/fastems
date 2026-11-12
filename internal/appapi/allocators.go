@@ -8,7 +8,7 @@ import (
 	"github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 
-	"fastems/internal/decision"
+	"fastiot/internal/decision"
 )
 
 // getAllocator returns the configuration stored on one business node.

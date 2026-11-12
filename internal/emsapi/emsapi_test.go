@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"fastems/internal/ems/alarm"
-	"fastems/internal/ems/bridge"
-	"fastems/internal/ems/channel"
-	"fastems/internal/ems/history"
-	"fastems/internal/ems/runtime"
-	"fastems/internal/ems/signal"
+	"fastiot/internal/ems/alarm"
+	"fastiot/internal/ems/bridge"
+	"fastiot/internal/ems/channel"
+	"fastiot/internal/ems/history"
+	"fastiot/internal/ems/runtime"
+	"fastiot/internal/ems/signal"
 )
 
 type fakeConfigurator struct{ created, deleted int }

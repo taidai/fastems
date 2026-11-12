@@ -37,7 +37,7 @@ func (h *Handler) profileVerifications(w http.ResponseWriter, r *http.Request, i
 	}
 	if r.URL.Query().Get("format") == "csv" {
 		w.Header().Set("Content-Type", "text/csv; charset=utf-8")
-		w.Header().Set("Content-Disposition", `attachment; filename="fastems-profile-verifications.csv"`)
+		w.Header().Set("Content-Disposition", `attachment; filename="fastiot-profile-verifications.csv"`)
 		writer := csv.NewWriter(w)
 		writeVerificationCSV(writer, list)
 		return

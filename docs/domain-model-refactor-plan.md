@@ -1,4 +1,4 @@
-# FastEMS 领域模型重构 · 实施计划
+# FastIOT 领域模型重构 · 实施计划
 
 日期：2026-11-08
 基线：`docs/domain-model-refactor-decision.md`（14 决策定案）
@@ -7,7 +7,7 @@
 
 - Node type 是字符串常量（`third_party/simpleiot/data/schema.go`）；**`device` 节点已存在**（Q9=A 直接复用），`site`/`plant`/`energyUnit` 需加 3 个常量。
 - 纯数据节点（site/plant/energyUnit/device）不需要 client，只挂 point、由 appapi 读写。
-- 破坏性重构**不动 Simple IoT 上游**，全部改动在 FastEMS 层。
+- 破坏性重构**不动 Simple IoT 上游**，全部改动在 FastIOT 层。
 
 ## 四阶段
 
