@@ -191,6 +191,31 @@ function subtreeSnapshot(snapshot: Snapshot, rootID: string): Snapshot {  if (!r
   return { ...snapshot, roots: [rootID], nodes }
 }
 
+// 按站点裁剪：保留选中站点的子树 + 项目级接入对象（通道、规则等），
+// 其他站点的单元与设备从视图中消失，避免客户总览把多个站混在一起。
+function siteSnapshot(snapshot: Snapshot, siteID: string): Snapshot {
+  if (!siteID) return snapshot
+  const byID = new Map(snapshot.nodes.map((node) => [node.id, node]))
+  const siteIDs = new Set(snapshot.nodes.filter((node) => node.type === "site").map((node) => node.id))
+  const ancestorSite = (id: string) => {
+    let current = id
+    const seen = new Set<string>()
+    while (current && !seen.has(current)) {
+      seen.add(current)
+      if (siteIDs.has(current)) return current
+      const node = byID.get(current)
+      if (!node) return ""
+      current = node.parent
+    }
+    return ""
+  }
+  const nodes = snapshot.nodes.filter((node) => {
+    const site = ancestorSite(node.id)
+    return !site || site === siteID
+  })
+  return { ...snapshot, nodes }
+}
+
 export default function App() {
   const [token, setToken] = useState(() => sessionStorage.getItem("easyems-token") || "")
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
@@ -199,6 +224,7 @@ export default function App() {
     const saved = window.localStorage.getItem(workbenchStorageKey)
     return saved === "delivery" || saved === "customer" ? saved : "customer"
   })
+  const [siteID, setSiteID] = useState(() => window.localStorage.getItem("easyems-site") || "")
   const [error, setError] = useState("")
   const [email, setEmail] = useState("admin")
   const [password, setPassword] = useState("")
@@ -376,7 +402,25 @@ export default function App() {
     }
   }, [displayOpen])
 
-  const activeSnapshot = useMemo(() => snapshot ? subtreeSnapshot(snapshot, stationID || snapshot.roots[0] || "") : null, [snapshot, stationID])
+  const activeSnapshot = useMemo(() => {
+    if (!snapshot) return null
+    const base = subtreeSnapshot(snapshot, stationID || snapshot.roots[0] || "")
+    return siteID ? siteSnapshot(base, siteID) : base
+  }, [snapshot, stationID, siteID])
+
+  const siteNodes = useMemo(() => snapshot?.nodes.filter((node) => node.type === "site") ?? [], [snapshot])
+  useEffect(() => {
+    if (!snapshot) return
+    if (siteNodes.length === 0) {
+      if (siteID) setSiteID("")
+      return
+    }
+    if (!siteNodes.some((node) => node.id === siteID)) {
+      const first = siteNodes[0].id
+      setSiteID(first)
+      window.localStorage.setItem("easyems-site", first)
+    }
+  }, [snapshot, siteNodes, siteID])
 
   async function signIn(event: FormEvent) {
     event.preventDefault()
@@ -462,7 +506,7 @@ export default function App() {
     || rules.find((rule) => rule.id === ruleAnchor.current)
     || rules[0]
 
-  function openPoint(keywords: string[], fallback: Page = "channels") {
+  function openPoint(keywords: string[], fallback: Page = "history") {
     const match = keywords.length ? points.find((node) => {
       const name = nameOf(node).toLowerCase()
       return keywords.some((keyword) => name.includes(keyword.toLowerCase())) && point(node, "value") !== undefined
@@ -516,9 +560,15 @@ export default function App() {
   return <IonApp><IonContent fullscreen><div className="console-viewport"><div className="console-shell" style={{ "--console-scale": String(stageScale) } as CSSProperties}>
     <header className="console-topbar">
       <div className="console-brand"><img className="brand-mark" src="/zizu-brand.png" alt="" /><strong>自足能源AI <small>3.0</small></strong></div>
-      <select className="console-station" aria-label="当前项目" value={view.roots[0]} onChange={(event) => setStationID(event.target.value)}>
-        {snapshot.roots.map((root) => <option key={root} value={root}>{labelForRoot(root)}</option>)}
-      </select>
+      {snapshot.roots.length > 1
+        ? <select className="console-station" aria-label="当前项目" value={view.roots[0]} onChange={(event) => setStationID(event.target.value)}>
+          {snapshot.roots.map((root) => <option key={root} value={root}>{labelForRoot(root)}</option>)}
+        </select>
+        : <span className="console-station-label" title="当前项目">{labelForRoot(view.roots[0])}</span>}
+      {siteNodes.length > 1 && <select className="console-site" aria-label="当前站点" value={siteID}
+        onChange={(event) => { setSiteID(event.target.value); window.localStorage.setItem("easyems-site", event.target.value) }}>
+        {siteNodes.map((site) => <option key={site.id} value={site.id}>{nameOf(site)}</option>)}
+      </select>}
       {canConfigure && <div className="console-workbench" role="group" aria-label="工作台">
         {(["customer", "delivery"] as Workbench[]).map((key) => (
           <button key={key} className={workbench === key ? "active" : ""} aria-pressed={workbench === key} title={workbenchFullNames[key]} onClick={() => switchWorkbench(key)}>{workbenchNames[key]}</button>
@@ -573,7 +623,7 @@ export default function App() {
         <button className="console-icon" title="活动报警" aria-label="活动报警" onClick={() => setPage("alarms")}><Icon name="bell" size={25} />{alarmCount > 0 && <em>{alarmCount}</em>}</button>
         <span className="console-user">楼顶 · {roleNames[view.user.policy.role] || "用户"}</span>
         <time>{clock.toLocaleTimeString("zh-CN", { hour12: false })}</time>
-        {isAdmin && <button className="console-profile" aria-label="账号与权限" onClick={() => setPage("users")}><Icon name="user" size={23} /><span>{view.user.user_id}</span></button>}
+        {isAdmin && <button className="console-profile" aria-label="账号与权限" title={view.user.email || view.user.user_id} onClick={() => setPage("users")}><Icon name="user" size={23} /><span>{(view.user.email || view.user.user_id).split("@")[0]}</span></button>}
         <button className="console-exit" title="退出登录" aria-label="退出登录" onClick={() => { sessionStorage.removeItem("easyems-token"); setToken(""); setSnapshot(null) }}>退出</button>
       </div>
     </header>
@@ -585,16 +635,18 @@ export default function App() {
           alarmCount={alarmCount}
           offlineChannels={offlineChannels}
           stalePoints={stalePoints}
-          onOpenChannels={() => setPage("channels")}
+          onOpenChannels={() => setPage(canConfigure ? "channels" : "health")}
           onOpenAlarms={() => setPage("alarms")}
         />}
         {page !== "devices" && <p>{currentInfo.subtitle}</p>}
         <div className="console-head-actions">
-          <span className="site-pill">站点 {Math.max(1, snapshot.roots.indexOf(view.roots[0]) + 1)} / {snapshot.roots.length}</span>
+          <span className="site-pill">{siteNodes.length > 0
+            ? `站点 ${Math.max(1, siteNodes.findIndex((node) => node.id === siteID) + 1)} / ${siteNodes.length}`
+            : `项目 1 / ${snapshot.roots.length}`}</span>
           {page === "devices" && <>
             <button className="secondary-button head-action" onClick={() => setCommandsOpen(true)}>常用命令</button>
             <button className="secondary-button head-action" onClick={() => setShiftOpen(true)}>班次交接</button>
-            <button className="secondary-button head-action" onClick={() => setKpiConfigOpen(true)}>配置 KPI</button>
+            <button className="secondary-button head-action" onClick={() => setKpiConfigOpen(true)}>显示设置</button>
           </>}
           {page !== "devices" && <div className="live-status"><span className="pulse" />数据每 2 秒更新</div>}
         </div>
@@ -604,8 +656,8 @@ export default function App() {
       <div className="console-stage">
       {page === "devices" && <DevicesView
         snapshot={view} points={points} groups={groups} rules={rules.length} activeRules={activeRules.length} errors={errors.length}
-        alarmCount={alarmCount} busy={busy} isAdmin={canConfigure} canOperate={canOperate} run={run} openPoint={openPoint}
-        goRules={() => setPage("rules")} goHistory={() => setPage("history")} goChannels={() => setPage("channels")} goEnergyUnits={() => setPage("energyUnits")} dispatch={dispatch} latestAlarm={latestAlarm} tariff={tariff}
+        alarmCount={alarmCount} busy={busy} isAdmin={canConfigure} canConfigure={canConfigure} canOperate={canOperate} run={run} openPoint={openPoint}
+        goRules={() => setPage("rules")} goHistory={() => setPage("history")} goChannels={() => setPage("channels")} goEnergyUnits={() => setPage("energyUnits")} goDispatchTrace={() => setPage("dispatchTrace")} goAlarms={() => setPage("alarms")} dispatch={dispatch} latestAlarm={latestAlarm} tariff={tariff}
         kpiConfig={kpiConfig}
         onError={setError}
       />}
@@ -617,22 +669,22 @@ export default function App() {
         openAlarms={() => setPage("alarms")}
       />}
 
-      {page === "ledger" && <DeviceLedgerView token={token} onError={setError} canConfigure={canConfigure && workbench === "delivery"} canOperate={canOperate && workbench === "delivery"} goChannels={() => setPage("channels")} goPoints={() => setPage("points")} goHistory={() => setPage("history")} goAlarms={() => setPage("alarms")} />}
+      {page === "ledger" && <DeviceLedgerView token={token} site={siteID} onError={setError} canConfigure={canConfigure && workbench === "delivery"} canOperate={canOperate && workbench === "delivery"} goChannels={() => setPage("channels")} goPoints={() => setPage("points")} goHistory={() => setPage("history")} goAlarms={() => setPage("alarms")} />}
 
-      {page === "points" && <PointsView
+      {page === "points" && canConfigure && <PointsView
         token={token} nodes={view.nodes} isAdmin={canConfigure} canOperate={canOperate} busy={busy} run={run}
         onError={setError} openHistory={(id) => { setHistoryPoint(id); setPage("history") }}
         goChannels={() => setPage("channels")}
       />}
 
-      {page === "channels" && <ChannelWorkspace
+      {page === "channels" && canConfigure && <ChannelWorkspace
         token={token} channels={channels} ioCounts={ioCounts} isAdmin={canConfigure} canOperate={canOperate} nodes={view.nodes} roots={view.roots} groups={groups}
         templates={view.nodes.filter((node) => node.type === "deviceTemplate")} busy={busy} run={run} onError={setError} goPoints={() => setPage("points")}
       />}
 
-      {page === "aggregate" && <AggregatesView token={token} nodes={view.nodes} groups={groups} canConfigure={canConfigure} />}
+      {page === "aggregate" && canConfigure && <AggregatesView token={token} nodes={view.nodes} groups={groups} canConfigure={canConfigure} />}
 
-      {page === "deploy" && canConfigure && <DeliveryWorkbench token={token} nodes={view.nodes} canConfigure={canConfigure} goPage={(next) => setPage(next)} onError={setError} />}
+      {page === "deploy" && canConfigure && <DeliveryWorkbench token={token} nodes={view.nodes} siteID={siteID} canConfigure={canConfigure} goPage={(next) => setPage(next)} onError={setError} />}
 
       {page === "allocators" && canConfigure && <AllocatorsView
         token={token} nodes={view.nodes} groups={groups} points={points}
@@ -642,7 +694,7 @@ export default function App() {
       {page === "energyUnits" && canConfigure && <EnergyUnitsView token={token} nodes={view.nodes} onError={setError} />}
       {page === "resourceGroups" && canConfigure && <ResourceGroupsView token={token} onError={setError} />}
       {page === "dispatchTrace" && <DispatchTraceView token={token} onError={setError} />}
-      {page === "opcua" && <OpcuaView token={token} onError={setError} />}
+      {page === "opcua" && canConfigure && <OpcuaView token={token} onError={setError} />}
       {page === "unitWiring" && canConfigure && <UnitWiringView token={token} nodes={view.nodes} onError={setError} />}
 
       {page === "alarms" && <AlarmsView token={token} rootID={view.roots[0]} nodes={view.nodes} canOperate={canOperate} canConfigure={canConfigure} onError={setError} openHistory={(id) => { setHistoryPoint(id); setPage("history") }} />}
@@ -651,7 +703,7 @@ export default function App() {
 
       {page === "history" && <HistoryView key={historyPoint || "history"} token={token} points={points} initialPoint={historyPoint || undefined} onError={setError} isAdmin={canConfigure} />}
 
-      {page === "rules" && <section className="rules-page">
+      {page === "rules" && canConfigure && <section className="rules-page">
         <div className="page-toolbar">
           <div className="rule-tabs">{rules.map((rule) => <button key={rule.id} className={currentRule?.id === rule.id ? "active" : ""} onClick={() => selectRule(rule.id)}>{nameOf(rule)}</button>)}</div>
           {canConfigure && <button className="primary-button" disabled={busy} onClick={() => void (async () => {
@@ -700,9 +752,9 @@ export default function App() {
 
 type Run = (action: () => Promise<unknown>) => Promise<boolean>
 
-function DevicesView({ snapshot, points, groups, rules, activeRules, errors, alarmCount, busy, isAdmin, canOperate, run, openPoint, goRules, goHistory, goChannels, goEnergyUnits, dispatch, latestAlarm, tariff, kpiConfig, onError }: {
+function DevicesView({ snapshot, points, groups, rules, activeRules, errors, alarmCount, busy, isAdmin, canConfigure, canOperate, run, openPoint, goRules, goHistory, goChannels, goEnergyUnits, goDispatchTrace, goAlarms, dispatch, latestAlarm, tariff, kpiConfig, onError }: {
   snapshot: Snapshot; points: Node[]; groups: Node[]; rules: number; activeRules: number; errors: number; alarmCount: number
-  busy: boolean; isAdmin: boolean; canOperate: boolean; run: Run; goRules: () => void; goHistory: () => void; goChannels: () => void; goEnergyUnits: () => void; dispatch: DispatchInfo | null
+  busy: boolean; isAdmin: boolean; canConfigure: boolean; canOperate: boolean; run: Run; goRules: () => void; goHistory: () => void; goChannels: () => void; goEnergyUnits: () => void; goDispatchTrace: () => void; goAlarms: () => void; dispatch: DispatchInfo | null
   latestAlarm: EmsAlarm | null
   tariff: number | null
   kpiConfig: KpiConfig
@@ -730,10 +782,11 @@ function DevicesView({ snapshot, points, groups, rules, activeRules, errors, ala
 
     <EnergyFlow points={points} onOpenPoint={openPoint} onOpenTrends={goHistory} dispatch={dispatch} event={{
       activeRules, rules, alarmCount, errors, pointCount: points.length, onOpenRules: goRules,
+      onOpenTrace: goDispatchTrace, onOpenAlarms: goAlarms,
       latestAlarm: latestAlarm ? { title: latestAlarm.title, severity: latestAlarm.severity, at: latestAlarm.created_at } : undefined,
     }} />
 
-    <EnergyUnitsStatus nodes={snapshot.nodes} onOpen={goEnergyUnits} token={token} canOperate={canOperate} />
+    <EnergyUnitsStatus nodes={snapshot.nodes} onOpen={goEnergyUnits} token={token} canOperate={canOperate} canConfigure={canConfigure} />
 
     <InlineNotice tone="info"><b>现场</b>：{showDataNote ? "所有指标均取自已配置点位；未接入、无值或过期显示“—”。能流画面只用于展示，不替代控制、保护或结算。" : "仅展示已绑定点位；未接入指标显示“—”，不生成模拟数据。"}<button className="ml-2 text-ems-accent" onClick={() => setShowDataNote(!showDataNote)}>说明 {showDataNote ? "收起" : "展开"}</button></InlineNotice>
 

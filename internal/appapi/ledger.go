@@ -41,7 +41,11 @@ type DeviceLedgerResponse struct {
 }
 
 func (h *Handler) deviceLedger(w http.ResponseWriter, r *http.Request, identity Identity) {
-	devices, err := h.ledgerDevices(identity)
+	siteID := r.URL.Query().Get("site")
+	if !h.checkSite(w, identity, siteID) {
+		return
+	}
+	devices, err := h.ledgerDevices(identity, siteID)
 	if err != nil {
 		writeError(w, http.StatusServiceUnavailable, err.Error())
 		return
@@ -49,11 +53,12 @@ func (h *Handler) deviceLedger(w http.ResponseWriter, r *http.Request, identity 
 	writeJSON(w, DeviceLedgerResponse{Devices: devices})
 }
 
-func (h *Handler) ledgerDevices(identity Identity) ([]LedgerDevice, error) {
+func (h *Handler) ledgerDevices(identity Identity, siteID string) ([]LedgerDevice, error) {
 	nodes, err := h.visibleNodes(identity)
 	if err != nil {
 		return nil, errors.New("nodes_unavailable")
 	}
+	siteRefs, siteNodes := siteLedgerRefs(nodes, siteID)
 	if h.ems == nil || h.ems.Profiles == nil {
 		return nil, errors.New("ems_unavailable")
 	}
@@ -122,6 +127,9 @@ func (h *Handler) ledgerDevices(identity Identity) ([]LedgerDevice, error) {
 				}
 			}
 			deviceID := node.ID + "/" + strconv.Itoa(server)
+			if siteID != "" && !siteRefs[deviceID] && !siteNodes[item.BusinessNodeID] {
+				continue
+			}
 			if ch, ok := runtime[node.ID]; ok {
 				item.Health = string(ch.Health(deviceID, now, h.ems.MaxAge))
 				stats := ch.Stats(deviceID)

@@ -309,11 +309,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case path == "delivery/evidence" && r.Method == http.MethodGet:
 		h.deliveryEvidence(w, r, identity)
 	case path == "delivery/gates" && r.Method == http.MethodGet:
-		h.deliveryGates(w, identity)
+		h.deliveryGates(w, identity, r.URL.Query().Get("site"))
 	case path == "delivery/preflight" && r.Method == http.MethodPost:
-		h.runPreflight(w, identity)
+		h.runPreflight(w, identity, r.URL.Query().Get("site"))
 	case path == "delivery/preflight" && r.Method == http.MethodGet:
-		h.latestPreflight(w, identity)
+		h.latestPreflight(w, identity, r.URL.Query().Get("site"))
+	case path == "projects/sources" && r.Method == http.MethodGet:
+		h.reuseSourcesHandler(w, identity)
 	case path == "projects/reuse/preview" && r.Method == http.MethodGet:
 		h.reusePreviewHandler(w, identity, r.URL.Query().Get("source"))
 	case path == "projects/reuse" && r.Method == http.MethodPost:
@@ -327,7 +329,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if !decodeJSON(w, r, &req) {
 			return
 		}
-		h.publishHandler(w, identity, req.Site, req.Note)
+		h.publishHandler(w, identity, req.Site, req.Note, req.Confirm)
 	case path == "projects/versions" && r.Method == http.MethodGet:
 		h.versionsHandler(w, identity, r.URL.Query().Get("site"))
 	case path == "projects/rollback" && r.Method == http.MethodPost:

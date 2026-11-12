@@ -39,9 +39,13 @@
 
 | 方法 | 路径 | 权限 | 行为 |
 |---|---|---|---|
-| GET | `/api/delivery/gates` | ActionConfigure | 实时计算门槛，不写任何存储；供页面 5–10 秒轮询 |
-| POST | `/api/delivery/preflight` | ActionConfigure | 计算同一批门槛，生成快照 ID、写 `preflight.jsonl` 与审计 |
-| GET | `/api/delivery/preflight` | ActionConfigure | 读取最近一次预检（文件尾行），没有时返回 200 与 null |
+| GET | `/api/delivery/gates?site=` | ActionConfigure | 实时计算门槛，不写任何存储；供页面 5–10 秒轮询 |
+| POST | `/api/delivery/preflight?site=` | ActionConfigure | 计算同一批门槛，生成快照 ID、写 `preflight.jsonl` 与审计 |
+| GET | `/api/delivery/preflight?site=` | ActionConfigure | 读取该站点最近一次预检（文件尾行），没有时返回 200 与 null |
+
+`site` 为可选站点 ID：传入后门槛只统计该站点子树与项目级接入对象（通道、规则），
+响应里带 `site` 字段；不传表示项目级（全站合计）。`checkSite` 校验节点存在且
+类型为 `site`，跨树/非站点 ID 返回 403/400。
 
 预检响应：
 
@@ -66,8 +70,9 @@
 
 | key | 数据来源 | 判定 | 级别 |
 |---|---|---|---|
-| channels | 运行时通道 + 台账 | 离线 > 0 | fail |
-| | | 不稳定 > 0 | warn |
+| channels | 可见通道节点 + 运行时实例 + 台账 | 没有任何通道 | fail |
+| | | 通道全部未启动 / 有离线设备 | fail |
+| | | 通道无设备 / 健康未知或不稳定 > 0 | warn |
 | points | 关键点位集合 | 关键点位过期或坏值 > 0 | fail |
 | | | 非关键点位过期 > 0 | warn |
 | rules | decisionTable 节点 | 有启用但未发布（`enabled≠0` 且 `applied==""`） | fail |
@@ -96,7 +101,7 @@
 
 - `data/preflight.jsonl` 每行一条完整快照；与 `audit.jsonl`、`commands.jsonl` 同为追加式，不做数据库。
 - 审计记录：动作 `delivery.preflight`，字段含快照 ID、状态、汇总计数；不写门槛明细（明细在 JSONL）。
-- `GET /api/delivery/preflight` 读文件尾行；文件不存在返回 404。
+- `GET /api/delivery/preflight` 读文件尾行；文件不存在或该站点没有历史时返回 200 与 null。
 
 ### 2.5 代码结构
 
@@ -109,7 +114,7 @@
 
 - 单测：关键点位推导（规则引用、PCC、能力输入三类各一例，含交集去重）。
 - 单测：合并规则（通道离线→fail；仅人工接管→warn；无决策表→warn；全部正常→pass）。
-- 集成：实施可 POST，viewer 403；预检后 `preflight.jsonl` 多一行且审计多一条；GET 返回最近快照；无历史时 404。
+- 集成：实施可 POST，viewer 403；预检后 `preflight.jsonl` 多一行且审计多一条；GET 返回最近快照；无历史时 200 与 null。
 - 现有 `TestModbusCSVDiffAndDeliveryEvidence` 必须继续通过（重构 deliveryCheck 的回归）。
 
 ## 3. 前端
@@ -237,7 +242,7 @@
 - 回退前自动冻结当前配置；历史（审计、报警、命令）不随回退变化，也不回放旧命令。
 - 版本文件不含凭据与运行时值；回退写入使用当前时间戳，避免被存储当作过期写入丢弃。
 - 测试：`TestProjectVersionPublishAndRollback`。
-- A19 仍为部分：发布前预检阻断与迁移尚未实现。
+- A19 仍为部分：预检阻断与"确认后冻结"已实现，但版本包导出/迁移（应用生成）未实现。
 
 **状态变化**：A01、A08、A09 升为已实现；A19 由未实现升为部分；当前为 8 已实现 / 11 部分 / 4 未实现（A17、A18、A21、A23）。
 
@@ -252,3 +257,28 @@
 - 测试：`TestApplyProfileVerdicts`（12 精确 / 2 缩放 / 2 缺失，两个命令因点位只读被阻断）、`TestApplyProfilesPersistsModels`（批量应用落盘并保留业务绑定）。
 
 **状态变化**：A02、A15 升为已实现；当前 10 已实现 / 9 部分 / 4 未实现（A17、A18、A21、A23）。
+
+## 9. 第四轮修正（2026-11-12）：站点作用域与状态真实性
+
+按前端评审结论修正的五项：
+
+**站点作用域**
+- `internal/appapi/site_scope.go`：`scopeNodesToSite`（选中站点子树 + 未归属站点的接入层对象）、`siteLedgerRefs`（本站单元实际引用的通道/站号）、`checkSite`。
+- 门槛、预检、预检读取按 `?site=` 计算与查询；设备台账按站点过滤；页面顶栏提供显式站点选择并写入 `localStorage`。
+- 客户总览、设备状态、调度追溯只显示选中站点，避免多站同名单元混在一起。
+
+**状态真实性**
+- 交付工作台每一步只有门槛 `pass` 才算完成；`warn` 显示"部分"，不再打勾。
+- 通道门槛：没有通道即 fail；有通道无设备或健康未知 → warn；全部正常才 pass。
+- 备份项标 `informational`，只展示，不参与总状态与汇总；预检 `latest` 必须是所选站点最近一次快照。
+
+**死链**
+- 调度详情 → `dispatchTrace`，报警 → `alarms`，健康 → `health`；客户工作台隐藏配置型入口，配置页面对无权限角色不渲染。
+
+**复用安全**
+- 复用源只列已冻结/已验收版本的项目（`GET /api/projects/sources`）；克隆的能源单元强制 `cabinetState=standby`，不继承源项目的运行/检修状态。
+
+**发布**
+- 预检 fail 时 `POST /api/projects/publish` 返回 409 `preflight_failed`；界面按钮改名"冻结版本"，二次确认后以 `confirm: true` 重新提交。回退需二次点击确认。
+
+**测试**：`TestScopeNodesToSite`、`TestLedgerScopedBySite`、`TestReuseProject`（standby + 源必须有版本）、`TestProjectVersionPublishAndRollback`（409 → confirm 200）。

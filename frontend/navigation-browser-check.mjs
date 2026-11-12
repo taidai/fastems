@@ -28,6 +28,11 @@ const adminToken = login.data.token
 const snapshot = await api(adminToken, "/snapshot")
 if (snapshot.status !== 200 || !snapshot.data.roots?.length) throw new Error(`snapshot failed: ${snapshot.status}`)
 const root = snapshot.data.roots[0]
+const siteNode = snapshot.data.nodes?.find((node) => node.type === "site")
+if (siteNode) {
+  const baseline = await api(adminToken, "/projects/publish", "POST", { site: siteNode.id, note: "验收基线（脚本预置）", confirm: true })
+  if (![200, 201].includes(baseline.status)) throw new Error(`baseline publish failed: ${baseline.status} ${JSON.stringify(baseline.data)}`)
+}
 
 // 查看者账号：已存在则复用（409）。
 const created = await api(adminToken, "/users", "POST", { parent: root, email: viewerEmail, password: viewerPassword, role: "viewer", actions: [] })
@@ -107,9 +112,15 @@ const title = async (page) => (await page.locator(".console-page-head h1").first
   // 版本与发布：发布当前配置并出现可回退的版本。
   await page.getByRole("tab", { name: "版本与发布" }).click()
   await page.waitForTimeout(400)
-  await page.getByRole("button", { name: "发布当前配置" }).click()
-  await page.waitForTimeout(1200)
-  ok((await page.locator("main").textContent()).includes("已发布"), "发布后应显示版本号")
+  await page.getByRole("button", { name: "冻结版本" }).click()
+  await page.waitForTimeout(900)
+  const blocked = await page.getByRole("button", { name: /预检未通过，仍要冻结版本/ }).count()
+  if (blocked > 0) {
+    await page.getByRole("button", { name: /预检未通过，仍要冻结版本/ }).first().click()
+    await page.waitForTimeout(1000)
+  }
+  const versionText = await page.locator("main").textContent()
+  ok(versionText.includes("已冻结版本"), "冻结后应显示版本号")
   ok(await page.getByRole("button", { name: "回退到此版本" }).count() > 0, "版本列表应出现回退按钮")
 
   // 回到投运门槛，运行预检。

@@ -24,7 +24,7 @@ func (h *Handler) deliveryEvidence(w http.ResponseWriter, r *http.Request, ident
 		writeError(w, http.StatusServiceUnavailable, "ems_unavailable")
 		return
 	}
-	devices, err := h.ledgerDevices(identity)
+	devices, err := h.ledgerDevices(identity, "")
 	if err != nil {
 		writeError(w, http.StatusServiceUnavailable, err.Error())
 		return

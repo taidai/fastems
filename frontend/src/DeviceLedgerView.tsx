@@ -7,8 +7,9 @@ import type { LedgerDevice } from "./deviceTypes"
 const healthNames: Record<string, string> = { healthy: "在线", degraded: "不稳定", offline: "离线", unknown: "未知" }
 const healthTones: Record<string, EmsTone> = { healthy: "success", degraded: "warning", offline: "danger", unknown: "neutral" }
 
-export default function DeviceLedgerView({ token, onError, canConfigure, canOperate, goChannels, goPoints, goHistory, goAlarms }: {
+export default function DeviceLedgerView({ token, site, onError, canConfigure, canOperate, goChannels, goPoints, goHistory, goAlarms }: {
   token: string
+  site?: string
   onError: (message: string) => void
   canConfigure: boolean
   canOperate: boolean
@@ -26,14 +27,15 @@ export default function DeviceLedgerView({ token, onError, canConfigure, canOper
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const result = await request<{ devices: LedgerDevice[] }>(token, "/device-ledger")
+      const query = site ? `?site=${encodeURIComponent(site)}` : ""
+      const result = await request<{ devices: LedgerDevice[] }>(token, `/device-ledger${query}`)
       setDevices(result.devices || [])
     } catch (cause) {
       onError(cause instanceof Error ? cause.message : "设备台账读取失败")
     } finally {
       setLoading(false)
     }
-  }, [token, onError])
+  }, [token, site, onError])
 
   useEffect(() => {
     void load()

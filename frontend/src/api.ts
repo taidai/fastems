@@ -52,7 +52,7 @@ export type Document = {
   scenarios?: Scenario[]
 }
 export type Snapshot = {
-  user: { user_id: string; policy: { admin: boolean; role: string; actions?: string[] } }
+  user: { user_id: string; email?: string; policy: { admin: boolean; role: string; actions?: string[] } }
   roots: string[]
   nodes: Node[]
   session_timeout_seconds?: number
@@ -124,6 +124,18 @@ const errorTexts: Record<string, string> = {
   capability_load_failed: "读取设备能力失败",
   plant_resolve_failed: "无法确定所属电站，请先创建电站",
   channel_busy: "该地址正被运行中的通道占用",
+  source_not_accepted: "源项目还没有发布版本，不能作为复用源",
+  source_must_be_site: "只能从站点创建新项目",
+  target_parent_unavailable: "当前账号无权在项目下新建站点",
+  preflight_failed: "预检存在阻断项，确认后才能冻结版本",
+  preflight_unavailable: "预检暂不可用，请检查运行服务",
+  version_save_failed: "版本保存失败，请稍后重试",
+  version_not_found: "版本不存在或已删除",
+  requires_site: "只能对站点执行此操作",
+  servers_required: "请填写至少一个站号",
+  unknown_profile: "Profile 不存在，请重新选择",
+  slots_must_be_96: "计划必须是 96 个时段",
+  slot_out_of_range: "计划值超出允许范围",
 }
 
 function errorMessage(code: string, status: number): string {

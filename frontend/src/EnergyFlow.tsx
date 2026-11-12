@@ -78,6 +78,8 @@ type FlowEvent = {
   errors: number
   pointCount: number
   onOpenRules: () => void
+  onOpenTrace?: () => void
+  onOpenAlarms?: () => void
   latestAlarm?: { title: string; severity: string; at: string }
 }
 
@@ -203,7 +205,7 @@ export default function EnergyFlow({ points, onOpenPoint, onOpenTrends, event, d
         <span className="flow-live"><i />调度 {dispatch ? `${dispatch.rule} · ${stateLabel(dispatch.state)}` : "未启用"}</span>
         {dispatch && <span>{timeLabel(dispatch.at)}</span>}
         {dispatch && <span className="flow-action" title={actionLabel(dispatch)}>{actionLabel(dispatch)}</span>}
-        <button type="button" className="inline-link" onClick={event?.onOpenRules}>调度详情 ›</button>
+        <button type="button" className="inline-link" onClick={event?.onOpenTrace || event?.onOpenRules}>调度详情 ›</button>
       </div>
       <div className="flow-tools">
         <div className="flow-tool-group" role="group" aria-label="场景视角">
@@ -261,7 +263,7 @@ export default function EnergyFlow({ points, onOpenPoint, onOpenTrends, event, d
       {event.latestAlarm
         ? <span className={`event-alarm ${event.latestAlarm.severity}`}>最新报警 {event.latestAlarm.title} · {timeLabel(event.latestAlarm.at)}</span>
         : <span>{dispatch ? actionLabel(dispatch) : "—"}</span>}
-      <button onClick={event.onOpenRules}>活动报警 {event.alarmCount} 条 · 点位 {event.pointCount} 个 ›</button>
+      <button onClick={event.onOpenAlarms || event.onOpenRules}>活动报警 {event.alarmCount} 条 · 点位 {event.pointCount} 个 ›</button>
     </div>}
   </section>
 }

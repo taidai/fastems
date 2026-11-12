@@ -73,7 +73,7 @@ func TestCriticalPointSet(t *testing.T) {
 
 func TestPreflightReportPersistence(t *testing.T) {
 	handler := &Handler{dataDir: t.TempDir()}
-	if report, err := handler.readLatestPreflight(); err != nil || report != nil {
+	if report, err := handler.readLatestPreflight(""); err != nil || report != nil {
 		t.Fatalf("empty store = %#v, %v", report, err)
 	}
 	first := preflightReport{ID: "pf-1", Status: "warn", Summary: map[string]int{"pass": 1, "warn": 1, "fail": 0}}
@@ -87,7 +87,7 @@ func TestPreflightReportPersistence(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(handler.dataDir, preflightFile)); err != nil {
 		t.Fatalf("preflight file: %v", err)
 	}
-	latest, err := handler.readLatestPreflight()
+	latest, err := handler.readLatestPreflight("")
 	if err != nil || latest == nil || latest.ID != "pf-2" {
 		t.Fatalf("latest = %#v, %v", latest, err)
 	}
@@ -140,7 +140,7 @@ func TestDeliveryPreflight(t *testing.T) {
 	viewer := Identity{UserID: "viewer", Policy: AccessPolicy{Role: "viewer"}, Anchors: []string{root.ID}}
 
 	recorder := httptest.NewRecorder()
-	handler.deliveryGates(recorder, admin)
+	handler.deliveryGates(recorder, admin, "")
 	if recorder.Code != 200 {
 		t.Fatalf("gates = %d %s", recorder.Code, recorder.Body.String())
 	}
@@ -162,18 +162,18 @@ func TestDeliveryPreflight(t *testing.T) {
 	}
 
 	recorder = httptest.NewRecorder()
-	handler.deliveryGates(recorder, viewer)
+	handler.deliveryGates(recorder, viewer, "")
 	if recorder.Code != 403 {
 		t.Fatalf("viewer gates = %d, want 403", recorder.Code)
 	}
 	recorder = httptest.NewRecorder()
-	handler.runPreflight(recorder, viewer)
+	handler.runPreflight(recorder, viewer, "")
 	if recorder.Code != 403 {
 		t.Fatalf("viewer preflight = %d, want 403", recorder.Code)
 	}
 
 	recorder = httptest.NewRecorder()
-	handler.runPreflight(recorder, admin)
+	handler.runPreflight(recorder, admin, "")
 	if recorder.Code != 200 {
 		t.Fatalf("preflight = %d %s", recorder.Code, recorder.Body.String())
 	}
@@ -186,7 +186,7 @@ func TestDeliveryPreflight(t *testing.T) {
 	}
 
 	recorder = httptest.NewRecorder()
-	handler.latestPreflight(recorder, admin)
+	handler.latestPreflight(recorder, admin, "")
 	if recorder.Code != 200 {
 		t.Fatalf("latest = %d", recorder.Code)
 	}
@@ -202,7 +202,7 @@ func TestDeliveryPreflight(t *testing.T) {
 
 	empty := &Handler{dataDir: t.TempDir()}
 	recorder = httptest.NewRecorder()
-	empty.latestPreflight(recorder, admin)
+	empty.latestPreflight(recorder, admin, "")
 	if recorder.Code != 200 {
 		t.Fatalf("empty latest = %d, want 200", recorder.Code)
 	}

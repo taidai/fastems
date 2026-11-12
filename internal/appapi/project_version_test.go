@@ -19,6 +19,8 @@ import (
 	"github.com/simpleiot/simpleiot/server"
 
 	"easyems/internal/decision"
+	"easyems/internal/ems/runtime"
+	"easyems/internal/emsapi"
 )
 
 func TestProjectVersionPublishAndRollback(t *testing.T) {
@@ -82,17 +84,25 @@ func TestProjectVersionPublishAndRollback(t *testing.T) {
 
 	handler := New(nc, users, nil)
 	handler.SetDataDir(dataDir)
+	handler.SetEMS(emsapi.New(runtime.NewService(nil, 15*time.Second, 5*time.Second, 100), 15*time.Second))
 	admin := Identity{UserID: "admin", Policy: AccessPolicy{Admin: true}, Anchors: []string{root.ID}}
 	viewer := Identity{UserID: "viewer", Policy: AccessPolicy{Role: "viewer"}, Anchors: []string{root.ID}}
 
 	recorder := httptest.NewRecorder()
-	handler.publishHandler(recorder, viewer, siteID, "")
+	handler.publishHandler(recorder, viewer, siteID, "", false)
 	if recorder.Code != 403 {
 		t.Fatalf("viewer publish = %d, want 403", recorder.Code)
 	}
 
+	// 站点没有可用通道时应先被预检阻断；确认后才允许冻结版本。
 	recorder = httptest.NewRecorder()
-	handler.publishHandler(recorder, admin, siteID, "首次发布")
+	handler.publishHandler(recorder, admin, siteID, "首次发布", false)
+	if recorder.Code != 409 {
+		t.Fatalf("publish without confirm = %d, want 409", recorder.Code)
+	}
+
+	recorder = httptest.NewRecorder()
+	handler.publishHandler(recorder, admin, siteID, "首次发布", true)
 	if recorder.Code != 200 {
 		t.Fatalf("publish = %d %s", recorder.Code, recorder.Body.String())
 	}

@@ -140,7 +140,16 @@ func TestReuseProject(t *testing.T) {
 	time.Sleep(300 * time.Millisecond)
 
 	handler := New(nc, users, nil)
+	handler.SetDataDir(dataDir)
 	admin := Identity{UserID: "admin", Policy: AccessPolicy{Admin: true}, Anchors: []string{root.ID}}
+	// 复用源必须是已发布（已验收）项目：先冻结一个基线版本。
+	baseline, err := handler.snapshotSite(admin, siteID, "baseline")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := handler.saveVersion(baseline); err != nil {
+		t.Fatal(err)
+	}
 	viewer := Identity{UserID: "viewer", Policy: AccessPolicy{Role: "viewer"}, Anchors: []string{root.ID}}
 
 	preview, err := handler.buildReusePreview(admin, siteID)
@@ -204,5 +213,8 @@ func TestReuseProject(t *testing.T) {
 	}
 	if setpoint, _ := newUnit.Points.Text(reuseSetpointPoint, ""); setpoint != newMeter.ID {
 		t.Fatalf("setpoint = %q, want %s", setpoint, newMeter.ID)
+	}
+	if state, _ := newUnit.Points.Text(PointTypeCabinetState, ""); state != string(decision.CabinetStandby) {
+		t.Fatalf("cloned unit state = %q, want standby", state)
 	}
 }

@@ -820,7 +820,7 @@ h1, h2, h3 { color: var(--ink); }
   -webkit-backdrop-filter: blur(28px) saturate(1.2);
   box-shadow: var(--glass-edge);
 }
-.console-brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.console-brand { display: flex; align-items: center; gap: 11px; min-width: 0; flex: 0 0 auto; }
 .console-brand .brand-mark {
   width: 38px; height: 38px; flex: 0 0 auto;
   border: 0; border-radius: 12px;
@@ -832,8 +832,8 @@ h1, h2, h3 { color: var(--ink); }
 .console-brand strong { font-size: 17px; font-weight: 750; letter-spacing: -0.02em; color: #162025; white-space: nowrap; }
 .console-brand small { font-size: 10px; color: var(--faint); letter-spacing: 0.03em; white-space: nowrap; }
 .console-station {
-  min-height: 38px; max-width: 210px;
-  padding: 6px 34px 6px 12px; border-radius: 10px;
+  min-height: 38px; min-width: 132px; max-width: 210px;
+  padding: 6px 26px 6px 10px; border-radius: 10px;
   appearance: none; -webkit-appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2352606a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat; background-position: right 12px center; background-size: 14px;
@@ -842,8 +842,15 @@ h1, h2, h3 { color: var(--ink); }
   color: #223039; font-size: 13px; font-weight: 650;
   box-shadow: 0 4px 12px rgba(31, 46, 58, 0.06);
 }
-.console-menu { position: relative; }
-.console-chip {
+.console-station-label {
+  display: inline-flex; align-items: center; flex: 0 0 auto;
+  min-height: 38px; padding: 0 12px; white-space: nowrap;
+  border: 1px solid rgba(255, 255, 255, 0.55); border-radius: 10px;
+  background: rgba(var(--glass-tint), var(--glass-a));
+  color: #223039; font-size: 20px; font-weight: 650;
+  box-shadow: 0 4px 12px rgba(31, 46, 58, 0.06);
+}
+.console-menu { position: relative; }.console-chip {
   min-height: 38px; padding: 0 13px;
   border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.55);
   background: rgba(var(--glass-tint), var(--glass-a)); color: #33434d;
@@ -1184,6 +1191,19 @@ h1, h2, h3 { color: var(--ink); }
 @media (max-width: 1400px) {
   .kpi-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
+@media (max-width: 1320px) {
+  /* 10.1 寸等中等屏幕保留一行：只留品牌图标，把宽度让给项目/站点选择。 */
+  .console-brand small { display: none; }
+  .console-brand > strong { display: none; }
+  .console-station { min-width: 128px; }
+  .console-site { min-width: 110px; }
+}
+@media (max-width: 1200px) {
+  /* 中等宽度允许顶栏换行，避免项目/站点选择被压成省略号。 */
+  .console-topbar { flex-wrap: wrap; row-gap: 6px; }
+  .console-station { min-width: 128px; }
+  .console-site { min-width: 110px; }
+}
 @media (max-width: 900px) {
   .console-brand small { display: none; }
   .console-brand > strong { display: none; }
@@ -1195,14 +1215,14 @@ h1, h2, h3 { color: var(--ink); }
   .console-topbar { top: 6px; margin: 6px 10px 0; gap: 8px; padding: 8px 12px; border-radius: 14px; }
   .console-brand { gap: 8px; }
   .console-brand strong { font-size: 14px; }
-  .console-station { max-width: 122px; padding: 6px 8px; font-size: 12px; }
+  .console-station, .console-station-label { max-width: 122px; padding: 6px 8px; font-size: 12px; }
   .console-chip { padding: 0 9px; min-width: 38px; }
   .console-chip .chip-label { display: none; }
   .console-top-actions { gap: 4px; }
   .console-top-actions time { display: none; }
   /* 窄屏顶栏压成两行：品牌 + 站点 + 图标一行，工作台切换与导航一行；导航可横向滚动。 */
   .console-brand { order: 1; }
-  .console-station { order: 2; }
+  .console-station, .console-station-label, .console-site { order: 2; }
   .console-top-actions { order: 3; margin-left: auto; flex-wrap: nowrap; }
   .console-workbench { order: 4; margin-left: 0; }
   .console-topnav { order: 5; flex: 1 1 0; min-width: 0; margin-left: 4px; overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
@@ -2873,3 +2893,7 @@ body::after {
 
 /* 交付工作台是长时间操作的工程台面：用不透明表面，避免实景底图干扰门槛与表格的小字。 */
 .workbench-page .ems-card { background: rgba(255, 255, 255, 0.97); }
+
+/* 当前站点选择：与项目选择同款外观，窄屏收窄。 */
+.console-site { height: 38px; min-height: 38px; max-width: 180px; padding: 0 30px 0 10px; border: 1px solid #b7c8dc; border-radius: 8px; background-color: rgba(248, 251, 255, 0.8); color: #131b22; font-size: 13px; }
+@media (max-width: 720px) { .console-site { max-width: 110px; font-size: 12px; padding: 0 24px 0 8px; } }

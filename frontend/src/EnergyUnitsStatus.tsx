@@ -42,11 +42,12 @@ function availableKW(node: Node): { charge: number | null; discharge: number | n
   }
 }
 
-export default function EnergyUnitsStatus({ nodes, onOpen, token, canOperate }: {
+export default function EnergyUnitsStatus({ nodes, onOpen, token, canOperate, canConfigure }: {
   nodes: Node[]
   onOpen: () => void
   token?: string
   canOperate?: boolean
+  canConfigure?: boolean
 }) {
   const [pending, setPending] = useState<{ id: string; action: string } | null>(null)
   const [busy, setBusy] = useState(false)
@@ -87,7 +88,7 @@ export default function EnergyUnitsStatus({ nodes, onOpen, token, canOperate }: 
     <IonCardContent className="grid gap-4">
       <EmsSectionHeader kicker="能源设备运行" title="每柜当前状态"
         description={`${stats.running} 台运行中${stats.attention > 0 ? ` · ${stats.attention} 台需处理` : " · 全部正常"}`}
-        actions={<EmsButton variant="secondary" onClick={onOpen}>调度配置</EmsButton>} />
+        actions={canConfigure ? <EmsButton variant="secondary" onClick={onOpen}>调度配置</EmsButton> : undefined} />
       {notice && <InlineNotice tone={notice.tone}>{notice.text}</InlineNotice>}
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {units.map((unit) => {

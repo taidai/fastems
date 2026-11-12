@@ -26,16 +26,18 @@ const preflightFile = "preflight.jsonl"
 const preflightAction = "交付预检"
 
 type preflightGate struct {
-	Key      string `json:"key"`
-	Title    string `json:"title"`
-	Status   string `json:"status"` // pass | warn | fail
-	Detail   string `json:"detail"`
-	Object   string `json:"object,omitempty"`
-	NextStep string `json:"next_step,omitempty"`
+	Key           string `json:"key"`
+	Title         string `json:"title"`
+	Status        string `json:"status"` // pass | warn | fail
+	Detail        string `json:"detail"`
+	Object        string `json:"object,omitempty"`
+	NextStep      string `json:"next_step,omitempty"`
+	Informational bool   `json:"informational,omitempty"` // 只展示，不参与总状态
 }
 
 type preflightReport struct {
 	ID          string          `json:"id"`
+	Site        string          `json:"site,omitempty"`
 	GeneratedAt time.Time       `json:"generated_at"`
 	Operator    string          `json:"operator,omitempty"`
 	Status      string          `json:"status"`
@@ -44,12 +46,15 @@ type preflightReport struct {
 }
 
 // deliveryGates 只读门槛：供页面轮询，不写存储。
-func (h *Handler) deliveryGates(w http.ResponseWriter, identity Identity) {
+func (h *Handler) deliveryGates(w http.ResponseWriter, identity Identity, siteID string) {
 	if !canAction(identity, ActionConfigure) {
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}
-	report, err := h.buildPreflight(identity)
+	if !h.checkSite(w, identity, siteID) {
+		return
+	}
+	report, err := h.buildPreflight(identity, siteID)
 	if err != nil {
 		writeError(w, http.StatusServiceUnavailable, "preflight_unavailable")
 		return
@@ -58,18 +63,22 @@ func (h *Handler) deliveryGates(w http.ResponseWriter, identity Identity) {
 }
 
 // runPreflight 生成快照：写 preflight.jsonl 与审计，返回同一次计算的结果。
-func (h *Handler) runPreflight(w http.ResponseWriter, identity Identity) {
+func (h *Handler) runPreflight(w http.ResponseWriter, identity Identity, siteID string) {
 	if !canAction(identity, ActionConfigure) {
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}
-	report, err := h.buildPreflight(identity)
+	if !h.checkSite(w, identity, siteID) {
+		return
+	}
+	report, err := h.buildPreflight(identity, siteID)
 	if err != nil {
 		writeError(w, http.StatusServiceUnavailable, "preflight_unavailable")
 		return
 	}
 	now := time.Now()
 	report.ID = "pf-" + now.Format("20060102-150405")
+	report.Site = siteID
 	report.GeneratedAt = now
 	report.Operator = identity.Email
 	if report.Operator == "" {
@@ -90,12 +99,15 @@ func (h *Handler) runPreflight(w http.ResponseWriter, identity Identity) {
 }
 
 // latestPreflight 返回最近一次快照；没有历史时 404，不伪造空报告。
-func (h *Handler) latestPreflight(w http.ResponseWriter, identity Identity) {
+func (h *Handler) latestPreflight(w http.ResponseWriter, identity Identity, siteID string) {
 	if !canAction(identity, ActionConfigure) {
 		writeError(w, http.StatusForbidden, "admin_required")
 		return
 	}
-	report, err := h.readLatestPreflight()
+	if !h.checkSite(w, identity, siteID) {
+		return
+	}
+	report, err := h.readLatestPreflight(siteID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "preflight_read_failed")
 		return
@@ -111,7 +123,7 @@ func preflightResult(status string) string {
 	return "success"
 }
 
-func (h *Handler) buildPreflight(identity Identity) (preflightReport, error) {
+func (h *Handler) buildPreflight(identity Identity, siteID string) (preflightReport, error) {
 	if h.ems == nil || h.ems.Service == nil {
 		return preflightReport{}, fmt.Errorf("ems unavailable")
 	}
@@ -119,6 +131,7 @@ func (h *Handler) buildPreflight(identity Identity) (preflightReport, error) {
 	if err != nil {
 		return preflightReport{}, err
 	}
+	nodes = scopeNodesToSite(nodes, siteID)
 	now := time.Now()
 	gates := make([]preflightGate, 0, 10)
 
@@ -131,7 +144,7 @@ func (h *Handler) buildPreflight(identity Identity) (preflightReport, error) {
 	gates = append(gates, h.alarmGate())
 	gates = append(gates, h.historyGate())
 	gates = append(gates, preflightGate{
-		Key: "backup", Title: "备份", Status: "warn",
+		Key: "backup", Title: "备份", Status: "warn", Informational: true,
 		Detail: "尚未验证离线完整备份", NextStep: "停机复制数据目录并做一次恢复演练",
 	})
 	gates = append(gates, preflightGate{
@@ -142,6 +155,9 @@ func (h *Handler) buildPreflight(identity Identity) (preflightReport, error) {
 	summary := map[string]int{"pass": 0, "warn": 0, "fail": 0}
 	status := "pass"
 	for _, gate := range gates {
+		if gate.Informational {
+			continue
+		}
 		summary[gate.Status]++
 		if gate.Status == "fail" {
 			status = "fail"
@@ -149,32 +165,56 @@ func (h *Handler) buildPreflight(identity Identity) (preflightReport, error) {
 			status = "warn"
 		}
 	}
-	return preflightReport{GeneratedAt: now, Status: status, Summary: summary, Gates: gates}, nil
+	return preflightReport{Site: siteID, GeneratedAt: now, Status: status, Summary: summary, Gates: gates}, nil
 }
 
 func (h *Handler) channelGate(nodes []data.NodeEdge, now time.Time) preflightGate {
-	visible := make(map[string]bool, len(nodes))
-	for _, node := range nodes {
-		visible[node.ID] = true
+	running := make(map[string]*channel.Channel)
+	if h.ems.Service != nil {
+		for _, ch := range h.ems.Service.Channels() {
+			running[ch.ID] = ch
+		}
 	}
-	var total, offline, degraded int
+	var total, devices, offline, degraded, unknown, idle int
 	var object string
-	for _, ch := range h.ems.Service.Channels() {
-		if !visible[ch.ID] {
+	name := func(node data.NodeEdge) string {
+		if name := node.Desc(); name != "" {
+			return name
+		}
+		return node.ID
+	}
+	for _, node := range nodes {
+		if node.Type != data.NodeTypeModbus {
 			continue
 		}
 		total++
+		ch, ok := running[node.ID]
+		if !ok {
+			// 通道节点已配置但运行时没有实例（地址/驱动未就绪），按离线处理，
+			// 不能因为运行时列表为空就报“没有任何通道”。
+			idle++
+			if object == "" {
+				object = name(node)
+			}
+			continue
+		}
 		for _, device := range ch.Devices {
+			devices++
 			switch ch.Health(device.ID, now, h.ems.MaxAge) {
 			case channel.HealthOffline:
 				offline++
 				if object == "" {
-					object = ch.ID
+					object = name(node)
 				}
 			case channel.HealthDegraded:
 				degraded++
 				if object == "" {
-					object = ch.ID
+					object = name(node)
+				}
+			case channel.HealthUnknown:
+				unknown++
+				if object == "" {
+					object = name(node)
 				}
 			}
 		}
@@ -183,16 +223,24 @@ func (h *Handler) channelGate(nodes []data.NodeEdge, now time.Time) preflightGat
 	switch {
 	case total == 0:
 		gate.Status, gate.Detail, gate.NextStep = "fail", "还没有配置任何通道", "在接入建模里添加通道与设备"
-	case offline > 0:
+	case idle == total:
 		gate.Status, gate.Object = "fail", object
-		gate.Detail = fmt.Sprintf("%d 条通道：离线设备 %d", total, offline)
+		gate.Detail = fmt.Sprintf("%d 条通道未启动", total)
+		gate.NextStep = "检查通道地址与协议配置"
+	case offline > 0 || idle > 0:
+		gate.Status, gate.Object = "fail", object
+		gate.Detail = fmt.Sprintf("%d 条通道：离线设备 %d、未启动 %d", total, offline, idle)
 		gate.NextStep = "检查地址、串口与接线"
-	case degraded > 0:
+	case devices == 0:
+		gate.Status = "warn"
+		gate.Detail = fmt.Sprintf("%d 条通道尚未配置设备", total)
+		gate.NextStep = "在通道下添加站号与点位"
+	case degraded > 0 || unknown > 0:
 		gate.Status, gate.Object = "warn", object
-		gate.Detail = fmt.Sprintf("%d 条通道：不稳定设备 %d", total, degraded)
-		gate.NextStep = "查看通信错误与响应时间"
+		gate.Detail = fmt.Sprintf("%d 条通道：不稳定 %d、状态未知 %d", total, degraded, unknown)
+		gate.NextStep = "确认设备已至少成功轮询一次"
 	default:
-		gate.Status, gate.Detail = "pass", fmt.Sprintf("%d 条通道全部正常", total)
+		gate.Status, gate.Detail = "pass", fmt.Sprintf("%d 条通道、%d 台设备全部正常", total, devices)
 	}
 	return gate
 }
@@ -467,7 +515,7 @@ func (h *Handler) appendPreflight(report preflightReport) error {
 	return err
 }
 
-func (h *Handler) readLatestPreflight() (*preflightReport, error) {
+func (h *Handler) readLatestPreflight(siteID string) (*preflightReport, error) {
 	if h.dataDir == "" {
 		return nil, nil
 	}
@@ -483,8 +531,16 @@ func (h *Handler) readLatestPreflight() (*preflightReport, error) {
 	scanner := bufio.NewScanner(file)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	for scanner.Scan() {
-		if strings.TrimSpace(scanner.Text()) != "" {
-			last = scanner.Text()
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		var candidate preflightReport
+		if json.Unmarshal([]byte(line), &candidate) != nil {
+			continue
+		}
+		if siteID == "" || candidate.Site == siteID {
+			last = line
 		}
 	}
 	if err := scanner.Err(); err != nil {

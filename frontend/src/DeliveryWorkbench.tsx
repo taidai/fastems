@@ -52,9 +52,10 @@ const clock = (value?: string) => {
   return Number.isFinite(time.getTime()) ? time.toLocaleString("zh-CN", { hour12: false }) : "—"
 }
 
-export default function DeliveryWorkbench({ token, nodes, canConfigure, goPage, onError }: {
+export default function DeliveryWorkbench({ token, nodes, siteID, canConfigure, goPage, onError }: {
   token: string
   nodes: Node[]
+  siteID: string
   canConfigure: boolean
   goPage: (page: Page) => void
   onError: (message: string) => void
@@ -71,6 +72,9 @@ export default function DeliveryWorkbench({ token, nodes, canConfigure, goPage, 
   const [reusePreview, setReusePreview] = useState<ReusePreview | null>(null)
   const [reuseResult, setReuseResult] = useState<ReuseResult | null>(null)
   const [reuseBusy, setReuseBusy] = useState(false)
+  const [reuseSources, setReuseSources] = useState<{ id: string; name: string; versions: number }[]>([])
+  const [publishBlocked, setPublishBlocked] = useState(false)
+  const [confirmRollback, setConfirmRollback] = useState("")
   const [versions, setVersions] = useState<VersionSummary[]>([])
   const [publishNote, setPublishNote] = useState("")
   const [versionBusy, setVersionBusy] = useState(false)
@@ -88,33 +92,52 @@ export default function DeliveryWorkbench({ token, nodes, canConfigure, goPage, 
   const [applyBusy, setApplyBusy] = useState(false)
   const [applyMessage, setApplyMessage] = useState("")
 
+  const sites = useMemo(() => nodes.filter((node) => node.type === "site"), [nodes])
+  const currentSite = siteID || sites[0]?.id || ""
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const result = await request<{ sources: { id: string; name: string; versions: number }[] }>(token, "/projects/sources")
+        if (!cancelled) setReuseSources(result.sources || [])
+      } catch {
+        if (!cancelled) setReuseSources([])
+      }
+    })()
+    return () => { cancelled = true }
+  }, [token])
+
   const loadGates = useCallback(async () => {
     try {
-      setGates(await request<PreflightReport>(token, "/delivery/gates"))
+      const query = currentSite ? `?site=${encodeURIComponent(currentSite)}` : ""
+      setGates(await request<PreflightReport>(token, `/delivery/gates${query}`))
       setRefreshedAt(new Date())
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 404) return
       onError(cause instanceof Error ? cause.message : "门槛读取失败")
     }
-  }, [token, onError])
+  }, [token, currentSite, onError])
 
   const loadLatest = useCallback(async () => {
     try {
-      const payload = await request<{ latest: PreflightReport | null }>(token, "/delivery/preflight")
+      const query = currentSite ? `?site=${encodeURIComponent(currentSite)}` : ""
+      const payload = await request<{ latest: PreflightReport | null }>(token, `/delivery/preflight${query}`)
       setLatest(payload.latest ?? null)
     } catch (cause) {
       onError(cause instanceof Error ? cause.message : "预检记录读取失败")
     }
-  }, [token, onError])
+  }, [token, currentSite, onError])
 
   const loadLedger = useCallback(async () => {
     try {
-      const result = await request<{ devices: { verified: boolean }[] }>(token, "/device-ledger")
+      const query = currentSite ? `?site=${encodeURIComponent(currentSite)}` : ""
+      const result = await request<{ devices: { verified: boolean }[] }>(token, `/device-ledger${query}`)
       setLedger(result.devices || [])
     } catch {
       // 台账读取失败不阻塞工作台；步骤 6 会显示为未完成。
     }
-  }, [token])
+  }, [token, currentSite])
 
   useEffect(() => {
     void loadGates()
@@ -130,7 +153,8 @@ export default function DeliveryWorkbench({ token, nodes, canConfigure, goPage, 
   const runPreflight = useCallback(async () => {
     setBusy(true)
     try {
-      const report = await request<PreflightReport>(token, "/delivery/preflight", "POST")
+      const query = currentSite ? `?site=${encodeURIComponent(currentSite)}` : ""
+      const report = await request<PreflightReport>(token, `/delivery/preflight${query}`, "POST")
       setLatest(report)
       await loadGates()
       setTab("gates")
@@ -139,11 +163,9 @@ export default function DeliveryWorkbench({ token, nodes, canConfigure, goPage, 
     } finally {
       setBusy(false)
     }
-  }, [token, loadGates, onError])
+  }, [token, currentSite, loadGates, onError])
 
-  const sites = useMemo(() => nodes.filter((node) => node.type === "site"), [nodes])
   const channels = useMemo(() => nodes.filter((node) => node.type === "modbus"), [nodes])
-  const currentSite = sites[0]?.id || ""
 
   const loadVersions = useCallback(async () => {
     if (!currentSite) return
@@ -159,16 +181,22 @@ export default function DeliveryWorkbench({ token, nodes, canConfigure, goPage, 
     void loadVersions()
   }, [loadVersions])
 
-  const publishProject = useCallback(async () => {
+  const publishProject = useCallback(async (confirm: boolean) => {
     if (!currentSite) return
     setVersionBusy(true)
     try {
-      const published = await request<VersionSummary>(token, "/projects/publish", "POST", { site: currentSite, note: publishNote.trim() })
-      setVersionMessage(`已发布 ${published.id}（${published.nodes} 个节点）`)
+      const published = await request<VersionSummary>(token, "/projects/publish", "POST", { site: currentSite, note: publishNote.trim(), confirm })
+      setVersionMessage(`已冻结版本 ${published.id}（${published.nodes} 个节点）`)
       setPublishNote("")
+      setPublishBlocked(false)
       await loadVersions()
     } catch (cause) {
-      onError(cause instanceof Error ? cause.message : "发布失败")
+      if (cause instanceof ApiError && cause.status === 409) {
+        setPublishBlocked(true)
+        setVersionMessage("预检存在阻断项：确认后可冻结版本，但不会改变运行中的配置。")
+        return
+      }
+      onError(cause instanceof Error ? cause.message : "冻结版本失败")
     } finally {
       setVersionBusy(false)
     }
@@ -306,18 +334,32 @@ export default function DeliveryWorkbench({ token, nodes, canConfigure, goPage, 
   const gateStatus = useCallback((key: string) => gates?.gates.find((gate) => gate.key === key)?.status || "warn", [gates])
 
   const stepState = useMemo(() => {
+    const channels = gateStatus("channels")
+    const points = gateStatus("points")
+    const rules = gateStatus("rules")
+    const commands = gateStatus("commands")
+    // 只有 pass 才算完成；warn 表示“这一步有缺口”，不能打勾。
     const done: Record<StepKey, boolean> = {
-      site: true,
-      channels: gateStatus("channels") !== "fail",
-      points: gateStatus("points") !== "fail",
+      site: !!currentSite,
+      channels: channels === "pass",
+      points: points === "pass",
       model: counts.units > 0,
-      rules: gateStatus("rules") !== "fail",
-      commission: counts.verified > 0,
+      rules: rules === "pass",
+      commission: counts.verified > 0 && commands === "pass",
       preflight: latest?.status === "pass",
     }
+    const warn: Record<StepKey, boolean> = {
+      site: false,
+      channels: channels === "warn",
+      points: points === "warn",
+      model: false,
+      rules: rules === "warn",
+      commission: commands === "warn",
+      preflight: latest?.status === "warn",
+    }
     const current = steps.find((item) => !done[item.key])?.key || "preflight"
-    return { done, current }
-  }, [counts, gateStatus, latest])
+    return { done, warn, current }
+  }, [counts, gateStatus, latest, currentSite])
 
   const current = steps.find((item) => item.key === step) || steps[0]
 
@@ -352,14 +394,16 @@ export default function DeliveryWorkbench({ token, nodes, canConfigure, goPage, 
       <div className="flex gap-1 overflow-x-auto rounded-xl border border-ems-line bg-white/60 p-2 lg:grid lg:gap-1 lg:overflow-visible">
         {steps.map((item, index) => {
           const done = stepState.done[item.key]
+          const warn = stepState.warn[item.key]
           const isCurrent = stepState.current === item.key
           return <button key={item.key} onClick={() => setStep(item.key)}
             className={`flex shrink-0 items-center gap-2 rounded-lg px-2 py-2 text-left text-sm lg:w-auto ${step === item.key ? "bg-white shadow-sm" : "hover:bg-white/70"}`}>
-            <span className={`grid h-6 w-6 flex-none place-items-center rounded-full border text-xs ${done ? "border-emerald-500 text-emerald-600" : isCurrent ? "border-sky-500 text-sky-600" : "border-slate-300 text-slate-400"}`}>
+            <span className={`grid h-6 w-6 flex-none place-items-center rounded-full border text-xs ${done ? "border-emerald-500 text-emerald-600" : warn ? "border-amber-500 text-amber-600" : isCurrent ? "border-sky-500 text-sky-600" : "border-slate-300 text-slate-400"}`}>
               {done ? "✓" : index + 1}
             </span>
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            {isCurrent && !done && <span className="text-[10px] text-sky-600">进行中</span>}
+            {!done && warn && <span className="text-[10px] text-amber-600">部分</span>}
+            {!done && !warn && isCurrent && <span className="text-[10px] text-sky-600">进行中</span>}
           </button>
         })}
         <p className="m-0 hidden shrink-0 px-2 pt-1 text-[10px] leading-4 text-ems-muted lg:block">状态从数据推导：有通道、有点位、有单元、有启用规则、有验证设备、最近预检通过。</p>
@@ -377,10 +421,10 @@ export default function DeliveryWorkbench({ token, nodes, canConfigure, goPage, 
             <EmsSectionHeader kicker="项目复用" title="从已交付项目创建新站"
               description="复用点表、Profile、规则与验收配置；地址、凭据与控制授权不带入，跨节点引用需要重新绑定。" />
             <div className="grid gap-2 md:grid-cols-[1.2fr_1fr_auto_auto] md:items-end">
-              <label className="grid gap-1 text-xs text-ems-muted">源项目
+              <label className="grid gap-1 text-xs text-ems-muted">源项目（已发布版本）
                 <select className="ems-input" aria-label="源项目" value={reuseSource} onChange={(event) => { setReuseSource(event.target.value); setReusePreview(null); setReuseResult(null) }}>
-                  <option value="">选择已交付站点</option>
-                  {sites.map((site) => <option key={site.id} value={site.id}>{nameOf(site)}</option>)}
+                  <option value="">{reuseSources.length ? "选择已验收项目" : "还没有已发布版本的项目"}</option>
+                  {reuseSources.map((source) => <option key={source.id} value={source.id}>{source.name} · {source.versions} 个版本</option>)}
                 </select>
               </label>
               <label className="grid gap-1 text-xs text-ems-muted">新站名称
@@ -553,21 +597,32 @@ export default function DeliveryWorkbench({ token, nodes, canConfigure, goPage, 
               <label className="grid gap-1 text-xs text-ems-muted">发布说明（可选）
                 <input className="ems-input" aria-label="发布说明" value={publishNote} placeholder="例如 首次交付 / 更换 PCS 前" onChange={(event) => setPublishNote(event.target.value)} />
               </label>
-              <EmsButton busy={versionBusy} disabled={!currentSite} onClick={() => void publishProject()}>发布当前配置</EmsButton>
+              <EmsButton busy={versionBusy} disabled={!currentSite} onClick={() => void publishProject(false)}>冻结版本</EmsButton>
             </div>
-            {versionMessage && <InlineNotice tone="info">{versionMessage}</InlineNotice>}
+            {versionMessage && <InlineNotice tone={publishBlocked ? "warning" : "info"}>{versionMessage}</InlineNotice>}
+            {publishBlocked && <div className="flex justify-end">
+              <EmsButton variant="danger" busy={versionBusy} onClick={() => void publishProject(true)}>预检未通过，仍要冻结版本</EmsButton>
+            </div>}
             {versions.length === 0
               ? <p className="m-0 text-sm text-ems-muted">还没有版本。发布后会出现在这里，可回退到任意历史版本。</p>
               : <div className="grid gap-2">
                 {versions.map((version) => <div key={version.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ems-line px-3 py-2 text-xs">
                   <div className="min-w-0">
-                    <strong className="block text-sm">{clock(version.created_at)} · {version.operator}</strong>
+                    <strong className="block text-sm">{clock(version.created_at)} · {version.operator} · {version.site_name}</strong>
                     <span className="text-ems-muted">{version.id} · {version.nodes} 个节点{version.note ? ` · ${version.note}` : ""}{version.preflight_status ? ` · 预检 ${gateNames[version.preflight_status] || version.preflight_status}` : ""}</span>
                   </div>
-                  <EmsButton variant="secondary" busy={versionBusy} onClick={() => void rollbackProject(version.id)}>回退到此版本</EmsButton>
+                  <EmsButton variant={confirmRollback === version.id ? "danger" : "secondary"} busy={versionBusy}
+                    onClick={() => {
+                      if (confirmRollback === version.id) {
+                        setConfirmRollback("")
+                        void rollbackProject(version.id)
+                      } else {
+                        setConfirmRollback(version.id)
+                      }
+                    }}>{confirmRollback === version.id ? "确认回退（历史保留）" : "回退到此版本"}</EmsButton>
                 </div>)}
               </div>}
-            <p className="m-0 text-xs text-ems-muted">回退前会自动冻结当前配置，回退失败或需要反悔时仍可找回。</p>
+            <p className="m-0 text-xs text-ems-muted">冻结版本只保存当前工程配置，不改变运行中的设备；回退前会自动再冻结一次当前配置。历史（审计、报警、命令）不回滚。</p>
           </div>
         </EmsCard>}
 

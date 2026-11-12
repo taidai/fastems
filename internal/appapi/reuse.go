@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
@@ -59,6 +60,8 @@ var reuseRuntimePoints = map[string]bool{
 	"value": true, "quality": true, "time": true, "error": true, "errorCount": true,
 	"lastCommand": true, "lastMatch": true, "lastGoodPoll": true, "easyemsManual": true,
 	"tombstone": true, "nodeType": true,
+	// 运行状态与调度历史不属于工程资产：新站必须从待机开始，也不带入旧站的调度记录。
+	PointTypeCabinetState: true, PointTypeDispatchLog: true,
 }
 
 var reuseSecretTokens = []string{"password", "pass", "token", "secret", "credential", "nkey", "apikey"}
@@ -187,6 +190,11 @@ func (h *Handler) createProjectFromSource(identity Identity, req reuseRequest) (
 	if err != nil {
 		return reuseResult{}, err
 	}
+	// 只接受已经有发布版本（已验收）的项目作为复用源。
+	versions, err := h.listVersions(req.Source)
+	if err != nil || len(versions) == 0 {
+		return reuseResult{}, fmt.Errorf("source_not_accepted")
+	}
 	source := nodes[0]
 	parent := source.Parent
 	if parent == "" || !h.allows(identity, parent) {
@@ -213,6 +221,9 @@ func (h *Handler) createProjectFromSource(identity Identity, req reuseRequest) (
 			newParent = mapped
 		}
 		points := copyConfigPoints(node)
+		if node.Type == NodeTypeEnergyUnit {
+			points = append(points, data.NewPointString(PointTypeCabinetState, "0", string(decision.CabinetStandby)))
+		}
 		if node.ID == source.ID {
 			points = setDescription(points, req.Name)
 			result.SiteID = newID
@@ -469,4 +480,37 @@ func rewriteReferences(node data.NodeEdge, idMap map[string]string) (data.Points
 		}
 	}
 	return points, unresolved
+}
+
+type reuseSource struct {
+	ID       string    `json:"id"`
+	Name     string    `json:"name"`
+	Versions int       `json:"versions"`
+	LatestAt time.Time `json:"latest_at,omitempty"`
+}
+
+// reuseSources 列出可以作为复用源的站点：只包含已有发布版本的项目。
+func (h *Handler) reuseSourcesHandler(w http.ResponseWriter, identity Identity) {
+	if !canAction(identity, ActionConfigure) {
+		writeError(w, http.StatusForbidden, "admin_required")
+		return
+	}
+	nodes, err := h.visibleNodes(identity)
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, "nodes_unavailable")
+		return
+	}
+	sources := []reuseSource{}
+	for _, node := range nodes {
+		if node.Type != NodeTypeSite {
+			continue
+		}
+		versions, err := h.listVersions(node.ID)
+		if err != nil || len(versions) == 0 {
+			continue
+		}
+		sources = append(sources, reuseSource{ID: node.ID, Name: nodeName(node), Versions: len(versions), LatestAt: versions[0].CreatedAt})
+	}
+	sort.Slice(sources, func(i, j int) bool { return sources[i].LatestAt.After(sources[j].LatestAt) })
+	writeJSON(w, map[string]any{"sources": sources})
 }
