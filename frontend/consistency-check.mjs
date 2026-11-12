@@ -41,8 +41,13 @@ for (const hidden of ["history", "dispatchTrace", "health"]) {
   assert.ok(new RegExp(`(?:setPage|openPage)\\([^)]*"${hidden}"`).test(app), `隐藏页 ${hidden} 没有页面内入口`)
 }
 
+// 6. 报警数据只有 App 一处轮询；报警页与画面页接收同一份数据。
+const alarmOwners = ["src/App.tsx", "src/AlarmsView.tsx", "src/ScreenView.tsx"].filter((file) => read(file).includes("fetchAlarms"))
+assert.deepEqual(alarmOwners, ["src/App.tsx"], `报警轮询应收敛到 App，当前：${alarmOwners.join(", ")}`)
+
 console.log("consistency-check passed:", {
   pages: pageDefs.length,
   groups: groupDefs.length,
   tokenSources: 1,
+  alarmPollers: alarmOwners.length,
 })

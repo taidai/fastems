@@ -10,6 +10,11 @@
     "violations": []
   },
   {
+    "page": "screen",
+    "title": "运行画面",
+    "violations": []
+  },
+  {
     "page": "ledger",
     "title": "设备台账与验证",
     "violations": []

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { IonCardContent } from "@ionic/react"
-import { ackAlarm, closeAlarm, EmsAlarm, fetchAlarms, maintainAlarm, nameOf, Node, releaseAlarm } from "./api"
+import { ackAlarm, closeAlarm, EmsAlarm, maintainAlarm, nameOf, Node, releaseAlarm } from "./api"
 import AlarmTypesPanel from "./AlarmTypesPanel"
 import AlarmStatsPanel, { AlarmSoundSettings, inSilenceWindow, loadAlarmSound, saveAlarmSound } from "./AlarmStatsPanel"
 import AckDialog from "./AckDialog"
@@ -22,23 +22,23 @@ function timeOf(text: string) {
   return new Date(text).toLocaleString("zh-CN", { hour12: false })
 }
 
-export default function AlarmsView({ token, rootID, nodes, canOperate, canConfigure, onError, openHistory }: {
+export default function AlarmsView({ token, rootID, nodes, alarms, onRefreshAlarms, canOperate, canConfigure, onError, openHistory }: {
   token: string
   rootID: string
   nodes: Node[]
+  alarms: EmsAlarm[]
+  onRefreshAlarms: () => Promise<void>
   canOperate: boolean
   canConfigure: boolean
   onError: (message: string) => void
   openHistory: (pointId: string) => void
 }) {
-  const [alarms, setAlarms] = useState<EmsAlarm[]>([])
   const [tab, setTab] = useState<"records" | "types" | "stats">("records")
   const [filter, setFilter] = useState<"active" | "all">("active")
   const [busyId, setBusyId] = useState("")
   const [sound, setSound] = useState<AlarmSoundSettings>(() => loadAlarmSound())
   const audioRef = useRef<AudioContext | null>(null)
   const soundedRef = useRef<Set<string>>(new Set())
-  const lastErrorRef = useRef("")
   const [maintaining, setMaintaining] = useState<EmsAlarm | null>(null)
   const [ackTarget, setAckTarget] = useState<EmsAlarm | null>(null)
   const [maintenanceReason, setMaintenanceReason] = useState("")
@@ -55,26 +55,6 @@ export default function AlarmsView({ token, rootID, nodes, canOperate, canConfig
     const refs = [alarm.point_id, alarm.device_id, alarm.group_id].filter(Boolean) as string[]
     return refs.length === 0 || refs.some((id) => scopeIDs.has(id))
   }), [alarms, scopeIDs])
-
-  const load = useCallback(async () => {
-    try {
-      const result = await fetchAlarms(token)
-      lastErrorRef.current = ""
-      setAlarms(result.alarms || [])
-    } catch (cause) {
-      const message = cause instanceof Error ? cause.message : "报警读取失败"
-      if (message !== lastErrorRef.current) {
-        lastErrorRef.current = message
-        onError(message)
-      }
-    }
-  }, [token, onError])
-
-  useEffect(() => {
-    void load()
-    const timer = window.setInterval(() => void load(), 2000)
-    return () => window.clearInterval(timer)
-  }, [load])
 
   function updateSound(next: AlarmSoundSettings) {
     setSound(next)
@@ -129,7 +109,7 @@ export default function AlarmsView({ token, rootID, nodes, canOperate, canConfig
     try {
       if (action === "close") await closeAlarm(token, alarm.id)
       else await releaseAlarm(token, alarm.id)
-      await load()
+      await onRefreshAlarms()
     } catch (cause) {
       onError(cause instanceof Error ? cause.message : "操作失败")
     } finally {
@@ -149,7 +129,7 @@ export default function AlarmsView({ token, rootID, nodes, canOperate, canConfig
       await maintainAlarm(token, maintaining.id, until, maintenanceReason.trim())
       setMaintaining(null)
       setMaintenanceReason("")
-      await load()
+      await onRefreshAlarms()
     } catch (cause) {
       onError(cause instanceof Error ? cause.message : "维护设置失败")
     } finally {
@@ -277,7 +257,7 @@ export default function AlarmsView({ token, rootID, nodes, canOperate, canConfig
         const target = ackTarget
         setAckTarget(null)
         setBusyId(target.id)
-        void ackAlarm(token, target.id, note).then(() => load()).catch((cause) => onError(cause instanceof Error ? cause.message : "操作失败")).finally(() => setBusyId(""))
+        void ackAlarm(token, target.id, note).then(() => onRefreshAlarms()).catch((cause) => onError(cause instanceof Error ? cause.message : "操作失败")).finally(() => setBusyId(""))
       }}
     />}
 

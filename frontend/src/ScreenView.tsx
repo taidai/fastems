@@ -4,7 +4,6 @@ import ConfirmDialog from "./ConfirmDialog"
 import ScreenTemplates, { recordVersion } from "./ScreenTemplates"
 import {
   EmsAlarm,
-  fetchAlarms,
   fetchHistory,
   fetchScreen,
   nameOf,
@@ -50,11 +49,12 @@ function TileTrend({ token, nodeId }: { token: string; nodeId: string }) {
   </svg>
 }
 
-export default function ScreenView({ token, snapshot, points, groups, isAdmin, canOperate, busy, run, onError, openHistory, openAlarms }: {
+export default function ScreenView({ token, snapshot, points, groups, alarms, isAdmin, canOperate, busy, run, onError, openHistory, openAlarms }: {
   token: string
   snapshot: Snapshot
   points: Node[]
   groups: Node[]
+  alarms: EmsAlarm[]
   isAdmin: boolean
   canOperate: boolean
   busy: boolean
@@ -67,9 +67,6 @@ export default function ScreenView({ token, snapshot, points, groups, isAdmin, c
   const [config, setConfig] = useState<ScreenConfig | null>(null)
   const [draft, setDraft] = useState<ScreenConfig | null>(null)
   const [editing, setEditing] = useState(false)
-  const [alarmCount, setAlarmCount] = useState(0)
-  const [topAlarm, setTopAlarm] = useState<EmsAlarm | null>(null)
-  const [alarms, setAlarms] = useState<EmsAlarm[]>([])
   const [templatesOpen, setTemplatesOpen] = useState(false)
   const [values, setValues] = useState<Record<string, number>>({})
   const [pendingWrite, setPendingWrite] = useState<{ node: Node; value: number } | null>(null)
@@ -105,22 +102,9 @@ export default function ScreenView({ token, snapshot, points, groups, isAdmin, c
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, nodeID, saved?.text])
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const result = await fetchAlarms(token)
-        const active = (result.alarms || []).filter((alarm) => alarm.active)
-        setAlarmCount(active.length)
-        setTopAlarm(active[0] || null)
-        setAlarms(active)
-      } catch {
-        // 报警摘要失败不阻塞画面；错误由报警页负责展示
-      }
-    }
-    void load()
-    const timer = window.setInterval(() => void load(), 5000)
-    return () => window.clearInterval(timer)
-  }, [token])
+  const activeAlarms = alarms.filter((alarm) => alarm.active)
+  const alarmCount = activeAlarms.length
+  const topAlarm = activeAlarms[0] || null
 
   const tiles = config ? config.point_ids.map((id) => points.find((item) => item.id === id)).filter((item): item is Node => Boolean(item)) : []
 

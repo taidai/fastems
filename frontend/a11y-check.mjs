@@ -16,8 +16,12 @@ const pages = [
   { key: "delivery", title: "交付验收", go: async (page) => {
     await page.locator(".console-workbench button", { hasText: "交付" }).click()
   } },
+  { key: "screen", title: "运行画面", go: async (page) => {
+    await page.locator(".console-workbench button", { hasText: "客户" }).click()
+    await page.locator(".console-subnav button", { hasText: "画面" }).click()
+  } },
   { key: "ledger", title: "设备台账与验证", go: async (page) => {
-    await page.locator(".console-topnav .topnav-trigger", { hasText: "交付验收" }).click()
+    await page.locator(".console-workbench button", { hasText: "交付" }).click()
     await page.locator(".console-subnav button", { hasText: "设备验证" }).click()
   } },
   { key: "trace", title: "调度追溯", go: async (page) => {

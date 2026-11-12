@@ -384,26 +384,28 @@ export default function App() {
     return siteID ? siteSnapshot(base, siteID) : base
   }, [snapshot, stationID, siteID])
 
+  const refreshAlarms = useCallback(async () => {
+    if (!token) return
+    try {
+      const result = await fetchAlarms(token)
+      const scope = new Set((activeSnapshot?.nodes || []).map((node) => node.id))
+      const visible = (result.alarms || []).filter((alarm) => {
+        const refs = [alarm.point_id, alarm.device_id, alarm.group_id].filter(Boolean) as string[]
+        return refs.length === 0 || refs.some((id) => scope.has(id))
+      })
+      setAlarms(visible)
+      setAlarmCount(visible.filter((alarm) => alarm.active && !(alarm.maintenance_until && new Date(alarm.maintenance_until).getTime() > Date.now())).length)
+    } catch {
+      // 顶栏报警计数失败不阻塞工作台
+    }
+  }, [token, activeSnapshot])
+
   useEffect(() => {
     if (!token) return
-    const load = async () => {
-      try {
-        const result = await fetchAlarms(token)
-        const scope = new Set((activeSnapshot?.nodes || []).map((node) => node.id))
-        const visible = (result.alarms || []).filter((alarm) => {
-          const refs = [alarm.point_id, alarm.device_id, alarm.group_id].filter(Boolean) as string[]
-          return refs.length === 0 || refs.some((id) => scope.has(id))
-        })
-        setAlarms(visible)
-        setAlarmCount(visible.filter((alarm) => alarm.active && !(alarm.maintenance_until && new Date(alarm.maintenance_until).getTime() > Date.now())).length)
-      } catch {
-        // 顶栏报警计数失败不阻塞工作台
-      }
-    }
-    void load()
-    const timer = window.setInterval(() => void load(), 5000)
+    void refreshAlarms()
+    const timer = window.setInterval(() => void refreshAlarms(), 5000)
     return () => window.clearInterval(timer)
-  }, [token, activeSnapshot])
+  }, [token, refreshAlarms])
 
   const siteNodes = useMemo(() => snapshot?.nodes.filter((node) => node.type === "site") ?? [], [snapshot])
   useEffect(() => {
@@ -655,7 +657,7 @@ export default function App() {
       />}
 
       {page === "screen" && <ScreenView
-        token={token} snapshot={view} points={points} groups={groups}
+        token={token} snapshot={view} points={points} groups={groups} alarms={alarms}
         isAdmin={canConfigure} canOperate={canOperate} busy={busy} run={run} onError={setError}
         openHistory={(id) => { setHistoryPoint(id); setPage("history") }}
         openAlarms={() => setPage("alarms")}
@@ -689,7 +691,7 @@ export default function App() {
       {page === "opcua" && canConfigure && <OpcuaView token={token} onError={setError} />}
       {page === "unitWiring" && canConfigure && <UnitWiringView token={token} nodes={view.nodes} onError={setError} />}
 
-      {page === "alarms" && <AlarmsView token={token} rootID={view.roots[0]} nodes={view.nodes} canOperate={canOperate} canConfigure={canConfigure} onError={setError} openHistory={(id) => { setHistoryPoint(id); setPage("history") }} />}
+      {page === "alarms" && <AlarmsView token={token} rootID={view.roots[0]} nodes={view.nodes} alarms={alarms} onRefreshAlarms={refreshAlarms} canOperate={canOperate} canConfigure={canConfigure} onError={setError} openHistory={(id) => { setHistoryPoint(id); setPage("history") }} />}
 
       {page === "health" && <HealthView token={token} onError={setError} />}
 
