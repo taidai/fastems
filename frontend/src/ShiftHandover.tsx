@@ -3,7 +3,7 @@ import { createPortal } from "react-dom"
 
 type Handover = { id: string; shift: string; operator: string; note: string; at: string }
 
-const STORAGE_KEY = "fastiot-shift-handovers"
+const STORAGE_KEY = "fastems-shift-handovers"
 
 function loadHandovers(): Handover[] {
   try {
@@ -55,7 +55,7 @@ export default function ShiftHandover({ onClose }: { onClose: () => void }) {
     const url = URL.createObjectURL(new Blob([String.fromCharCode(0xFEFF) + csv], { type: "text/csv;charset=utf-8" }))
     const link = document.createElement("a")
     link.href = url
-    link.download = `fastiot-班次交接-${new Date().toISOString().slice(0, 10)}.csv`
+    link.download = `fastems-班次交接-${new Date().toISOString().slice(0, 10)}.csv`
     link.click()
     URL.revokeObjectURL(url)
   }

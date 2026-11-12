@@ -2,9 +2,9 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "fastiot-ui-dev",
+      "name": "fastems-ui-dev",
       "runtimeExecutable": "C:\\Program Files\\Git\\bin\\bash.exe",
-      "runtimeArgs": ["-lc", "cd '/c/Users/chent/Desktop/2026成果/AAAAA开源/easyems/frontend' && FASTIOT_API=http://127.0.0.1:4409 npm run dev -- --host 127.0.0.1 --port 5180 --strictPort"],
+      "runtimeArgs": ["-lc", "cd '/c/Users/chent/Desktop/2026成果/AAAAA开源/easyems/frontend' && FASTEMS_API=http://127.0.0.1:4409 npm run dev -- --host 127.0.0.1 --port 5180 --strictPort"],
       "port": 5180,
       "autoPort": false
     }

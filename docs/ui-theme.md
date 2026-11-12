@@ -1,4 +1,4 @@
-# FastIOT 界面主题：自足能源玻璃风
+# FastEMS 界面主题：自足能源玻璃风
 
 版本：2026-11-05 · 状态：**已生效，按 zizu_v3 玻璃风令牌与验收清单实现**
 主题源文件：`docs/assets/glass-theme.css`（来自 `zizu_v3/docs/design/glass-theme.css`）

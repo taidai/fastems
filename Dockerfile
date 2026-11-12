@@ -14,10 +14,10 @@ COPY third_party/simpleiot/go.mod third_party/simpleiot/go.sum ./third_party/sim
 RUN go mod download
 COPY . .
 COPY --from=frontend /src/internal/web/dist ./internal/web/dist
-RUN CGO_ENABLED=0 go build -trimpath -o /out/fastiot ./cmd/fastiot
+RUN CGO_ENABLED=0 go build -trimpath -o /out/fastems ./cmd/fastems
 
 FROM scratch
-COPY --from=build /out/fastiot /fastiot
+COPY --from=build /out/fastems /fastems
 VOLUME ["/data"]
 EXPOSE 8080
-ENTRYPOINT ["/fastiot", "-data", "/data"]
+ENTRYPOINT ["/fastems", "-data", "/data"]

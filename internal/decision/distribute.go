@@ -8,7 +8,7 @@ import (
 
 	"github.com/nats-io/nats.go"
 
-	"fastiot/internal/ems/alloc"
+	"fastems/internal/ems/alloc"
 )
 
 // resolvedMember is one member after reading its current state, plus the

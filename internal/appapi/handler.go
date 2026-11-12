@@ -19,9 +19,9 @@ import (
 	"github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 
-	"fastiot/internal/audit"
-	"fastiot/internal/decision"
-	"fastiot/internal/emsapi"
+	"fastems/internal/audit"
+	"fastems/internal/decision"
+	"fastems/internal/emsapi"
 )
 
 type Handler struct {

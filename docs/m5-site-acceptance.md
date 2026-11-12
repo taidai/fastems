@@ -66,8 +66,8 @@ Profile 只提供 EMS 需要的精简点位，不是厂商全量点表；单体�
 只读运行：
 
 ```bash
-FASTIOT_URL=http://127.0.0.1:8080 \
-FASTIOT_ADMIN_PASSWORD='现场本机密码' \
+FASTEMS_URL=http://127.0.0.1:8080 \
+FASTEMS_ADMIN_PASSWORD='现场本机密码' \
 M5_CONFIG=/path/to/site.json \
 node frontend/m5-site-acceptance.mjs
 ```

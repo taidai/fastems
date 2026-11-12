@@ -10,7 +10,7 @@ import (
 	"github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 
-	"fastiot/internal/alerts"
+	"fastems/internal/alerts"
 )
 
 type AlertView struct {

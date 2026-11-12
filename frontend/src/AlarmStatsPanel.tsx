@@ -20,7 +20,7 @@ const defaultSound: AlarmSoundSettings = {
 
 export function loadAlarmSound(): AlarmSoundSettings {
   try {
-    const parsed = JSON.parse(localStorage.getItem("fastiot-alarm-sound") || "{}")
+    const parsed = JSON.parse(localStorage.getItem("fastems-alarm-sound") || "{}")
     return {
       enabled: parsed.enabled !== false,
       volume: Math.min(100, Math.max(0, Number(parsed.volume) || defaultSound.volume)),
@@ -34,7 +34,7 @@ export function loadAlarmSound(): AlarmSoundSettings {
 }
 
 export function saveAlarmSound(settings: AlarmSoundSettings) {
-  localStorage.setItem("fastiot-alarm-sound", JSON.stringify(settings))
+  localStorage.setItem("fastems-alarm-sound", JSON.stringify(settings))
 }
 
 export function inSilenceWindow(settings: AlarmSoundSettings, now = new Date()) {

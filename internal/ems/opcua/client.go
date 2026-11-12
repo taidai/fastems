@@ -12,7 +12,7 @@ import (
 	"github.com/gopcua/opcua"
 	"github.com/gopcua/opcua/ua"
 
-	"fastiot/internal/ems/signal"
+	"fastems/internal/ems/signal"
 )
 
 // ParseNodeID parses a full OPC-UA node id such as ns=3;s=Tag or i=2259.

@@ -1,0 +1,426 @@
+[
+  {
+    "role": "-",
+    "workbench": "-",
+    "tab": "-",
+    "item": "登录页",
+    "title": "登录",
+    "file": "evidence/ui-inventory-2026-11-13/00-login.png"
+  },
+  {
+    "role": "admin",
+    "workbench": "客户",
+    "tab": "运行",
+    "item": "运行总览",
+    "title": "站点总览",
+    "file": "evidence/ui-inventory-2026-11-13/admin/admin-客户-运行-运行总览.png"
+  },
+  {
+    "role": "admin",
+    "workbench": "客户",
+    "tab": "运行",
+    "item": "运行画面",
+    "title": "运行画面",
+    "file": "evidence/ui-inventory-2026-11-13/admin/admin-客户-运行-运行画面.png"
+  },
+  {
+    "role": "admin",
+    "workbench": "客户",
+    "tab": "运行",
+    "item": "报警与事件",
+    "title": "报警与事件",
+    "file": "evidence/ui-inventory-2026-11-13/admin/admin-客户-运行-报警与事件.png"
+  },
+  {
+    "role": "admin",
+    "workbench": "客户",
+    "tab": "运行",
+    "item": "调度追溯",
+    "title": "调度追溯",
+    "file": "evidence/ui-inventory-2026-11-13/admin/admin-客户-运行-调度追溯.png"
+  },
+  {
+    "role": "admin",
+    "workbench": "客户",
+    "tab": "运行",
+    "item": "历史与追溯",
+    "title": "历史与追溯",
+    "file": "evidence/ui-inventory-2026-11-13/admin/admin-客户-运行-历史与追溯.png"
+  },
+  {
+    "role": "admin",
+    "workbench": "客户",
+    "tab": "运行",
+    "item": "通信与健康",
+    "title": "通信与健康",
+    "file": "evidence/ui-inventory-2026-11-13/admin/admin-客户-运行-通信与健康.png"
+  },
+  {
+    "role": "admin",
+    "workbench": "客户",
+    "tab": "运行",
+    "item": "设备台账",
+    "title": "设备台账",
+    "file": "evidence/ui-inventory-2026-11-13/admin/admin-客户-运行-设备台账.png"
+  },
+  {
+    "role": "admin",
+    "workbench": "交付",
+    "tab": "EMS 业务",
+    "item": "能源设备",
+    "title": "能源设备",
+    "file": "evidence/ui-inventory-2026-11-13/admin/admin-交付-EMS-业务-能源设备.png"
+  },
+  {
+    "role": "admin",
+    "workbench": "交付",
+    "tab": "EMS 业务",
+    "item": "资源集群",
+    "title": "资源集群",
+    "file": "evidence/ui-inventory-2026-11-13/admin/admin-交付-EMS-业务-资源集群.png"
+  },
+  {
+    "role": "admin",
+    "workbench": "交付",
+    "tab": "EMS 业务",
+    "item": "功率分配器",
+    "title": "功率分配器",
+    "file": "evidence/ui-inventory-2026-11-13/admin/admin-交付-EMS-业务-功率分配器.png"
+  },
+  {
+    "role": "admin",
+    "workbench": "交付",
+    "tab": "EMS 业务",
+    "item": "决策表",
+    "title": "决策表",
+    "file": "evidence/ui-inventory-2026-11-13/admin/admin-交付-EMS-业务-决策表.png"
+  },
+  {
+    "role": "admin",
+    "workbench": "交付",
+    "tab": "接入建模",
+    "item": "设备台账",
+    "title": "设备台账",
+    "file": "evidence/ui-inventory-2026-11-13/admin/admin-交付-接入建模-设备台账.png"
+  },
+  {
+    "role": "admin",
+    "workbench": "交付",
+    "tab": "接入建模",
+    "item": "通道",
+    "title": "通道",
+    "file": "evidence/ui-inventory-2026-11-13/admin/admin-交付-接入建模-通道.png"
+  },
+  {
+    "role": "admin",
+    "workbench": "交付",
+    "tab": "接入建模",
+    "item": "点位表",
+    "title": "设备与点位",
+    "file": "evidence/ui-inventory-2026-11-13/admin/admin-交付-接入建模-点位表.png"
+  },
+  {
+    "role": "admin",
+    "workbench": "交付",
+    "tab": "接入建模",
+    "item": "虚拟聚合",
+    "title": "虚拟聚合",
+    "file": "evidence/ui-inventory-2026-11-13/admin/admin-交付-接入建模-虚拟聚合.png"
+  },
+  {
+    "role": "admin",
+    "workbench": "交付",
+    "tab": "接入建模",
+    "item": "能源设备接线",
+    "title": "能源设备接线",
+    "file": "evidence/ui-inventory-2026-11-13/admin/admin-交付-接入建模-能源设备接线.png"
+  },
+  {
+    "role": "admin",
+    "workbench": "交付",
+    "tab": "接入建模",
+    "item": "OPC-UA",
+    "title": "OPC-UA",
+    "file": "evidence/ui-inventory-2026-11-13/admin/admin-交付-接入建模-OPC-UA.png"
+  },
+  {
+    "role": "admin",
+    "workbench": "交付",
+    "tab": "系统运维",
+    "item": "交付工作台",
+    "title": "交付工作台",
+    "file": "evidence/ui-inventory-2026-11-13/admin/admin-交付-系统运维-交付工作台.png"
+  },
+  {
+    "role": "admin",
+    "workbench": "交付",
+    "tab": "系统运维",
+    "item": "账号与权限",
+    "title": "账号与权限",
+    "file": "evidence/ui-inventory-2026-11-13/admin/admin-交付-系统运维-账号与权限.png"
+  },
+  {
+    "role": "admin",
+    "workbench": "交付",
+    "tab": "系统运维",
+    "item": "审计日志",
+    "title": "审计日志",
+    "file": "evidence/ui-inventory-2026-11-13/admin/admin-交付-系统运维-审计日志.png"
+  },
+  {
+    "role": "implementer",
+    "workbench": "客户",
+    "tab": "运行",
+    "item": "运行总览",
+    "title": "站点总览",
+    "file": "evidence/ui-inventory-2026-11-13/implementer/implementer-客户-运行-运行总览.png"
+  },
+  {
+    "role": "implementer",
+    "workbench": "客户",
+    "tab": "运行",
+    "item": "运行画面",
+    "title": "运行画面",
+    "file": "evidence/ui-inventory-2026-11-13/implementer/implementer-客户-运行-运行画面.png"
+  },
+  {
+    "role": "implementer",
+    "workbench": "客户",
+    "tab": "运行",
+    "item": "报警与事件",
+    "title": "报警与事件",
+    "file": "evidence/ui-inventory-2026-11-13/implementer/implementer-客户-运行-报警与事件.png"
+  },
+  {
+    "role": "implementer",
+    "workbench": "客户",
+    "tab": "运行",
+    "item": "调度追溯",
+    "title": "调度追溯",
+    "file": "evidence/ui-inventory-2026-11-13/implementer/implementer-客户-运行-调度追溯.png"
+  },
+  {
+    "role": "implementer",
+    "workbench": "客户",
+    "tab": "运行",
+    "item": "历史与追溯",
+    "title": "历史与追溯",
+    "file": "evidence/ui-inventory-2026-11-13/implementer/implementer-客户-运行-历史与追溯.png"
+  },
+  {
+    "role": "implementer",
+    "workbench": "客户",
+    "tab": "运行",
+    "item": "通信与健康",
+    "title": "通信与健康",
+    "file": "evidence/ui-inventory-2026-11-13/implementer/implementer-客户-运行-通信与健康.png"
+  },
+  {
+    "role": "implementer",
+    "workbench": "客户",
+    "tab": "运行",
+    "item": "设备台账",
+    "title": "设备台账",
+    "file": "evidence/ui-inventory-2026-11-13/implementer/implementer-客户-运行-设备台账.png"
+  },
+  {
+    "role": "implementer",
+    "workbench": "交付",
+    "tab": "EMS 业务",
+    "item": "能源设备",
+    "title": "能源设备",
+    "file": "evidence/ui-inventory-2026-11-13/implementer/implementer-交付-EMS-业务-能源设备.png"
+  },
+  {
+    "role": "implementer",
+    "workbench": "交付",
+    "tab": "EMS 业务",
+    "item": "资源集群",
+    "title": "资源集群",
+    "file": "evidence/ui-inventory-2026-11-13/implementer/implementer-交付-EMS-业务-资源集群.png"
+  },
+  {
+    "role": "implementer",
+    "workbench": "交付",
+    "tab": "EMS 业务",
+    "item": "功率分配器",
+    "title": "功率分配器",
+    "file": "evidence/ui-inventory-2026-11-13/implementer/implementer-交付-EMS-业务-功率分配器.png"
+  },
+  {
+    "role": "implementer",
+    "workbench": "交付",
+    "tab": "EMS 业务",
+    "item": "决策表",
+    "title": "决策表",
+    "file": "evidence/ui-inventory-2026-11-13/implementer/implementer-交付-EMS-业务-决策表.png"
+  },
+  {
+    "role": "implementer",
+    "workbench": "交付",
+    "tab": "接入建模",
+    "item": "设备台账",
+    "title": "设备台账",
+    "file": "evidence/ui-inventory-2026-11-13/implementer/implementer-交付-接入建模-设备台账.png"
+  },
+  {
+    "role": "implementer",
+    "workbench": "交付",
+    "tab": "接入建模",
+    "item": "通道",
+    "title": "通道",
+    "file": "evidence/ui-inventory-2026-11-13/implementer/implementer-交付-接入建模-通道.png"
+  },
+  {
+    "role": "implementer",
+    "workbench": "交付",
+    "tab": "接入建模",
+    "item": "点位表",
+    "title": "设备与点位",
+    "file": "evidence/ui-inventory-2026-11-13/implementer/implementer-交付-接入建模-点位表.png"
+  },
+  {
+    "role": "implementer",
+    "workbench": "交付",
+    "tab": "接入建模",
+    "item": "虚拟聚合",
+    "title": "虚拟聚合",
+    "file": "evidence/ui-inventory-2026-11-13/implementer/implementer-交付-接入建模-虚拟聚合.png"
+  },
+  {
+    "role": "implementer",
+    "workbench": "交付",
+    "tab": "接入建模",
+    "item": "能源设备接线",
+    "title": "能源设备接线",
+    "file": "evidence/ui-inventory-2026-11-13/implementer/implementer-交付-接入建模-能源设备接线.png"
+  },
+  {
+    "role": "implementer",
+    "workbench": "交付",
+    "tab": "接入建模",
+    "item": "OPC-UA",
+    "title": "OPC-UA",
+    "file": "evidence/ui-inventory-2026-11-13/implementer/implementer-交付-接入建模-OPC-UA.png"
+  },
+  {
+    "role": "implementer",
+    "workbench": "交付",
+    "tab": "系统运维",
+    "item": "系统运维",
+    "title": "交付工作台",
+    "file": "evidence/ui-inventory-2026-11-13/implementer/implementer-交付-系统运维.png"
+  },
+  {
+    "role": "operator",
+    "workbench": "客户",
+    "tab": "运行",
+    "item": "运行总览",
+    "title": "站点总览",
+    "file": "evidence/ui-inventory-2026-11-13/operator/operator-客户-运行-运行总览.png"
+  },
+  {
+    "role": "operator",
+    "workbench": "客户",
+    "tab": "运行",
+    "item": "运行画面",
+    "title": "运行画面",
+    "file": "evidence/ui-inventory-2026-11-13/operator/operator-客户-运行-运行画面.png"
+  },
+  {
+    "role": "operator",
+    "workbench": "客户",
+    "tab": "运行",
+    "item": "报警与事件",
+    "title": "报警与事件",
+    "file": "evidence/ui-inventory-2026-11-13/operator/operator-客户-运行-报警与事件.png"
+  },
+  {
+    "role": "operator",
+    "workbench": "客户",
+    "tab": "运行",
+    "item": "调度追溯",
+    "title": "调度追溯",
+    "file": "evidence/ui-inventory-2026-11-13/operator/operator-客户-运行-调度追溯.png"
+  },
+  {
+    "role": "operator",
+    "workbench": "客户",
+    "tab": "运行",
+    "item": "历史与追溯",
+    "title": "历史与追溯",
+    "file": "evidence/ui-inventory-2026-11-13/operator/operator-客户-运行-历史与追溯.png"
+  },
+  {
+    "role": "operator",
+    "workbench": "客户",
+    "tab": "运行",
+    "item": "通信与健康",
+    "title": "通信与健康",
+    "file": "evidence/ui-inventory-2026-11-13/operator/operator-客户-运行-通信与健康.png"
+  },
+  {
+    "role": "operator",
+    "workbench": "客户",
+    "tab": "运行",
+    "item": "设备台账",
+    "title": "设备台账",
+    "file": "evidence/ui-inventory-2026-11-13/operator/operator-客户-运行-设备台账.png"
+  },
+  {
+    "role": "viewer",
+    "workbench": "客户",
+    "tab": "运行",
+    "item": "运行总览",
+    "title": "站点总览",
+    "file": "evidence/ui-inventory-2026-11-13/viewer/viewer-客户-运行-运行总览.png"
+  },
+  {
+    "role": "viewer",
+    "workbench": "客户",
+    "tab": "运行",
+    "item": "运行画面",
+    "title": "运行画面",
+    "file": "evidence/ui-inventory-2026-11-13/viewer/viewer-客户-运行-运行画面.png"
+  },
+  {
+    "role": "viewer",
+    "workbench": "客户",
+    "tab": "运行",
+    "item": "报警与事件",
+    "title": "报警与事件",
+    "file": "evidence/ui-inventory-2026-11-13/viewer/viewer-客户-运行-报警与事件.png"
+  },
+  {
+    "role": "viewer",
+    "workbench": "客户",
+    "tab": "运行",
+    "item": "调度追溯",
+    "title": "调度追溯",
+    "file": "evidence/ui-inventory-2026-11-13/viewer/viewer-客户-运行-调度追溯.png"
+  },
+  {
+    "role": "viewer",
+    "workbench": "客户",
+    "tab": "运行",
+    "item": "历史与追溯",
+    "title": "历史与追溯",
+    "file": "evidence/ui-inventory-2026-11-13/viewer/viewer-客户-运行-历史与追溯.png"
+  },
+  {
+    "role": "viewer",
+    "workbench": "客户",
+    "tab": "运行",
+    "item": "通信与健康",
+    "title": "通信与健康",
+    "file": "evidence/ui-inventory-2026-11-13/viewer/viewer-客户-运行-通信与健康.png"
+  },
+  {
+    "role": "viewer",
+    "workbench": "客户",
+    "tab": "运行",
+    "item": "设备台账",
+    "title": "设备台账",
+    "file": "evidence/ui-inventory-2026-11-13/viewer/viewer-客户-运行-设备台账.png"
+  }
+]

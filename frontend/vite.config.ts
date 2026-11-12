@@ -8,7 +8,7 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/api": process.env.FASTIOT_API || "http://127.0.0.1:62943",
+      "/api": process.env.FASTEMS_API || "http://127.0.0.1:62943",
     },
   },
 })

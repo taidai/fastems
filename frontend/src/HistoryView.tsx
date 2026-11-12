@@ -17,7 +17,7 @@ type QualityCounts = { good: number; stale: number; invalid: number; none: numbe
 type TrendSeries = { id: string; name: string; color: string; units: string; latestValue?: number; samples: { time: number; value: number }[] }
 type AlarmMark = { at: number; severity: string; title: string }
 
-const savedQueryKey = "fastiot-history-queries"
+const savedQueryKey = "fastems-history-queries"
 
 function loadSavedQueries(): SavedQuery[] {
   try { return JSON.parse(localStorage.getItem(savedQueryKey) || "[]") as SavedQuery[] } catch { return [] }

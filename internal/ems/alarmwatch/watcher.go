@@ -11,8 +11,8 @@ import (
 	"github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 
-	"fastiot/internal/ems/alarm"
-	"fastiot/internal/ems/alarmtype"
+	"fastems/internal/ems/alarm"
+	"fastems/internal/ems/alarmtype"
 )
 
 // Watcher scans product nodes and feeds the alarm engine.

@@ -1,4 +1,4 @@
-// Test-only Modbus TCP simulator. It is not embedded in or required by fastiot.
+// Test-only Modbus TCP simulator. It is not embedded in or required by fastems.
 package main
 
 import (

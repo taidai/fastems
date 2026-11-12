@@ -2,8 +2,8 @@ import { chromium } from "playwright-core"
 import { readFile, writeFile, mkdir } from "node:fs/promises"
 import path from "node:path"
 
-const base = process.env.FASTIOT_URL || "http://127.0.0.1:62943"
-const passwordFile = process.env.FASTIOT_PASSWORD_FILE || path.resolve("../data/preview/initial-password.txt")
+const base = process.env.FASTEMS_URL || "http://127.0.0.1:62943"
+const passwordFile = process.env.FASTEMS_PASSWORD_FILE || path.resolve("../data/preview/initial-password.txt")
 const passwordText = await readFile(passwordFile, "utf8")
 const password = passwordText.match(/(?:密码|password)\s*[:：]\s*(\S+)/i)?.[1] || passwordText.trim().split(/\s+/).pop() || ""
 if (!password) throw new Error("password file is empty")

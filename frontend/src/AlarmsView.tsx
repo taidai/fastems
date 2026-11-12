@@ -38,6 +38,7 @@ export default function AlarmsView({ token, rootID, nodes, canOperate, canConfig
   const [sound, setSound] = useState<AlarmSoundSettings>(() => loadAlarmSound())
   const audioRef = useRef<AudioContext | null>(null)
   const soundedRef = useRef<Set<string>>(new Set())
+  const lastErrorRef = useRef("")
   const [maintaining, setMaintaining] = useState<EmsAlarm | null>(null)
   const [ackTarget, setAckTarget] = useState<EmsAlarm | null>(null)
   const [maintenanceReason, setMaintenanceReason] = useState("")
@@ -58,9 +59,14 @@ export default function AlarmsView({ token, rootID, nodes, canOperate, canConfig
   const load = useCallback(async () => {
     try {
       const result = await fetchAlarms(token)
+      lastErrorRef.current = ""
       setAlarms(result.alarms || [])
     } catch (cause) {
-      onError(cause instanceof Error ? cause.message : "报警读取失败")
+      const message = cause instanceof Error ? cause.message : "报警读取失败"
+      if (message !== lastErrorRef.current) {
+        lastErrorRef.current = message
+        onError(message)
+      }
     }
   }, [token, onError])
 
@@ -189,7 +195,7 @@ export default function AlarmsView({ token, rootID, nodes, canOperate, canConfig
     const url = URL.createObjectURL(new Blob([String.fromCharCode(0xFEFF) + csv], { type: "text/csv;charset=utf-8" }))
     const link = document.createElement("a")
     link.href = url
-    link.download = "fastiot-alarms.csv"
+    link.download = "fastems-alarms.csv"
     link.click()
     URL.revokeObjectURL(url)
   }

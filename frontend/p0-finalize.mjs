@@ -18,7 +18,7 @@ try {
   await page.getByLabel("密码", { exact: true }).fill(password)
   await page.getByRole("button", { name: "登录", exact: true }).click()
   await page.getByRole("heading", { name: "站点总览", exact: true }).waitFor()
-  const token = await page.evaluate(() => sessionStorage.getItem("fastiot-token"))
+  const token = await page.evaluate(() => sessionStorage.getItem("fastems-token"))
   const response = await page.request.get(`${base}/api/snapshot`, { headers: { Authorization: `Bearer ${token}` } })
   const data = await response.json()
   for (const name of ["验收总线", "模板总线"]) {

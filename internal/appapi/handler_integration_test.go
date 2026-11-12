@@ -24,12 +24,12 @@ import (
 	siotmodbus "github.com/simpleiot/simpleiot/modbus"
 	"github.com/simpleiot/simpleiot/server"
 
-	"fastiot/internal/decision"
+	"fastems/internal/decision"
 )
 
 func TestProductAPIVerticalSlice(t *testing.T) {
 	const password = "easyems-test-only"
-	t.Setenv("FASTIOT_ADMIN_PASSWORD", password)
+	t.Setenv("FASTEMS_ADMIN_PASSWORD", password)
 	dataDir := filepath.Join(t.TempDir(), "data")
 	ready := new(atomic.Bool)
 	options := server.Options{

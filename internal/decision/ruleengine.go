@@ -8,10 +8,10 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/simpleiot/simpleiot/data"
 
-	"fastiot/internal/ems/alloc"
-	"fastiot/internal/ems/rule"
-	"fastiot/internal/ems/safety"
-	"fastiot/internal/ems/signal"
+	"fastems/internal/ems/alloc"
+	"fastems/internal/ems/rule"
+	"fastems/internal/ems/safety"
+	"fastems/internal/ems/signal"
 )
 
 // RuleTable converts the product document into the EMS rule engine table.

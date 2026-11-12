@@ -7,8 +7,8 @@ import (
 
 	"github.com/simpleiot/simpleiot/client"
 
-	"fastiot/internal/ems/channel"
-	"fastiot/internal/ems/signal"
+	"fastems/internal/ems/channel"
+	"fastems/internal/ems/signal"
 )
 
 type acceptanceCheck struct {

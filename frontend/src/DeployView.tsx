@@ -314,7 +314,7 @@ export default function DeployView({ token, isAdmin, goDelivery, embedded = fals
       const url = URL.createObjectURL(await response.blob())
       const link = document.createElement("a")
       link.href = url
-      link.download = `fastiot-evidence-${new Date().toISOString().slice(0, 10)}.zip`
+      link.download = `fastems-evidence-${new Date().toISOString().slice(0, 10)}.zip`
       link.click()
       URL.revokeObjectURL(url)
       setNotice("证据包已导出：设备台账、验证记录、通信测试报告、报警统计。不含密码或令牌。")
@@ -340,7 +340,7 @@ export default function DeployView({ token, isAdmin, goDelivery, embedded = fals
       const url = URL.createObjectURL(await response.blob())
       const link = document.createElement("a")
       link.href = url
-      link.download = `${channels.find((channel) => channel.id === channelID)?.address || "fastiot"}-points.csv`
+      link.download = `${channels.find((channel) => channel.id === channelID)?.address || "fastems"}-points.csv`
       link.click()
       URL.revokeObjectURL(url)
     } catch (cause) {

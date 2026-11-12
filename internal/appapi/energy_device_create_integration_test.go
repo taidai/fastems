@@ -17,8 +17,8 @@ import (
 	"github.com/simpleiot/simpleiot/data"
 	"github.com/simpleiot/simpleiot/server"
 
-	"fastiot/internal/decision"
-	"fastiot/internal/ems/bridge"
+	"fastems/internal/decision"
+	"fastems/internal/ems/bridge"
 )
 
 // TestUserBuiltUnitControlsDevice 验证完整用户路径：自建能源节点 → 挂

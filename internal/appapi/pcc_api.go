@@ -7,7 +7,7 @@ import (
 	siotclient "github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 
-	"fastiot/internal/decision"
+	"fastems/internal/decision"
 )
 
 // 电站策略（防逆流/需量）的配置入口：把 PCC 反馈绑定到 Plant。

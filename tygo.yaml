@@ -1,5 +1,5 @@
 packages:
-  - path: "fastiot/internal/contract"
+  - path: "fastems/internal/contract"
     output_path: "frontend/src/generated/contract.ts"
     type_mappings:
       time.Time: "string"

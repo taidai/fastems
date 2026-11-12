@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"fastiot/internal/ems/channel"
+	"fastems/internal/ems/channel"
 )
 
 func TestDefaultProfilesAreSelectable(t *testing.T) {

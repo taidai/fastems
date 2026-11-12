@@ -9,7 +9,7 @@ import (
 	siotclient "github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 
-	"fastiot/internal/ems/alloc"
+	"fastems/internal/ems/alloc"
 )
 
 const allocatorPointType = "easyemsAllocator"

@@ -14,7 +14,7 @@ import (
 	"github.com/simpleiot/simpleiot/data"
 	"github.com/simpleiot/simpleiot/server"
 
-	"fastiot/internal/decision"
+	"fastems/internal/decision"
 )
 
 // TestRichCapabilityFields 验证通用型能力模型的丰富字段：光伏的可发/限发/

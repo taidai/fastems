@@ -13,16 +13,16 @@ import (
 	"strings"
 	"time"
 
-	"fastiot/internal/contract"
-	"fastiot/internal/ems/bridge"
-	"fastiot/internal/ems/channel"
-	"fastiot/internal/ems/framelog"
-	"fastiot/internal/ems/modbusrt"
-	"fastiot/internal/ems/profile"
-	"fastiot/internal/ems/runtime"
-	"fastiot/internal/ems/signal"
+	"fastems/internal/contract"
+	"fastems/internal/ems/bridge"
+	"fastems/internal/ems/channel"
+	"fastems/internal/ems/framelog"
+	"fastems/internal/ems/modbusrt"
+	"fastems/internal/ems/profile"
+	"fastems/internal/ems/runtime"
+	"fastems/internal/ems/signal"
 
-	"fastiot/internal/ems/alloc"
+	"fastems/internal/ems/alloc"
 )
 
 // Access is the authenticated caller as seen by this API. The per-action

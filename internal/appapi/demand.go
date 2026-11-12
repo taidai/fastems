@@ -9,8 +9,8 @@ import (
 	"github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 
-	"fastiot/internal/decision"
-	"fastiot/internal/ems/signal"
+	"fastems/internal/decision"
+	"fastems/internal/ems/signal"
 )
 
 // 15 分钟滑动需量：用 PCC 主表的历史样本计算窗口需量，缺 bin 时明确不可用。

@@ -5,8 +5,8 @@ import type { ScreenConfig } from "./api"
 export type ScreenTemplate = { id: string; name: string; config: ScreenConfig; at: string }
 export type ScreenVersion = { id: string; config: ScreenConfig; at: string }
 
-const TEMPLATES_KEY = "fastiot-screen-templates"
-const versionKey = (nodeId: string) => `fastiot-screen-versions:${nodeId}`
+const TEMPLATES_KEY = "fastems-screen-templates"
+const versionKey = (nodeId: string) => `fastems-screen-versions:${nodeId}`
 const MAX_VERSIONS = 20
 
 export function loadTemplates(): ScreenTemplate[] {

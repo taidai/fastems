@@ -57,7 +57,7 @@ function pointRole(row: { ioType: string; readOnly: boolean; name: string; units
 
 function roleLabel(role: PointRole) { return roleNames[role] || role }
 
-const savedViewsKey = "fastiot-point-views"
+const savedViewsKey = "fastems-point-views"
 type SavedPointView = { name: string; query: string; bus: string; quality: string; access: string; role: string }
 const qualityFilterNames: Record<string, string> = { attention: "需处理", normal: "正常", stale: "过期", offline: "离线", unknown: "无值", disabled: "已停用" }
 
@@ -137,7 +137,7 @@ function downloadCSV(rows: PointRow[]) {
   const url = URL.createObjectURL(blob)
   const link = document.createElement("a")
   link.href = url
-  link.download = "fastiot-points.csv"
+  link.download = "fastems-points.csv"
   link.click()
   URL.revokeObjectURL(url)
 }

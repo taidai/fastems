@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"fastiot/internal/ems/device"
-	"fastiot/internal/ems/signal"
+	"fastems/internal/ems/device"
+	"fastems/internal/ems/signal"
 )
 
 func TestParseNodeIDFormats(t *testing.T) {

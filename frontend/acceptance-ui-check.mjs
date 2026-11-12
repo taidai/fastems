@@ -1,13 +1,13 @@
 // 前端验收：真正驱动界面完成交付链、发布回退、复用预览、运行页与角色只读检查。
-// 运行：FASTIOT_NAV_URL=http://127.0.0.1:4409 FASTIOT_NAV_PASSWORD=... node acceptance-ui-check.mjs
+// 运行：FASTEMS_NAV_URL=http://127.0.0.1:4409 FASTEMS_NAV_PASSWORD=... node acceptance-ui-check.mjs
 import { chromium } from "playwright-core"
 import { mkdirSync } from "node:fs"
 
-const base = process.env.FASTIOT_NAV_URL || "http://127.0.0.1:4409"
-const password = process.env.FASTIOT_NAV_PASSWORD || ""
-const viewerEmail = process.env.FASTIOT_ACCEPT_VIEWER || "nav-viewer@example.test"
-const viewerPassword = process.env.FASTIOT_ACCEPT_VIEWER_PASSWORD || "nav-viewer-pass-123"
-if (!password) throw new Error("FASTIOT_NAV_PASSWORD is required")
+const base = process.env.FASTEMS_NAV_URL || "http://127.0.0.1:4409"
+const password = process.env.FASTEMS_NAV_PASSWORD || ""
+const viewerEmail = process.env.FASTEMS_ACCEPT_VIEWER || "nav-viewer@example.test"
+const viewerPassword = process.env.FASTEMS_ACCEPT_VIEWER_PASSWORD || "nav-viewer-pass-123"
+if (!password) throw new Error("FASTEMS_NAV_PASSWORD is required")
 const outDir = "evidence/acceptance-ui"
 mkdirSync(outDir, { recursive: true })
 
@@ -25,7 +25,7 @@ if (!login.token) throw new Error("admin login failed")
 
 const browser = await chromium.launch()
 const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
-await context.addInitScript((value) => sessionStorage.setItem("fastiot-token", value), login.token)
+await context.addInitScript((value) => sessionStorage.setItem("fastems-token", value), login.token)
 const page = await context.newPage()
 await page.goto(base)
 await page.locator(".console-topbar").waitFor({ timeout: 15000 })
@@ -152,7 +152,7 @@ const viewerLogin = await fetch(`${base}/api/login`, {
 }).then((r) => r.json())
 if (!viewerLogin.token) throw new Error("viewer login failed")
 const viewerContext = await browser.newContext({ viewport: { width: 1280, height: 800 } })
-await viewerContext.addInitScript((value) => sessionStorage.setItem("fastiot-token", value), viewerLogin.token)
+await viewerContext.addInitScript((value) => sessionStorage.setItem("fastems-token", value), viewerLogin.token)
 const viewerPage = await viewerContext.newPage()
 await viewerPage.goto(base)
 await viewerPage.locator(".console-topbar").waitFor({ timeout: 15000 })

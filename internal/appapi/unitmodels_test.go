@@ -3,7 +3,7 @@ package appapi
 import (
 	"testing"
 
-	"fastiot/internal/ems/profile"
+	"fastems/internal/ems/profile"
 )
 
 func TestUnitModelResponseMapsCommands(t *testing.T) {

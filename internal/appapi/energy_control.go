@@ -10,9 +10,9 @@ import (
 	siotclient "github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 
-	"fastiot/internal/audit"
-	"fastiot/internal/decision"
-	"fastiot/internal/ems/command"
+	"fastems/internal/audit"
+	"fastems/internal/decision"
+	"fastems/internal/ems/command"
 )
 
 // 控制器人工操作：启停、检修、故障确认与自动/人工模式。启停命令走共享

@@ -7,7 +7,7 @@ import (
 	siotclient "github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 
-	"fastiot/internal/decision"
+	"fastems/internal/decision"
 )
 
 // RunCapabilityDispatch 执行一次能力级调度。柜内拆解、动态能力约束、人工/

@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { sumByKeywords } from "./EnergyFlow"
 import { Node } from "./api"
 import Icon, { type IconName } from "./Icons"
@@ -15,7 +16,7 @@ const DEFAULT_ORDER: KpiKey[] = ["revenue", "ess-revenue", "efficiency", "fee", 
 
 export const DEFAULT_KPI_CONFIG: KpiConfig = { order: DEFAULT_ORDER, thresholds: {} }
 
-const STORAGE_KEY = "fastiot-kpi-config"
+const STORAGE_KEY = "fastems-kpi-config"
 
 export function loadKpiConfig(): KpiConfig {
   try {
@@ -88,15 +89,16 @@ export default function KpiStrip({ points, tariff, config, onOpen }: {
   onOpen: (keywords: string[]) => void
 }) {
   const cards = buildCards(points, tariff)
+  const [expanded, setExpanded] = useState(false)
   const byKey = new Map(cards.map((card) => [card.key, card]))
   const ordered = config.order.map((key) => byKey.get(key)).filter((card): card is Card => Boolean(card))
-  return <section className="kpi-strip" aria-label="站点关键指标">
-    {ordered.map((card) => {
+  return <section className={`kpi-strip${expanded ? " expanded" : ""}`} aria-label="站点关键指标">
+    {ordered.map((card, index) => {
       const hit = thresholdHit(card, config.thresholds[card.key])
       return <button
         type="button"
         key={card.key}
-        className={`kpi-card ${card.key} ${card.compact ? "compact" : ""} ${hit ? "threshold-hit" : ""}`}
+        className={`kpi-card ${card.key} ${card.compact ? "compact" : ""} ${hit ? "threshold-hit" : ""}${index >= 4 ? " kpi-extra" : ""}`}
         onClick={() => onOpen(card.keywords)}
         title={card.keywords.length ? `查看${card.label}点位` : `打开${card.label}页面`}
       >
@@ -105,5 +107,6 @@ export default function KpiStrip({ points, tariff, config, onOpen }: {
         <span className="kpi-note">{card.note}</span>
       </button>
     })}
+    {ordered.length > 4 && <button type="button" className="kpi-toggle" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>{expanded ? "收起指标" : `全部 ${ordered.length} 项指标`}</button>}
   </section>
 }

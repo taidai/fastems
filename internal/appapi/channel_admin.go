@@ -9,8 +9,8 @@ import (
 	"github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 
-	"fastiot/internal/ems/modbusrt"
-	"fastiot/internal/emsapi"
+	"fastems/internal/ems/modbusrt"
+	"fastems/internal/emsapi"
 )
 
 // ChannelAdmin persists channel configuration as modbus and modbusIo nodes, so

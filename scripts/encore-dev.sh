@@ -5,8 +5,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-export FASTIOT_DATA="${FASTIOT_DATA:-$ROOT/data/encore}"
+export FASTEMS_DATA="${FASTEMS_DATA:-$ROOT/data/encore}"
 export GOFLAGS="${GOFLAGS:--buildvcs=false}"
-PORT="${FASTIOT_PORT:-4000}"
+PORT="${FASTEMS_PORT:-4000}"
 
 exec encore run --port "$PORT" "$@"

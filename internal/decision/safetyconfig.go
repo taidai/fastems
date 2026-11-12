@@ -6,7 +6,7 @@ import (
 	"github.com/nats-io/nats.go"
 	siotclient "github.com/simpleiot/simpleiot/client"
 
-	"fastiot/internal/ems/safety"
+	"fastems/internal/ems/safety"
 )
 
 const outputSafetyPoint = "easyemsSafety"

@@ -1,11 +1,11 @@
 // UI 评审取图：五个核心页面 × 四个断点，附带布局指标。
-// 运行：FASTIOT_NAV_URL=http://127.0.0.1:4409 FASTIOT_NAV_PASSWORD=... node ui-review-capture.mjs
+// 运行：FASTEMS_NAV_URL=http://127.0.0.1:4409 FASTEMS_NAV_PASSWORD=... node ui-review-capture.mjs
 import { chromium } from "playwright-core"
 import { mkdirSync, writeFileSync } from "node:fs"
 
-const base = process.env.FASTIOT_NAV_URL || "http://127.0.0.1:4409"
-const password = process.env.FASTIOT_NAV_PASSWORD || ""
-if (!password) throw new Error("FASTIOT_NAV_PASSWORD is required")
+const base = process.env.FASTEMS_NAV_URL || "http://127.0.0.1:4409"
+const password = process.env.FASTEMS_NAV_PASSWORD || ""
+if (!password) throw new Error("FASTEMS_NAV_PASSWORD is required")
 const outDir = "evidence/ui-review-2026-11-13"
 mkdirSync(outDir, { recursive: true })
 
@@ -35,7 +35,7 @@ const browser = await chromium.launch()
 const metrics = []
 for (const size of widths) {
   const context = await browser.newContext({ viewport: { width: size.width, height: size.height } })
-  await context.addInitScript((value) => sessionStorage.setItem("fastiot-token", value), login.token)
+  await context.addInitScript((value) => sessionStorage.setItem("fastems-token", value), login.token)
   const page = await context.newPage()
   await page.goto(base)
   await page.locator(".console-topbar").waitFor({ timeout: 15000 })

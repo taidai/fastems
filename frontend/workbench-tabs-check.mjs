@@ -1,14 +1,14 @@
 import { chromium } from "playwright-core"
 
-const base = process.env.FASTIOT_NAV_URL || "http://127.0.0.1:4411"
-const password = process.env.FASTIOT_NAV_PASSWORD || ""
+const base = process.env.FASTEMS_NAV_URL || "http://127.0.0.1:4411"
+const password = process.env.FASTEMS_NAV_PASSWORD || ""
 const login = await fetch(`${base}/api/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: "admin", password }) })
 const { token } = await login.json()
 
 let browser
 try { browser = await chromium.launch({ channel: "chrome", headless: true }) } catch { browser = await chromium.launch({ channel: "msedge", headless: true }) }
 const context = await browser.newContext({ viewport: { width: 1632, height: 1000 } })
-await context.addInitScript((value) => sessionStorage.setItem("fastiot-token", value), token)
+await context.addInitScript((value) => sessionStorage.setItem("fastems-token", value), token)
 const page = await context.newPage()
 await page.goto(base, { waitUntil: "domcontentloaded" })
 await page.waitForSelector(".console-topnav .topnav-trigger", { timeout: 15000 })

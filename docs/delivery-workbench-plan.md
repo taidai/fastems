@@ -162,7 +162,7 @@
 ### 3.4 默认工作台
 
 - 首次登录：实施/管理员 → 交付；其他 → 客户。
-- 之后读 `localStorage["fastiot-workbench"]`；切换时写入。
+- 之后读 `localStorage["fastems-workbench"]`；切换时写入。
 - 若记住的值当前角色不可见（如被降权），回落到角色默认。
 
 ### 3.5 预检交互

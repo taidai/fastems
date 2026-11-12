@@ -1,4 +1,4 @@
-// Test-only identity simulator. It is not embedded in or required by fastiot.
+// Test-only identity simulator. It is not embedded in or required by fastems.
 // It exposes a YD2037-like ASCII model string at holding register 43904.
 package main
 

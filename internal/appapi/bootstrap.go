@@ -24,7 +24,7 @@ func Bootstrap(nc *nats.Conn, dataDir string) error {
 		return err
 	}
 
-	password := os.Getenv("FASTIOT_ADMIN_PASSWORD")
+	password := os.Getenv("FASTEMS_ADMIN_PASSWORD")
 	generated := password == ""
 	if generated {
 		bytes := make([]byte, 24)
@@ -34,7 +34,7 @@ func Bootstrap(nc *nats.Conn, dataDir string) error {
 		password = base64.RawURLEncoding.EncodeToString(bytes)
 	}
 	if len(password) < 12 {
-		return fmt.Errorf("FASTIOT_ADMIN_PASSWORD must contain at least 12 characters")
+		return fmt.Errorf("FASTEMS_ADMIN_PASSWORD must contain at least 12 characters")
 	}
 
 	deadline := time.Now().Add(10 * time.Second)
@@ -78,7 +78,7 @@ func Bootstrap(nc *nats.Conn, dataDir string) error {
 	if err != nil {
 		return fmt.Errorf("initialize project name: %w", err)
 	}
-	namePoint := data.NewPointString(data.PointTypeDescription, "", "FastIOT")
+	namePoint := data.NewPointString(data.PointTypeDescription, "", "FastEMS")
 	if err := client.SendNodePoints(nc, root.ID, data.Points{namePoint}, false); err != nil {
 		return fmt.Errorf("initialize project name: %w", err)
 	}

@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	"fastiot/internal/ems/signal"
+	"fastems/internal/ems/signal"
 )
 
 // timeConditionID names the synthetic engine input for one time condition, so

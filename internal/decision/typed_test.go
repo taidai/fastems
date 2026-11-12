@@ -6,7 +6,7 @@ import (
 
 	"github.com/simpleiot/simpleiot/data"
 
-	"fastiot/internal/ems/signal"
+	"fastems/internal/ems/signal"
 )
 
 func typedDocument(condition Condition) Document {

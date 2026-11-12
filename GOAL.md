@@ -1,4 +1,4 @@
-# FastIOT 总目标
+# FastEMS 总目标
 
 ## 使命（一句话）
 

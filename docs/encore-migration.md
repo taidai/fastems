@@ -20,7 +20,7 @@ encore.app
 go.mod
 service/ems/ems.go          Encore 服务：命名原生路由、fallback、关闭
 internal/app/app.go         进程生命周期与进程内 UI/API 处理器
-cmd/fastiot/main.go         旧入口，仅保留本地调试/回滚
+cmd/fastems/main.go         旧入口，仅保留本地调试/回滚
 deploy/encore-infra.json    自托管最小基础设施配置
 scripts/encore-dev.sh       本地 Encore 启动
 scripts/encore-build.sh     前端构建 + Encore 镜像构建
@@ -45,7 +45,7 @@ curl -fsSL https://encore.dev/install.sh | bash
 ```
 
 ```bash
-export FASTIOT_DATA="$PWD/data/encore"
+export FASTEMS_DATA="$PWD/data/encore"
 export GOFLAGS=-buildvcs=false
 encore run --port 4000
 ```
@@ -67,14 +67,14 @@ go env -w GOFLAGS=-buildvcs=false
 Windows 主机上的旧入口仍可用于快速调试，但它不再是生产路径：
 
 ```bash
-go run ./cmd/fastiot -port 8080 -data data/dev
+go run ./cmd/fastems -port 8080 -data data/dev
 ```
 
 ## 4. 构建与部署
 
 ```bash
 npm --prefix frontend run build
-encore build docker fastiot:latest
+encore build docker fastems:latest
 ```
 
 或：
@@ -87,11 +87,11 @@ encore build docker fastiot:latest
 
 ```bash
 docker run -d \
-  --name fastiot \
+  --name fastems \
   -p 8080:8080 \
-  -v fastiot-data:/data \
-  -e FASTIOT_DATA=/data \
-  fastiot:latest
+  -v fastems-data:/data \
+  -e FASTEMS_DATA=/data \
+  fastems:latest
 ```
 
 Encore 自托管镜像默认监听 8080；需要换端口时同时设置 `-e PORT=4000 -p 4000:4000`。`deploy/encore-infra.json` 是自托管所需的最小基础设施配置（没有 SQL/Redis/Pub/Sub）；如果部署在反向代理后，把 `metadata.base_url` 改成实际外部地址再构建。
@@ -100,7 +100,7 @@ Encore 自托管镜像默认监听 8080；需要换端口时同时设置 `-e POR
 
 ## 5. 已接受的取舍
 
-- 不再产出 Windows 单 exe 作为生产交付物；旧的 `cmd/fastiot` 仅用于本地调试和回滚。
+- 不再产出 Windows 单 exe 作为生产交付物；旧的 `cmd/fastems` 仅用于本地调试和回滚。
 - 生产镜像基于 Linux；工控机需要能运行 Docker，或由部署方提供等价的 OCI 运行时。
 - Encore 的本地开发面板、tracing 和构建缓存会成为开发链路的一部分。
 - 内嵌 NATS/JetStream 仍在同一进程内，不引入外部消息队列或第二业务服务。
@@ -111,7 +111,7 @@ Encore 自托管镜像默认监听 8080；需要换端口时同时设置 `-e POR
 **Phase 0（本次）**
 - 加入 `encore.app`、`service/ems`、`internal/app`。
 - fallback 接管全部现有路由。
-- 保留 `cmd/fastiot` 作为回滚入口。
+- 保留 `cmd/fastems` 作为回滚入口。
 - 验证 `/api/health`、登录、页面、写值链路。
 
 **Phase 1（本次完成）**
@@ -131,7 +131,7 @@ Encore 自托管镜像默认监听 8080；需要换端口时同时设置 `-e POR
 
 ## 7. 回滚
 
-- 代码回滚：直接构建并运行 `cmd/fastiot`，不需要恢复旧启动代码；`encore.app` 与 `service/` 不参与该入口。
+- 代码回滚：直接构建并运行 `cmd/fastems`，不需要恢复旧启动代码；`encore.app` 与 `service/` 不参与该入口。
 - 部署回滚：继续运行上一版 Windows exe 或上一版容器镜像；数据目录格式未变。
 - 数据目录仍是唯一持久化边界；迁移不改变 JetStream、审计、报警维护和历史文件的位置。
 

@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"fastiot/internal/ems/signal"
+	"fastems/internal/ems/signal"
 )
 
 // Sample is one recorded reading.

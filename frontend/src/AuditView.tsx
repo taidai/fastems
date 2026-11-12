@@ -65,7 +65,7 @@ export default function AuditView({ token, onError }: { token: string; onError: 
       <FilterToolbar trailing={<>
         <EmsButton busy={loading} onClick={() => { setFilters(draft); void load(draft) }}>查询</EmsButton>
         <EmsButton variant="secondary" disabled={loading} onClick={() => { setDraft(emptyFilters); setFilters(emptyFilters); void load(emptyFilters) }}>重置</EmsButton>
-        <EmsButton variant="secondary" disabled={loading} onClick={() => void downloadCSV(token, `/audit/export?${queryString(filters)}`, "fastiot-audit.csv").catch((cause) => onError(cause instanceof Error ? cause.message : "导出失败"))}>导出 CSV</EmsButton>
+        <EmsButton variant="secondary" disabled={loading} onClick={() => void downloadCSV(token, `/audit/export?${queryString(filters)}`, "fastems-audit.csv").catch((cause) => onError(cause instanceof Error ? cause.message : "导出失败"))}>导出 CSV</EmsButton>
       </>}>
         <EmsInput label="操作人" value={draft.actor} onIonInput={(event) => setDraft({ ...draft, actor: event.detail.value || "" })} placeholder="账号或用户 ID" />
         <EmsSelect label="动作" value={draft.action} onIonChange={(event) => setDraft({ ...draft, action: event.detail.value })}>

@@ -7,7 +7,7 @@ import (
 	siotclient "github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 
-	"fastiot/internal/decision"
+	"fastems/internal/decision"
 )
 
 // pointFloat 读一个 point 的数值。float/int 点（NewPointFloat 写入，含

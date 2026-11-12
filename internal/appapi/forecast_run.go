@@ -8,7 +8,7 @@ import (
 	siotclient "github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 
-	"fastiot/internal/decision"
+	"fastems/internal/decision"
 )
 
 // 光伏短期预测：按较慢周期读取已配置点位的历史，用移动平均 + 趋势外推

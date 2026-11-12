@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"fastiot/internal/ems/channel"
-	"fastiot/internal/ems/signal"
+	"fastems/internal/ems/channel"
+	"fastems/internal/ems/signal"
 )
 
 // Key identifies one point on one device.

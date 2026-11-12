@@ -1,7 +1,7 @@
 package modbusrt
 
 import (
-	"fastiot/internal/ems/framelog"
+	"fastems/internal/ems/framelog"
 
 	"github.com/simpleiot/simpleiot/modbus"
 )

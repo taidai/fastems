@@ -3,7 +3,7 @@ package decision
 import (
 	"testing"
 
-	"fastiot/internal/ems/alloc"
+	"fastems/internal/ems/alloc"
 )
 
 func resolved(id string, discharge, charge float64) resolvedMember {

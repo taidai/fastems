@@ -15,7 +15,7 @@ import (
 	"github.com/simpleiot/simpleiot/data"
 	"github.com/simpleiot/simpleiot/server"
 
-	"fastiot/internal/decision"
+	"fastems/internal/decision"
 )
 
 // TestRunCapabilityDispatch 验证能力级调度闭环：EnergyUnit + 能力级规则 +

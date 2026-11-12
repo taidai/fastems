@@ -76,7 +76,7 @@ func (h *Handler) deliveryEvidence(w http.ResponseWriter, r *http.Request, ident
 		fail()
 		return
 	}
-	fmt.Fprintf(readme, "FastIOT 交付证据包\n导出时间: %s\n导出人: %s\n\n内容:\n", now.Format("2006-01-02 15:04:05"), actor)
+	fmt.Fprintf(readme, "FastEMS 交付证据包\n导出时间: %s\n导出人: %s\n\n内容:\n", now.Format("2006-01-02 15:04:05"), actor)
 	fmt.Fprint(readme, "  01-设备台账.csv       接入设备、Profile 绑定与验证状态\n")
 	fmt.Fprint(readme, "  02-验证记录.csv       每台设备的现场验证人、日期、序列号与备注\n")
 	fmt.Fprint(readme, "  03-通信测试报告.csv   通道/设备轮询统计与各设备点位质量汇总\n")
@@ -211,6 +211,6 @@ func (h *Handler) deliveryEvidence(w http.ResponseWriter, r *http.Request, ident
 		return
 	}
 	w.Header().Set("Content-Type", "application/zip")
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="fastiot-evidence-%s.zip"`, now.Format("2006-01-02")))
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="fastems-evidence-%s.zip"`, now.Format("2006-01-02")))
 	_, _ = w.Write(buffer.Bytes())
 }

@@ -1,8 +1,8 @@
 import { chromium } from "playwright-core"
 import { readFile } from "node:fs/promises"
 import path from "node:path"
-const base=process.env.FASTIOT_URL||"http://127.0.0.1:62943"
-const password=(await readFile(process.env.FASTIOT_PASSWORD_FILE||path.resolve("../data/preview/initial-password.txt"),"utf8")).match(/(?:密码|password)\s*[:：]\s*(\S+)/i)?.[1]
+const base=process.env.FASTEMS_URL||"http://127.0.0.1:62943"
+const password=(await readFile(process.env.FASTEMS_PASSWORD_FILE||path.resolve("../data/preview/initial-password.txt"),"utf8")).match(/(?:密码|password)\s*[:：]\s*(\S+)/i)?.[1]
 let browser; try{browser=await chromium.launch({channel:"chrome",headless:true})}catch{browser=await chromium.launch({channel:"msedge",headless:true})}
 const page=await browser.newPage({viewport:{width:1669,height:1000}})
 try{

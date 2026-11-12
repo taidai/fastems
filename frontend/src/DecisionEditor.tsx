@@ -242,7 +242,7 @@ export default function DecisionEditor({ token, rule, nodes, onRefresh, onError,
   const [showVersions, setShowVersions] = useState(false)
   const [safetyNode, setSafetyNode] = useState<Node | null>(null)
   const [confirmAction, setConfirmAction] = useState<"publish" | "delete" | null>(null)
-  const [viewMode, setViewMode] = useState<"table" | "cards">(() => localStorage.getItem("fastiot-rule-view") === "table" ? "table" : "cards")
+  const [viewMode, setViewMode] = useState<"table" | "cards">(() => localStorage.getItem("fastems-rule-view") === "table" ? "table" : "cards")
   const [inputs, setInputs] = useState<Record<string, number>>(() =>
     Object.fromEntries(available.map((node) => [businessId(node), point(node, "value")?.value || 0])),
   )
@@ -533,8 +533,8 @@ export default function DecisionEditor({ token, rule, nodes, onRefresh, onError,
       <button className="text-button danger-text" disabled={busy !== ""} onClick={() => setConfirmAction("delete")}>删除</button>
     </div>}
     <div className="editor-view-switch" role="group" aria-label="编辑视图">
-      <button className={viewMode === "table" ? "active" : ""} onClick={() => { setViewMode("table"); localStorage.setItem("fastiot-rule-view", "table") }}>表格视图</button>
-      <button className={viewMode === "cards" ? "active" : ""} onClick={() => { setViewMode("cards"); localStorage.setItem("fastiot-rule-view", "cards") }}>详细视图</button>
+      <button className={viewMode === "table" ? "active" : ""} onClick={() => { setViewMode("table"); localStorage.setItem("fastems-rule-view", "table") }}>表格视图</button>
+      <button className={viewMode === "cards" ? "active" : ""} onClick={() => { setViewMode("cards"); localStorage.setItem("fastems-rule-view", "cards") }}>详细视图</button>
     </div>
     {viewMode === "table" && <div className="rule-table-wrap">
       <table className="rule-table">
@@ -544,7 +544,7 @@ export default function DecisionEditor({ token, rule, nodes, onRefresh, onError,
             onClick={(event) => {
               if ((event.target as HTMLElement).closest("input,button,select,label")) return
               setViewMode("cards")
-              localStorage.setItem("fastiot-rule-view", "cards")
+              localStorage.setItem("fastems-rule-view", "cards")
               window.setTimeout(() => locate(row.row_id), 0)
             }}>
             <td>{rowIndex + 1}</td>

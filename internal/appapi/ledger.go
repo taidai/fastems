@@ -10,7 +10,7 @@ import (
 
 	"github.com/simpleiot/simpleiot/data"
 
-	"fastiot/internal/ems/channel"
+	"fastems/internal/ems/channel"
 )
 
 type LedgerDevice struct {

@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"fastiot/internal/ems/command"
-	"fastiot/internal/ems/device"
-	"fastiot/internal/ems/signal"
+	"fastems/internal/ems/command"
+	"fastems/internal/ems/device"
+	"fastems/internal/ems/signal"
 )
 
 type nullDispatcher struct{}

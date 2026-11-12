@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"fastiot/internal/ems/signal"
+	"fastems/internal/ems/signal"
 )
 
 // Condition compares one input with a typed value.

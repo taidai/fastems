@@ -1,9 +1,9 @@
 import { chromium } from "playwright-core"
 import { writeFile } from "node:fs/promises"
 
-const base = process.env.FASTIOT_URL || "http://127.0.0.1:62951"
-const password = process.env.FASTIOT_ADMIN_PASSWORD || ""
-if (!password) throw new Error("FASTIOT_ADMIN_PASSWORD is required")
+const base = process.env.FASTEMS_URL || "http://127.0.0.1:62951"
+const password = process.env.FASTEMS_ADMIN_PASSWORD || ""
+if (!password) throw new Error("FASTEMS_ADMIN_PASSWORD is required")
 
 const loginResponse = await fetch(`${base}/api/login`, {
   method: "POST",

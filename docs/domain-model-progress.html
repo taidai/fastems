@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FastIOT 领域模型覆盖度</title>
+<title>FastEMS 领域模型覆盖度</title>
 <style>
   :root { --ok:#2B8A57; --warn:#a46b1d; --bad:#b23a32; --muted:#5a6b7a; --ink:#1c2b38; --line:#dbe4ec; }
   * { box-sizing:border-box; }
@@ -52,7 +52,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>FastIOT 领域模型覆盖度</h1>
+  <h1>FastEMS 领域模型覆盖度</h1>
   <p class="sub">基准：领域模型图「单场站·多电站·多柜体·异构设备」 · 2026-11-07</p>
 
   <div class="legend">
@@ -65,13 +65,13 @@
     <div class="node bad">
       <div class="node-head"><b>Site 场站</b><span class="st bad">缺失</span></div>
       <div class="node-desc">站点信息 / 总目标 / 总约束 · Site 1..N Plant</div>
-      <div class="node-desc" style="color:var(--bad)">FastIOT：单机无此对象，用根节点隐式代表，有「站点电价」但无独立 Site 领域对象。</div>
+      <div class="node-desc" style="color:var(--bad)">FastEMS：单机无此对象，用根节点隐式代表，有「站点电价」但无独立 Site 领域对象。</div>
     </div>
 
     <div class="node bad">
       <div class="node-head"><b>Plant 电站</b><span class="st bad">缺失</span></div>
       <div class="node-desc">电站目标 / 柜间协调 / 电站约束 · Plant 1..N EnergyUnit</div>
-      <div class="node-desc" style="color:var(--bad)">FastIOT：无此对象，业务节点分组只能粗略模拟，没有「电站」语义。</div>
+      <div class="node-desc" style="color:var(--bad)">FastEMS：无此对象，业务节点分组只能粗略模拟，没有「电站」语义。</div>
     </div>
 
     <div class="node bad">
@@ -83,7 +83,7 @@
         <span class="chip bad">RatedEnergyKWh ❌</span>
         <span class="chip warn">Capability ⚠️（字段化，非独立对象）</span>
       </div>
-      <div class="node-desc" style="color:var(--bad)">FastIOT：无此抽象——「柜体」被隐式等同于「一个通道下的站号」，没有一等对象承载额定容量/功率/SOC/Capability。这是图反复强调的「调度对象是 EnergyUnit 而不是具体设备型号」的落空点。</div>
+      <div class="node-desc" style="color:var(--bad)">FastEMS：无此抽象——「柜体」被隐式等同于「一个通道下的站号」，没有一等对象承载额定容量/功率/SOC/Capability。这是图反复强调的「调度对象是 EnergyUnit 而不是具体设备型号」的落空点。</div>
     </div>
 
     <div class="node ok">
@@ -106,7 +106,7 @@
         <span class="chip ok">ActivePower/Voltage/SOC/Current/Status/Alarm ✅</span>
         <span class="chip ok">Cmd.SetPower ✅（含回读确认）</span>
       </div>
-      <div class="node-desc">实现最完整：地址/格式/缩放/偏移/单位/读写/角色，是 FastIOT 的领域模型底座。</div>
+      <div class="node-desc">实现最完整：地址/格式/缩放/偏移/单位/读写/角色，是 FastEMS 的领域模型底座。</div>
     </div>
 
     <div class="node warn">
@@ -138,7 +138,7 @@
     <div class="prin"><span class="mark bad">❌</span><span>支持单场站扩展到多场站 —— 单机，无多场站</span></div>
   </div>
 
-  <p class="foot"><b>结论</b>：FastIOT 的领域模型是「Modbus 通道导向」（通道→站号→点位），图的领域模型是「能力/业务导向」（Site→Plant→EnergyUnit→Device→Point）。底层 Point/Device/AlarmEvent 覆盖完整，中间缺的 EnergyUnit 抽象是根子——补上它（及其上的 Site/Plant 层级），分配器、聚合、调度才有正确挂载点，多柜/多站才顺理成章。</p>
+  <p class="foot"><b>结论</b>：FastEMS 的领域模型是「Modbus 通道导向」（通道→站号→点位），图的领域模型是「能力/业务导向」（Site→Plant→EnergyUnit→Device→Point）。底层 Point/Device/AlarmEvent 覆盖完整，中间缺的 EnergyUnit 抽象是根子——补上它（及其上的 Site/Plant 层级），分配器、聚合、调度才有正确挂载点，多柜/多站才顺理成章。</p>
 </div>
 </body>
 </html>

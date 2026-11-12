@@ -8,13 +8,13 @@ import (
 	"sync"
 	"time"
 
-	"fastiot/internal/ems/alarm"
-	"fastiot/internal/ems/channel"
-	"fastiot/internal/ems/command"
-	"fastiot/internal/ems/device"
-	"fastiot/internal/ems/history"
-	"fastiot/internal/ems/signal"
-	"fastiot/internal/ems/state"
+	"fastems/internal/ems/alarm"
+	"fastems/internal/ems/channel"
+	"fastems/internal/ems/command"
+	"fastems/internal/ems/device"
+	"fastems/internal/ems/history"
+	"fastems/internal/ems/signal"
+	"fastems/internal/ems/state"
 )
 
 // Service is the long-running runtime: channels come and go, state and history

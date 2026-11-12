@@ -11,7 +11,7 @@ import (
 	"github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 
-	"fastiot/internal/decision"
+	"fastems/internal/decision"
 )
 
 // 项目复用：从一个已交付的站点复制工程资产到新站点。

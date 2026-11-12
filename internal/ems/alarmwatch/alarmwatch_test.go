@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"fastiot/internal/ems/alarm"
+	"fastems/internal/ems/alarm"
 )
 
 var now = time.Date(2026, 11, 4, 12, 0, 0, 0, time.UTC)

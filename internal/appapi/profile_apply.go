@@ -7,7 +7,7 @@ import (
 
 	"github.com/simpleiot/simpleiot/data"
 
-	"fastiot/internal/ems/profile"
+	"fastems/internal/ems/profile"
 )
 
 // 批量应用 Profile：把一个厂商 Profile 应用到一批站号，自动按逻辑点名称匹配物理点位，

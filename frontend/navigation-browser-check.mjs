@@ -1,12 +1,12 @@
 // 导航分组与角色可见性的浏览器检查：真实登录、真实角色，验证工作台切换与页面集合。
-// 运行：FASTIOT_NAV_URL=http://127.0.0.1:4411 FASTIOT_NAV_PASSWORD=... node navigation-browser-check.mjs
+// 运行：FASTEMS_NAV_URL=http://127.0.0.1:4411 FASTEMS_NAV_PASSWORD=... node navigation-browser-check.mjs
 import { chromium } from "playwright-core"
 
-const base = process.env.FASTIOT_NAV_URL || "http://127.0.0.1:4411"
-const password = process.env.FASTIOT_NAV_PASSWORD || ""
-if (!password) throw new Error("FASTIOT_NAV_PASSWORD is required")
+const base = process.env.FASTEMS_NAV_URL || "http://127.0.0.1:4411"
+const password = process.env.FASTEMS_NAV_PASSWORD || ""
+if (!password) throw new Error("FASTEMS_NAV_PASSWORD is required")
 
-const viewerEmail = process.env.FASTIOT_NAV_VIEWER || "nav-viewer@example.test"
+const viewerEmail = process.env.FASTEMS_NAV_VIEWER || "nav-viewer@example.test"
 const viewerPassword = "nav-viewer-pass-123"
 
 async function api(token, path, method = "GET", body) {
@@ -46,7 +46,7 @@ const ok = (condition, message) => { if (!condition) failures.push(message) }
 
 async function openAs(token) {
   const context = await browser.newContext({ viewport: { width: 1632, height: 1000 } })
-  await context.addInitScript((value) => sessionStorage.setItem("fastiot-token", value), token)
+  await context.addInitScript((value) => sessionStorage.setItem("fastems-token", value), token)
   const page = await context.newPage()
   await page.goto(base, { waitUntil: "domcontentloaded" })
   await page.waitForSelector(".console-topnav .topnav-trigger", { timeout: 15000 })

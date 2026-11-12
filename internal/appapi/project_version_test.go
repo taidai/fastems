@@ -18,9 +18,9 @@ import (
 	"github.com/simpleiot/simpleiot/data"
 	"github.com/simpleiot/simpleiot/server"
 
-	"fastiot/internal/decision"
-	"fastiot/internal/ems/runtime"
-	"fastiot/internal/emsapi"
+	"fastems/internal/decision"
+	"fastems/internal/ems/runtime"
+	"fastems/internal/emsapi"
 )
 
 func TestProjectVersionPublishAndRollback(t *testing.T) {

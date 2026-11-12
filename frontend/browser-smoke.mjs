@@ -3,11 +3,11 @@ import { readFile, mkdir, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { p0Steps } from "./p0-steps.mjs"
 
-const base = process.env.FASTIOT_URL || "http://127.0.0.1:62943"
-const dataDir = path.resolve(process.env.FASTIOT_DATA || "data/preview")
-const evidence = path.resolve(process.env.FASTIOT_EVIDENCE || "evidence")
+const base = process.env.FASTEMS_URL || "http://127.0.0.1:62943"
+const dataDir = path.resolve(process.env.FASTEMS_DATA || "data/preview")
+const evidence = path.resolve(process.env.FASTEMS_EVIDENCE || "evidence")
 await mkdir(evidence, { recursive: true })
-let password = process.env.FASTIOT_ADMIN_PASSWORD || ""
+let password = process.env.FASTEMS_ADMIN_PASSWORD || ""
 if (!password) {
   const initial = await readFile(path.join(dataDir, "initial-password.txt"), "utf8")
   password = initial.match(/密码:\s*(\S+)/)?.[1] || ""
@@ -29,7 +29,7 @@ page.on("console", (message) => {
 })
 
 async function snapshot() {
-  const token = await page.evaluate(() => sessionStorage.getItem("fastiot-token"))
+  const token = await page.evaluate(() => sessionStorage.getItem("fastems-token"))
   const response = await page.request.get(`${base}/api/snapshot`, { headers: { Authorization: `Bearer ${token}` } })
   if (!response.ok()) throw new Error(`Snapshot failed: ${response.status()}`)
   return response.json()

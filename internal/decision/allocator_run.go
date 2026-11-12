@@ -10,7 +10,7 @@ import (
 	siotclient "github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 
-	"fastiot/internal/ems/alloc"
+	"fastems/internal/ems/alloc"
 )
 
 // allocationRun is one output's current dispatch. Steps are deliberately

@@ -7,7 +7,7 @@ import (
 	"github.com/nats-io/nats.go"
 	siotclient "github.com/simpleiot/simpleiot/client"
 
-	"fastiot/internal/decision"
+	"fastems/internal/decision"
 )
 
 // RunPlantAntiReverse 执行一次 PCC 防逆流闭环：读 Plant 的 PCC 反馈绑定，

@@ -14,7 +14,7 @@ import (
 	"github.com/simpleiot/simpleiot/data"
 	"github.com/simpleiot/simpleiot/server"
 
-	"fastiot/internal/decision"
+	"fastems/internal/decision"
 )
 
 // TestMultiPlantIndependentPCC 验证多站逐 PCC 独立闭环（T19）：PlantA 反送

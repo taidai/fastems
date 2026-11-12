@@ -1,8 +1,8 @@
 import { chromium } from "playwright-core"
 import { readFile } from "node:fs/promises"
 import path from "node:path"
-const base=process.env.FASTIOT_URL||"http://127.0.0.1:62943"
-const password=(await readFile(process.env.FASTIOT_PASSWORD_FILE||path.resolve("../data/preview/initial-password.txt"),"utf8")).match(/(?:密码|password)\s*[:：]\s*(\S+)/i)?.[1]
+const base=process.env.FASTEMS_URL||"http://127.0.0.1:62943"
+const password=(await readFile(process.env.FASTEMS_PASSWORD_FILE||path.resolve("../data/preview/initial-password.txt"),"utf8")).match(/(?:密码|password)\s*[:：]\s*(\S+)/i)?.[1]
 let browser; try{browser=await chromium.launch({channel:"chrome",headless:true})}catch{browser=await chromium.launch({channel:"msedge",headless:true})}
 const page=await browser.newPage({viewport:{width:1669,height:1000}})
 try{
@@ -13,7 +13,7 @@ try{
  await page.getByRole("button",{name:"+ 输出"}).first().click(); await page.waitForTimeout(200)
  const selects=page.locator('select[aria-label="输出点位"]'); const select=selects.last()
  console.log("OPTIONS", await select.locator("option").allInnerTexts())
- console.log("SNAP", await page.evaluate(async()=>{const t=sessionStorage.getItem("fastiot-token");const r=await fetch("/api/snapshot",{headers:{Authorization:"Bearer "+t}});const d=await r.json();return d.nodes.filter(n=>n.type==="group").map(n=>({id:n.id,desc:(n.points.find(p=>p.type==="description")||{}).text,alloc:(n.points.find(p=>p.type==="easyemsAllocator")||{}).text}))}))
+ console.log("SNAP", await page.evaluate(async()=>{const t=sessionStorage.getItem("fastems-token");const r=await fetch("/api/snapshot",{headers:{Authorization:"Bearer "+t}});const d=await r.json();return d.nodes.filter(n=>n.type==="group").map(n=>({id:n.id,desc:(n.points.find(p=>p.type==="description")||{}).text,alloc:(n.points.find(p=>p.type==="easyemsAllocator")||{}).text}))}))
  await select.selectOption({label:"分配器验收组（分配器）"})
  await page.waitForTimeout(200)
  await page.screenshot({path:path.resolve("../evidence/allocator-rule-1669.png")})

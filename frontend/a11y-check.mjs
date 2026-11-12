@@ -1,12 +1,12 @@
 // 无障碍检查：五个核心页面跑 axe-core（WCAG A/AA），输出违规清单。
-// 运行：FASTIOT_NAV_URL=http://127.0.0.1:4409 FASTIOT_NAV_PASSWORD=... node a11y-check.mjs
+// 运行：FASTEMS_NAV_URL=http://127.0.0.1:4409 FASTEMS_NAV_PASSWORD=... node a11y-check.mjs
 import { chromium } from "playwright-core"
 import AxeBuilder from "@axe-core/playwright"
 import { writeFileSync } from "node:fs"
 
-const base = process.env.FASTIOT_NAV_URL || "http://127.0.0.1:4409"
-const password = process.env.FASTIOT_NAV_PASSWORD || ""
-if (!password) throw new Error("FASTIOT_NAV_PASSWORD is required")
+const base = process.env.FASTEMS_NAV_URL || "http://127.0.0.1:4409"
+const password = process.env.FASTEMS_NAV_PASSWORD || ""
+if (!password) throw new Error("FASTEMS_NAV_PASSWORD is required")
 
 const pages = [
   { key: "overview", workbench: "客户", nav: "运行", item: "运行总览", title: "站点总览" },
@@ -25,7 +25,7 @@ if (!login.token) throw new Error("login failed")
 
 const browser = await chromium.launch()
 const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
-await context.addInitScript((value) => sessionStorage.setItem("fastiot-token", value), login.token)
+await context.addInitScript((value) => sessionStorage.setItem("fastems-token", value), login.token)
 const page = await context.newPage()
 await page.goto(base)
 await page.locator(".console-topbar").waitFor({ timeout: 15000 })

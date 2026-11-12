@@ -13,7 +13,7 @@ import (
 	"github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 
-	"fastiot/internal/audit"
+	"fastems/internal/audit"
 )
 
 // 项目版本：把当前站点的工程配置冻结成一个可回退的版本。
