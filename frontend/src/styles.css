@@ -1,21 +1,4 @@
 @import "./deviceWorkspace.css";
-:root {
-  font-family: Aptos, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
-  color: #203044;
-  font-synthesis: none;
-  --ink: #203044;
-  --muted: #4c5d72;
-  --faint: #5d6f83;
-  --mint: #23705f;
-  --blue: #31669b;
-  --amber: #8f5f19;
-  --danger: #a13f48;
-  --line: rgba(110, 135, 165, 0.14);
-  --card-line: rgba(255, 255, 255, 0.78);
-  --glass: rgba(255, 255, 255, 0.7);
-  --glass-strong: rgba(255, 255, 255, 0.84);
-  --shadow: 0 18px 46px rgba(38, 69, 105, 0.12);
-}
 * { box-sizing: border-box; }
 html, body { min-width: 320px; }
 body {
@@ -725,27 +708,6 @@ ion-toggle { --track-background: rgba(120, 143, 168, 0.3); --track-background-ch
    Glass energy console (2026-11) — see docs/ui-theme.md
    Light frosted glass over a site photograph.
    ============================================================ */
-:root {
-  color-scheme: light;
-  --ink: #1d262b;
-  --muted: #52606a;
-  --faint: #5f6d75;
-  --mint: #2f9c73;
-  --blue: #3d7fae;
-  --amber: #c8861d;
-  --danger: #b44a4a;
-  --line: rgba(29, 38, 43, 0.12);
-  --card-line: rgba(255, 255, 255, 0.72);
-  --glass-tint: 228, 235, 239;
-  --glass-a: 0.62;
-  --glass-a-strong: 0.76;
-  --glass-a-soft: 0.5;
-  --glass: rgba(var(--glass-tint), var(--glass-a));
-  --glass-strong: rgba(var(--glass-tint), var(--glass-a-strong));
-  --bg-brightness: 0.78;
-  --glass-edge: inset 0 0 22px rgba(255, 255, 255, 0.14), inset 0 0 0 1px rgba(255, 255, 255, 0.3), 0 14px 34px rgba(31, 46, 58, 0.16);
-  --shadow: 0 18px 44px rgba(31, 46, 58, 0.14);
-}
 body {
   min-height: 100vh;
   color: var(--ink);
@@ -1471,22 +1433,8 @@ h1, h2, h3 { color: var(--ink); }
 /* ============================================================
    Glass acceptance checklist (zizu_v3) — strict pass
    Background stays sharp; cards carry the blur.
+   Token 值统一在 tokens.css。
    ============================================================ */
-:root {
-  font-family: "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
-  --ink: #1f3550;
-  --muted: #4c5d72;
-  --faint: #5a6f84;
-  --blue: #2f6f9f;
-  --mint: #2B8A57;
-  --danger: #b23a32;
-  --amber: #9a6a1f;
-  --glass-a: 0.62;
-  --glass-a-strong: 0.86;
-  --glass-card: linear-gradient(125deg, rgba(246, 251, 255, var(--glass-a-strong)), rgba(225, 237, 250, var(--glass-a)));
-  --glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.32);
-  --glass-edge-hero: inset 0 0 0 2px rgba(224, 242, 255, 0.32), inset 0 2px 3px rgba(255, 255, 255, 0.95), inset 1px 0 1px rgba(255, 255, 255, 0.9), 0 10px 30px rgba(42, 61, 77, 0.12), 0 0 0 1px rgba(105, 151, 185, 0.35);
-}
 body::before {
   inset: 0;
   transform: none;

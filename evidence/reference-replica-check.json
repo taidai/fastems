@@ -1,44 +1,28 @@
 {
   "values": {
+    "colorScheme": "light",
     "before": {
       "filter": "brightness(0.78)",
-      "image": "url(\"http://127.0.0.1:62943/ems-site.jpg\")"
+      "image": "url(\"http://localhost:5173/ems-site.jpg\")"
     },
     "after": "linear-gradient(rgba(236, 245, 255, 0.55), rgba(226, 238, 250, 0.18) 40%, rgba(236, 245, 255, 0.45))",
-    "shell": {
-      "backdrop": "none",
-      "x": 4,
-      "y": 4.115203857421875,
-      "width": 1661,
-      "height": 1017.76953125
-    },
     "card": {
-      "background": "linear-gradient(130deg, rgba(249, 252, 255, 0.86), rgba(230, 239, 252, 0.62))",
-      "border": "1px solid rgba(255, 255, 255, 0.3)",
-      "radius": "9px",
-      "blur": "blur(24px) saturate(1.4)",
-      "shadow": "rgba(255, 255, 255, 0.32) 0px 1px 0px 0px inset"
+      "background": "rgba(255, 255, 255, 0.82)",
+      "border": "1px solid rgba(255, 255, 255, 0.7)",
+      "blur": "blur(20px) saturate(1.1)",
+      "shadow": "rgba(31, 46, 58, 0.1) 0px 8px 28px 0px"
     },
     "panel": {
-      "background": "linear-gradient(125deg, rgba(246, 251, 255, 0.86), rgba(225, 237, 250, 0.62))",
-      "border": "1px solid rgba(255, 255, 255, 0.34)",
-      "radius": "10px",
-      "blur": "blur(24px) saturate(1.4)"
+      "background": "rgba(255, 255, 255, 0.82)",
+      "border": "1px solid rgba(255, 255, 255, 0.7)",
+      "blur": "blur(20px) saturate(1.1)"
     },
-    "value": {
-      "size": "29px",
-      "weight": "560",
-      "spacing": "-1.3px"
+    "readability": {
+      "heading": "rgb(16, 25, 31)",
+      "label": "rgb(32, 48, 68)",
+      "value": "rgb(17, 25, 30)",
+      "note": "rgb(82, 107, 140)"
     },
-    "unit": "17px",
-    "note": "14px",
-    "stripGap": "6px",
-    "icons": {
-      "energy": "rgb(43, 138, 87)",
-      "revenue": "rgb(15, 27, 36)"
-    },
-    "accentDisplay": "none",
-    "heading": "32px",
     "labels": [
       "总收益",
       "储能收益",
@@ -52,12 +36,7 @@
     "activeView": "3D能流",
     "model": {
       "src": "/station-model.png",
-      "loaded": true,
-      "height": 462.25225830078125
-    },
-    "canvas": {
-      "width": 1587.7205810546875,
-      "height": 385.7347106933594
+      "loaded": true
     },
     "nodes": [
       {
@@ -83,33 +62,41 @@
     ],
     "assistantOpen": false,
     "mockText": false,
-    "dispatchText": "调度 舒适控制 P0 · 已执行01:23:24风机 1.0 → 1.0 · 已下发调度详情 ›",
-    "eventText": "今日事件最近评估 01:23:24 · 舒适控制 P0 · 命中第 1 行最新报警 连接中断 · 01:23:26活动报警 1 条 · 点位 11 个 ›",
+    "dispatchText": "调度 未启用调度详情 ›",
+    "eventText": "今日事件暂无可核实的调度事件最新报警 连接中断 · 22:23:40活动报警 1 条 · 点位 1 个 ›",
     "healthDots": 5
+  },
+  "display": {
+    "saved": {
+      "background": 77,
+      "glass": 61
+    },
+    "brightness": "0.77",
+    "glass": "0.61"
   },
   "layout": {
     "1669x1026": {
-      "stage": 0,
+      "stage": 565,
       "inner": 0,
       "horizontal": 0
     },
     "1600x1000": {
-      "stage": 0,
+      "stage": 554,
       "inner": 0,
       "horizontal": 0
     },
     "1280x800": {
-      "stage": 0,
+      "stage": 464,
       "inner": 0,
       "horizontal": 0
     },
     "1366x768": {
-      "stage": 0,
+      "stage": 450,
       "inner": 0,
       "horizontal": 0
     },
     "1024x768": {
-      "stage": 0,
+      "stage": 839,
       "inner": 0,
       "horizontal": 0
     }

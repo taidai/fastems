@@ -201,27 +201,35 @@
   .assistant-fab > span { font-size: 16px; }
 }
 
-/* 主导航并入顶部栏：替代原底部导航与"页面目录"下拉，去掉冗余 chrome。
-   子页面收进各组下拉，所有页面仍可达。 */
+/* 主导航按交付任务分组（docs/jobs.md）：一级是任务，二级是任务内页签。
+   运行时/查证类页面由页面内链接进入，不占一级导航。 */
 .console-topnav { display: flex; align-items: center; gap: 2px; margin-left: 14px; }
-.topnav-item { position: relative; }
 .topnav-trigger {
   display: flex; align-items: center; gap: 6px; padding: 8px 11px;
   border: 1px solid transparent; border-radius: 10px; background: none;
   color: #3a4a5a; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap;
 }
-.topnav-item.active .topnav-trigger { background: rgba(255, 255, 255, 0.9); color: #162025; border-color: rgba(255, 255, 255, 0.7); }
+.topnav-trigger.active { background: rgba(255, 255, 255, 0.9); color: #162025; border-color: rgba(255, 255, 255, 0.7); }
 .topnav-trigger:hover { color: #162025; }
-.topnav-caret { font-size: 10px; opacity: 0.6; }
-.topnav-dropdown {
-  position: absolute; top: calc(100% + 6px); left: 0; min-width: 148px; padding: 6px;
-  display: flex; flex-direction: column; gap: 2px; z-index: 60;
-  border: 1px solid rgba(255, 255, 255, 0.6); border-radius: 12px;
-  background: rgba(246, 251, 255, 0.95); box-shadow: 0 10px 30px rgba(31, 46, 58, 0.16);
-  backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+
+/* 任务内页签：和一级导航同一条视觉语言，但更轻，避免两排“主菜单”。 */
+.console-subnav {
+  display: flex; align-items: center; gap: 4px; margin: -4px 0 12px;
+  padding: 3px; border: 1px solid rgba(183, 200, 220, 0.55); border-radius: 10px;
+  background: rgba(255, 255, 255, 0.42); width: fit-content; max-width: 100%; overflow-x: auto;
 }
-.topnav-dropdown button { padding: 9px 12px; border: 0; border-radius: 8px; background: none; text-align: left; font-size: 13px; color: #3a4a5a; cursor: pointer; }
-.topnav-dropdown button.active, .topnav-dropdown button:hover { background: rgba(255, 255, 255, 0.9); color: #162025; }
+.console-subnav button {
+  border: 0; border-radius: 8px; background: none; padding: 6px 12px;
+  color: #46586a; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.console-subnav button:hover { color: #162025; background: rgba(255, 255, 255, 0.7); }
+.console-subnav button.active { background: #fff; color: #162025; box-shadow: 0 1px 2px rgba(31, 46, 58, 0.08); }
+
+@media (max-width: 720px) {
+  .console-subnav { width: auto; }
+  .console-subnav::-webkit-scrollbar { display: none; }
+  .console-subnav { scrollbar-width: none; }
+}
 
 /* 工作台切换：客户 / 交付。只对可配置角色显示；切组会切换该工作台的页面集合。 */
 .console-workbench {
@@ -312,13 +320,8 @@
 
 /* ============ 玻璃风·清晰监盘 ============ */
 /* 保留玻璃质感，但提高面板不透明度、明确边框与圆角，让内容清晰——
-   玻璃风本身可以很好看，关键是别做得太透、布局别乱。 */
-:root {
-  --ink: #1A2A33;
-  --muted: #4c5d72;
-  --line: #E4E9EE;
-  --accent: #0E7C7B;
-}
+   玻璃风本身可以很好看，关键是别做得太透、布局别乱。
+   颜色 token 统一在 tokens.css，这里只写组件样式。 */
 .panel, .energy-rule-section, .energy-unit-add.wizard, .kpi-card, .flow-panel, .energy-status-card {
   background: rgba(255, 255, 255, 0.82);
   border: 1px solid rgba(255, 255, 255, 0.7);

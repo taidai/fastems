@@ -30,9 +30,9 @@ const page = await context.newPage()
 await page.goto(base)
 await page.locator(".console-topbar").waitFor({ timeout: 15000 })
 
-// 1. 默认落在交付工作台，只有一个项目/站点。
-await page.waitForFunction(() => document.querySelector(".console-page-head h1")?.textContent?.trim() === "交付工作台", null, { timeout: 10000 }).catch(() => {})
-ok((await h1(page)) === "交付工作台", "管理员登录后落在交付工作台")
+// 1. 默认落在交付验收，只有一个项目/站点。
+await page.waitForFunction(() => document.querySelector(".console-page-head h1")?.textContent?.trim() === "交付验收", null, { timeout: 10000 }).catch(() => {})
+ok((await h1(page)) === "交付验收", "管理员登录后落在交付验收")
 ok(await page.locator(".console-station-label").count() === 0, "单一项目时不显示重复的项目名")
 const siteCountText = await page.locator(".site-pill").first().textContent()
 ok(/站点 1 \/ 1/.test(siteCountText || ""), `站点计数应为一站（实际 ${siteCountText?.trim()}）`)
@@ -88,18 +88,17 @@ await page.waitForFunction(() => document.body.innerText.includes("待确认"), 
 ok((await page.locator("main").textContent()).includes("待确认"), "复用预览给出待确认清单")
 await page.screenshot({ path: `${outDir}/04-reuse.png` })
 
-// 7. 交付侧台账：管理员可接入。
-await page.locator(".console-topnav .topnav-trigger", { hasText: "接入建模" }).click()
-await page.locator(".topnav-dropdown button", { hasText: "设备台账" }).click()
-await page.waitForFunction(() => document.querySelector(".console-page-head h1")?.textContent?.trim() === "设备台账", null, { timeout: 8000 }).catch(() => {})
+// 7. 交付验收任务内的设备验证页：保留接入入口。
+await page.locator(".console-topnav .topnav-trigger", { hasText: "交付验收" }).click()
+await page.locator(".console-subnav button", { hasText: "设备验证" }).click()
+await page.waitForFunction(() => document.querySelector(".console-page-head h1")?.textContent?.trim() === "设备台账与验证", null, { timeout: 8000 }).catch(() => {})
 ok(await page.getByRole("button", { name: /接入新设备/ }).count() === 1, "交付侧设备台账保留接入入口")
 await page.screenshot({ path: `${outDir}/05-ledger.png` })
 
-// 8. 运行侧：报警与追溯可用。
+// 8. 运行侧：报警与追溯可用（追溯从总览进入）。
 await page.locator(".console-workbench button", { hasText: "客户" }).click()
 await page.waitForTimeout(500)
-await page.locator(".console-topnav .topnav-trigger", { hasText: "运行" }).click()
-await page.locator(".topnav-dropdown button", { hasText: "报警与事件" }).click()
+await page.locator(".console-subnav button", { hasText: "报警" }).click()
 await page.waitForFunction(() => document.querySelector(".console-page-head h1")?.textContent?.trim() === "报警与事件", null, { timeout: 8000 }).catch(() => {})
 const alarmText = await page.locator("main").textContent()
 ok(alarmText.includes("活动报警"), "报警页显示活动报警统计")
@@ -113,19 +112,17 @@ if (await ackButton.count()) {
 }
 await page.screenshot({ path: `${outDir}/06-alarms.png` })
 
-await page.locator(".console-topnav .topnav-trigger", { hasText: "运行" }).click()
-await page.locator(".topnav-dropdown button", { hasText: "调度追溯" }).click()
+await page.locator(".console-subnav button", { hasText: "总览" }).click()
+await page.waitForTimeout(400)
+await page.getByRole("button", { name: /调度详情/ }).first().click()
 await page.waitForFunction(() => document.querySelector(".console-page-head h1")?.textContent?.trim() === "调度追溯", null, { timeout: 8000 }).catch(() => {})
-ok((await page.locator("main").textContent()).includes("调度追溯"), "调度追溯页可打开")
+ok((await page.locator("main").textContent()).includes("调度追溯"), "调度追溯可从总览进入")
 await page.screenshot({ path: `${outDir}/07-trace.png` })
 
 // 9. 窄屏：步骤条两行网格，无页面横向溢出。
 await page.setViewportSize({ width: 375, height: 812 })
 await page.locator(".console-workbench button", { hasText: "交付" }).click()
-await page.waitForTimeout(500)
-await page.locator(".console-topnav .topnav-trigger", { hasText: "系统运维" }).click()
-await page.locator(".topnav-dropdown button", { hasText: "交付工作台" }).click()
-await page.waitForFunction(() => document.querySelector(".console-page-head h1")?.textContent?.trim() === "交付工作台", null, { timeout: 8000 }).catch(() => {})
+await page.waitForFunction(() => document.querySelector(".console-page-head h1")?.textContent?.trim() === "交付验收", null, { timeout: 8000 }).catch(() => {})
 await page.waitForTimeout(500)
 const mobile = await page.evaluate(() => {
   const rail = document.querySelector(".workbench-steps")
@@ -145,7 +142,7 @@ ok(mobile.scrollW === mobile.vw, "窄屏页面无横向溢出")
 await page.screenshot({ path: `${outDir}/08-mobile-steps.png` })
 await context.close()
 
-// 10. 查看者：只读。
+// 10. 查看者：只读运行总览，没有配置入口。
 const viewerLogin = await fetch(`${base}/api/login`, {
   method: "POST", headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ email: viewerEmail, password: viewerPassword }),
@@ -157,11 +154,10 @@ const viewerPage = await viewerContext.newPage()
 await viewerPage.goto(base)
 await viewerPage.locator(".console-topbar").waitFor({ timeout: 15000 })
 ok(await viewerPage.locator(".console-workbench").count() === 0, "查看者没有工作台切换")
-await viewerPage.locator(".console-topnav .topnav-trigger", { hasText: "运行" }).click()
-await viewerPage.locator(".topnav-dropdown button", { hasText: "设备台账" }).click()
-await viewerPage.waitForTimeout(600)
-ok(await viewerPage.getByRole("button", { name: /接入新设备/ }).count() === 0, "查看者设备台账为只读")
-await viewerPage.screenshot({ path: `${outDir}/09-viewer-ledger.png` })
+ok((await viewerPage.locator(".console-topnav .topnav-trigger").allTextContents()).join("|") === "运行", "查看者只有运行任务")
+ok(await viewerPage.getByRole("button", { name: /接入新设备/ }).count() === 0, "查看者总览没有接入口")
+ok(await viewerPage.getByRole("button", { name: /通道配置/ }).count() === 0, "查看者总览没有通道配置")
+await viewerPage.screenshot({ path: `${outDir}/09-viewer-overview.png` })
 await viewerContext.close()
 
 await browser.close()

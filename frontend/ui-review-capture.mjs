@@ -17,11 +17,11 @@ const widths = [
 ]
 
 const pages = [
-  { key: "overview", workbench: "客户", nav: "运行", item: "运行总览", title: "站点总览" },
-  { key: "delivery", workbench: "交付", nav: null, item: null, title: "交付工作台" },
-  { key: "ledger", workbench: "交付", nav: "接入建模", item: "设备台账", title: "设备台账" },
-  { key: "trace", workbench: "客户", nav: "运行", item: "调度追溯", title: "调度追溯" },
-  { key: "alarms", workbench: "客户", nav: "运行", item: "报警与事件", title: "报警与事件" },
+  { key: "overview", workbench: "客户", group: "运行", tab: "总览", title: "站点总览" },
+  { key: "delivery", workbench: "交付", group: null, tab: null, title: "交付验收" },
+  { key: "ledger", workbench: "交付", group: "交付验收", tab: "设备验证", title: "设备台账与验证" },
+  { key: "trace", workbench: "客户", group: "运行", tab: "总览", title: "调度追溯", link: /调度详情/ },
+  { key: "alarms", workbench: "客户", group: "运行", tab: "报警", title: "报警与事件" },
 ]
 
 const login = await fetch(`${base}/api/login`, {
@@ -46,10 +46,11 @@ for (const size of widths) {
       if (await button.count()) await button.first().click()
       await page.waitForTimeout(300)
     }
-    if (spec.nav) {
-      await page.locator(".console-topnav .topnav-trigger", { hasText: spec.nav }).click()
-      await page.locator(".topnav-dropdown button", { hasText: spec.item }).click()
+    if (spec.group) {
+      await page.locator(".console-topnav .topnav-trigger", { hasText: spec.group }).first().click()
+      if (spec.tab) await page.locator(".console-subnav button", { hasText: spec.tab }).first().click()
     }
+    if (spec.link) await page.getByRole("button", { name: spec.link }).first().click()
     await page.waitForFunction((title) => document.querySelector(".console-page-head h1")?.textContent?.trim() === title, spec.title, { timeout: 15000 }).catch(() => {})
     await page.waitForTimeout(500)
 

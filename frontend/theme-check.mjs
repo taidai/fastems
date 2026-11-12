@@ -48,6 +48,10 @@ try {
   await page.fill('input[autocomplete="current-password"]', password)
   await page.click("button.login-button")
   await page.waitForSelector(".console-stage")
+  const customer = page.locator(".console-workbench button", { hasText: "客户" })
+  if (await customer.count()) await customer.first().click()
+  const overview = page.locator(".console-subnav button", { hasText: "总览" })
+  if (await overview.count()) await overview.first().click()
   await page.waitForTimeout(600)
 
   const check = (name, ok, detail = "") => { if (!ok) failures.push(`${name}${detail ? `: ${detail}` : ""}`) }
@@ -111,7 +115,7 @@ try {
   check("今日事件显示最近评估", values.eventText.includes("最近评估") || values.eventText.includes("暂无可核实"), values.eventText)
   check("五个能流节点均有状态标记", values.healthDots === 5, String(values.healthDots))
 
-  await page.getByRole("button", { name: "显示设置", exact: true }).click()
+  await page.locator('.console-icon[aria-label="显示设置"]').click()
   const displayPanel = page.getByRole("dialog", { name: "显示设置", exact: true })
   check("显示设置可打开", await displayPanel.isVisible())
   const ranges = displayPanel.locator('input[type="range"]')
@@ -142,8 +146,7 @@ try {
   await page.getByRole("button", { name: "趋势 + 预测" }).click({ force: true })
   await page.waitForSelector(".history-page")
   check("趋势入口可用", (await page.locator(".console-page-head h1").innerText()) === "历史与追溯")
-  await page.locator(".console-topnav .topnav-trigger").filter({ hasText: "运行" }).click()
-  await page.locator(".topnav-dropdown").getByRole("menuitem", { name: "运行总览", exact: true }).click()
+  await page.locator(".console-subnav button", { hasText: "总览" }).click()
   await page.waitForSelector(".flow-panel")
 
   async function layout(width, height) {

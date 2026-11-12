@@ -1,13 +1,14 @@
 @import "tailwindcss";
 
+/* Tailwind 颜色映射到 tokens.css 的唯一来源，避免两套色值漂移。 */
 @theme {
-  --color-ems-ink: #1a2a33;
-  --color-ems-muted: #4c5d72;
-  --color-ems-faint: #5d6f83;
-  --color-ems-line: #e4e9ee;
-  --color-ems-accent: #0e7c7b;
-  --color-ems-blue: #31669b;
-  --color-ems-mint: #23705f;
-  --color-ems-amber: #8f5f19;
-  --color-ems-danger: #b14b53;
+  --color-ems-ink: var(--ink);
+  --color-ems-muted: var(--muted);
+  --color-ems-faint: var(--faint);
+  --color-ems-line: var(--line);
+  --color-ems-accent: var(--accent);
+  --color-ems-blue: var(--blue);
+  --color-ems-mint: var(--mint);
+  --color-ems-amber: var(--amber);
+  --color-ems-danger: var(--danger);
 }

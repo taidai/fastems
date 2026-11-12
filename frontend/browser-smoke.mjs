@@ -69,10 +69,18 @@ async function addNode(type, name, value, parent) {
   await page.waitForTimeout(150)
 }
 
-const navGroups = { "运行总览": "运行", "决策表": "EMS 业务", "通道": "接入建模", "部署与验收": "系统运维" }
+const navGroups = {
+  "运行总览": ["客户", "运行", "总览"],
+  "决策表": ["交付", "策略", "决策表"],
+  "通道": ["交付", "接入", "通道"],
+  "部署与验收": ["交付", "交付验收", "验收清单"],
+}
 async function go(label) {
-  await page.locator(".console-topnav .topnav-trigger").filter({ hasText: navGroups[label] }).click()
-  await page.locator(".topnav-dropdown").getByRole("menuitem", { name: label, exact: true }).click()
+  const [workbench, group, tab] = navGroups[label]
+  const switchButton = page.locator(".console-workbench button", { hasText: workbench })
+  if (await switchButton.count()) await switchButton.first().click()
+  await page.locator(".console-topnav .topnav-trigger", { hasText: group }).first().click()
+  if (tab) await page.locator(".console-subnav button", { hasText: tab }).first().click()
   await page.waitForTimeout(250)
 }
 

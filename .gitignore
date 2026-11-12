@@ -1,5 +1,7 @@
 /fastems
 /fastems.exe
+/.tmp-build/
+/.tmp-golden/
 /data/
 /frontend/node_modules/
 /frontend/dist/

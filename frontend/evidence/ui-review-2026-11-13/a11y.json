@@ -6,12 +6,12 @@
   },
   {
     "page": "delivery",
-    "title": "交付工作台",
+    "title": "交付验收",
     "violations": []
   },
   {
     "page": "ledger",
-    "title": "设备台账",
+    "title": "设备台账与验证",
     "violations": []
   },
   {

@@ -13,12 +13,15 @@ try { browser = await chromium.launch({ channel: "chrome", headless: true }) }
 catch { browser = await chromium.launch({ channel: "msedge", headless: true }) }
 const errors = []
 const overflows = []
-const pages = ["运行总览", "调度追溯", "设备台账", "点位表", "通道", "虚拟聚合", "决策表", "报警与事件", "历史与追溯", "部署与验收", "功率分配器", "能源设备", "资源集群", "能源设备接线", "账号与权限", "审计日志", "运行画面"]
+const pages = ["运行总览", "运行画面", "设备台账", "点位表", "通道", "虚拟聚合", "决策表", "报警与事件", "部署与验收", "功率分配器", "能源设备", "资源集群", "能源设备接线", "账号与权限", "审计日志", "OPC-UA"]
+// 一级是任务，二级是页签；隐藏页（历史/追溯/健康）由页面内链接进入，不在此扫描。
 const navGroups = {
-  "运行总览": "运行", "运行画面": "运行", "报警与事件": "运行", "历史与追溯": "运行", "调度追溯": "运行",
-  "设备台账": "接入建模", "点位表": "接入建模", "通道": "接入建模", "虚拟聚合": "接入建模", "能源设备接线": "接入建模",
-  "决策表": "EMS 业务", "功率分配器": "EMS 业务", "能源设备": "EMS 业务", "资源集群": "EMS 业务",
-  "部署与验收": "系统运维", "账号与权限": "系统运维", "审计日志": "系统运维",
+  "运行总览": ["客户", "运行", "总览"], "运行画面": ["客户", "运行", "画面"], "报警与事件": ["客户", "运行", "报警"],
+  "设备台账": ["交付", "交付验收", "设备验证"], "部署与验收": ["交付", "交付验收", "验收清单"],
+  "点位表": ["交付", "接入", "点位表"], "通道": ["交付", "接入", "通道"], "虚拟聚合": ["交付", "接入", "聚合计算"], "OPC-UA": ["交付", "接入", "OPC-UA"],
+  "能源设备": ["交付", "能源设备", "储能柜"], "能源设备接线": ["交付", "能源设备", "接线"], "资源集群": ["交付", "能源设备", "资源集群"],
+  "决策表": ["交付", "策略", "决策表"], "功率分配器": ["交付", "策略", "功率分配器"],
+  "账号与权限": ["交付", "系统", "账号与权限"], "审计日志": ["交付", "系统", "审计日志"],
 }
 const sizes = [
   { width: 1920, height: 1080 },
@@ -46,8 +49,11 @@ try {
   await page.waitForSelector(".console-stage")
 
   async function go(label) {
-    await page.locator(".console-topnav .topnav-trigger").filter({ hasText: navGroups[label] }).click()
-    await page.locator(".topnav-dropdown").getByRole("menuitem", { name: label, exact: true }).click()
+    const [workbench, group, tab] = navGroups[label]
+    const switchButton = page.locator(".console-workbench button", { hasText: workbench })
+    if (await switchButton.count()) await switchButton.first().click()
+    await page.locator(".console-topnav .topnav-trigger", { hasText: group }).first().click()
+    if (tab) await page.locator(".console-subnav button", { hasText: tab }).first().click()
     await page.waitForTimeout(450)
   }
 

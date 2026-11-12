@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "check:navigation": "node navigation-check.mjs",
+    "check:consistency": "node consistency-check.mjs",
     "check:navigation:browser": "node navigation-browser-check.mjs",
     "check:acceptance": "node acceptance-status-check.mjs"
   },

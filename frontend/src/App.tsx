@@ -53,7 +53,7 @@ import {
   updateUserPolicy,
   type UserAccount,
 } from "./api"
-import { visiblePagesFor, workbenchFullNames, workbenchNames, type Page, type Workbench } from "./navigation"
+import { groupDefs, navGroupsFor, pageDefs, visiblePagesFor, workbenchFullNames, workbenchNames, type Group, type Page, type Workbench } from "./navigation"
 
 const emptyDocument: Document = { table: { rows: [] }, bindings: { points: {}, actions: {} } }
 const roleNames: Record<string, string> = { admin: "管理员", implementer: "实施", operator: "操作员", viewer: "查看者" }
@@ -242,8 +242,6 @@ export default function App() {
   }, [])
   const [historyPoint, setHistoryPoint] = useState("")
   const [stationID, setStationID] = useState("")
-  const [navMenu, setNavMenu] = useState<string | null>(null)
-  const navRef = useRef<HTMLElement>(null)
   const [display, setDisplay] = useState<DisplaySettings>(loadDisplay)
   const [displayOpen, setDisplayOpen] = useState(false)
   const displayRef = useRef<HTMLDivElement>(null)
@@ -275,7 +273,6 @@ export default function App() {
   const switchWorkbench = useCallback((next: Workbench) => {
     setWorkbench(next)
     window.localStorage.setItem(workbenchStorageKey, next)
-    setNavMenu(null)
   }, [])
   useEffect(() => {
     if (!snapshot?.user.policy) return
@@ -288,6 +285,17 @@ export default function App() {
       if (!window.localStorage.getItem(workbenchStorageKey) && canConfigureUser) setWorkbench("delivery")
     }
   }, [snapshot, workbench, canConfigureUser])
+
+  // 跨工作台跳转：客户页里的“去配置”链接应直接切到交付工作台，而不是被路由守卫弹回原页。
+  const openPage = useCallback((next: Page) => {
+    const def = pageDefs.find((item) => item.key === next)
+    const group = groupDefs.find((item) => item.key === def?.group)
+    if (group?.workbench === "delivery" && canConfigureUser) {
+      setWorkbench("delivery")
+      window.localStorage.setItem(workbenchStorageKey, "delivery")
+    }
+    setPage(next)
+  }, [canConfigureUser])
 
   const refresh = useCallback(async () => {
     if (!token) return
@@ -343,22 +351,6 @@ export default function App() {
     resize()
     return () => window.removeEventListener("resize", resize)
   }, [])
-
-  useEffect(() => {
-    if (!navMenu) return
-    const close = (event: PointerEvent) => {
-      if (!navRef.current?.contains(event.target as globalThis.Node)) setNavMenu(null)
-    }
-    const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setNavMenu(null)
-    }
-    document.addEventListener("pointerdown", close)
-    document.addEventListener("keydown", escape)
-    return () => {
-      document.removeEventListener("pointerdown", close)
-      document.removeEventListener("keydown", escape)
-    }
-  }, [navMenu])
 
   useEffect(() => {
     const root = document.documentElement
@@ -527,13 +519,13 @@ export default function App() {
   const pageInfo: Record<string, { title: string; subtitle: string }> = {
     devices: { title: "站点总览", subtitle: "设备状态、通信健康与自动运行，一屏看清" },
     screen: { title: "运行画面", subtitle: "按业务节点组织的运行画面" },
-    ledger: { title: "设备台账", subtitle: "一台设备一行：业务节点、通道/站号、Profile、健康与验证" },
-    points: { title: "设备与点位", subtitle: "批量管理、实时值、质量与回读" },
+    ledger: { title: "设备台账与验证", subtitle: "一台设备一行：业务节点、通道/站号、Profile、健康与验证" },
+    points: { title: "点位表", subtitle: "点位只在这里配置：批量管理、实时值、质量与回读" },
     channels: { title: "通道", subtitle: "运行健康、端口参数、单元与点位" },
-    aggregate: { title: "虚拟聚合", subtitle: "只读虚拟设备：求和、平均、最值、计数与质量传播" },
-    deploy: { title: "交付工作台", subtitle: "7 步交付主链：门槛、预检与验收进度" },
+    aggregate: { title: "聚合计算", subtitle: "只读虚拟设备：求和、平均、最值、计数与质量传播" },
+    deploy: { title: "交付验收", subtitle: "交付任务清单：阻断项、预检、版本与证据" },
     allocators: { title: "功率分配器", subtitle: "一个总目标，按每台 PCS 当前能力分配" },
-    energyUnits: { title: "能源设备与策略", subtitle: "每台能源设备的运行策略，以及电站级防逆流、需量与站级计划" },
+    energyUnits: { title: "储能柜与策略", subtitle: "每台能源设备的运行策略，以及电站级防逆流、需量与站级计划" },
     unitWiring: { title: "能源设备接线", subtitle: "为能源设备挂 PCS 并映射功率设定点位（点位只在此层出现）" },
     resourceGroups: { title: "资源集群", subtitle: "一组能源设备共享馈线或功率上限，分配先受组上限约束" },
     dispatchTrace: { title: "调度追溯", subtitle: "每次调度的请求、能力、分配与设备设定，按 dispatchID 复盘" },
@@ -555,14 +547,10 @@ export default function App() {
   const stationName = labelForRoot(view.roots[0])
   const currentSite = siteNodes.find((node) => node.id === siteID)
   const currentSiteName = currentSite ? nameOf(currentSite) : stationName
-  const tabs = [
-    { key: "run", label: "运行", icon: "home" as IconName, workbench: "customer" as Workbench, pages: ["devices", "screen", "alarms", "dispatchTrace", "history", "health", "ledger"] },
-    { key: "ems", label: "EMS 业务", icon: "sliders" as IconName, workbench: "delivery" as Workbench, pages: ["energyUnits", "resourceGroups", "allocators", "rules"] },
-    { key: "build", label: "接入建模", icon: "devices" as IconName, workbench: "delivery" as Workbench, pages: ["ledger", "unitWiring", "channels", "points", "aggregate", "opcua"] },
-    { key: "ops", label: "系统运维", icon: "gear" as IconName, workbench: "delivery" as Workbench, pages: ["deploy", "users", "audit"] },
-  ].filter((tab) => tab.workbench === workbench)
-  const activeTab = tabs.find((tab) => tab.pages.includes(page))?.key
-  const directory = visiblePages
+  const navGroups = navGroupsFor(workbench, isAdminUser, canConfigureUser)
+  const pageGroup = pageDefs.find((def) => def.key === page)?.group
+  const activeGroup = navGroups.find((group) => group.key === pageGroup)
+  const groupIcons: Record<Group, IconName> = { run: "home", access: "devices", assets: "battery", strategy: "sliders", acceptance: "report", system: "gear" }
 
   return <IonApp><IonContent fullscreen><div className="console-viewport"><div className="console-shell" style={{ "--console-scale": String(stageScale) } as CSSProperties}>
     <header className="console-topbar">
@@ -581,19 +569,13 @@ export default function App() {
           <button key={key} className={workbench === key ? "active" : ""} aria-pressed={workbench === key} title={workbenchFullNames[key]} onClick={() => switchWorkbench(key)}>{workbenchNames[key]}</button>
         ))}
       </div>}
-      <nav className="console-topnav" aria-label="主导航" ref={navRef}>
-        {tabs.map((tab) => {
-          const subPages = directory.filter((d) => tab.pages.includes(d.key) && (!d.adminOnly || isAdmin) && (!d.configOnly || canConfigure))
-          const isActive = activeTab === tab.key
-          return <div key={tab.key} className={`topnav-item${isActive ? " active" : ""}`}>
-            <button className="topnav-trigger" aria-expanded={navMenu === tab.key} onClick={() => {
-              if (subPages.length > 1) setNavMenu(navMenu === tab.key ? null : tab.key)
-              else { setPage(tab.pages[0] as Page); setNavMenu(null) }
-            }}><Icon name={tab.icon} size={16} /><span>{tab.label}</span>{subPages.length > 1 && <span className="topnav-caret" aria-hidden="true">▾</span>}</button>
-            {navMenu === tab.key && subPages.length > 1 && <div className="topnav-dropdown" role="menu">
-              {subPages.map((d) => <button key={d.key} role="menuitem" className={page === d.key ? "active" : ""} onClick={() => { setPage(d.key); setNavMenu(null) }}>{d.label}</button>)}
-            </div>}
-          </div>
+      <nav className="console-topnav" aria-label="主导航">
+        {navGroups.map((group) => {
+          const isActive = activeGroup?.key === group.key
+          return <button key={group.key} className={`topnav-trigger${isActive ? " active" : ""}`} aria-current={isActive ? "page" : undefined}
+            onClick={() => setPage(group.pages[0].key)}>
+            <Icon name={groupIcons[group.key]} size={16} /><span>{group.label}</span>
+          </button>
         })}
       </nav>
       <div className="console-top-actions">
@@ -630,7 +612,7 @@ export default function App() {
         <button className="console-icon" title="活动报警" aria-label="活动报警" onClick={() => setPage("alarms")}><Icon name="bell" size={25} />{alarmCount > 0 && <em>{alarmCount}</em>}</button>
         <span className="console-user">{roleNames[view.user.policy.role] || "用户"}</span>
         <time>{clock.toLocaleTimeString("zh-CN", { hour12: false })}</time>
-        {isAdmin && <button className="console-profile" aria-label="账号与权限" title={view.user.email || view.user.user_id} onClick={() => setPage("users")}><Icon name="user" size={23} /><span>{(view.user.email || view.user.user_id).split("@")[0]}</span></button>}
+        {isAdmin && <button className="console-profile" aria-label="账号与权限" title={view.user.email || view.user.user_id} onClick={() => openPage("users")}><Icon name="user" size={23} /><span>{(view.user.email || view.user.user_id).split("@")[0]}</span></button>}
         <button className="console-exit" title="退出登录" aria-label="退出登录" onClick={() => { sessionStorage.removeItem("fastems-token"); setToken(""); setSnapshot(null) }}>退出</button>
       </div>
     </header>
@@ -642,7 +624,7 @@ export default function App() {
           alarmCount={alarmCount}
           offlineChannels={offlineChannels}
           stalePoints={stalePoints}
-          onOpenChannels={() => setPage(canConfigure ? "channels" : "health")}
+          onOpenChannels={() => openPage(canConfigure ? "channels" : "health")}
           onOpenAlarms={() => setPage("alarms")}
         />}
         {page !== "devices" && <p>{currentInfo.subtitle}</p>}
@@ -658,13 +640,16 @@ export default function App() {
           {page !== "devices" && <div className="live-status"><span className="pulse" />数据每 2 秒更新</div>}
         </div>
       </div>
+      {activeGroup && activeGroup.pages.length > 1 && <nav className="console-subnav" aria-label={`${activeGroup.label}页签`}>
+        {activeGroup.pages.map((def) => <button key={def.key} className={page === def.key ? "active" : ""} aria-current={page === def.key ? "page" : undefined} onClick={() => setPage(def.key)}>{def.label}</button>)}
+      </nav>}
       {error && <div className="inline-error global-error" role="alert">{error}<button onClick={() => setError("")}>关闭</button></div>}
 
       <div className="console-stage">
       {page === "devices" && <DevicesView
         snapshot={view} points={points} siteName={currentSiteName} groups={groups} rules={rules.length} activeRules={activeRules.length} errors={errors.length}
         alarmCount={alarmCount} busy={busy} isAdmin={canConfigure} canConfigure={canConfigure} canOperate={canOperate} run={run} openPoint={openPoint}
-        goRules={() => setPage("rules")} goHistory={() => setPage("history")} goChannels={() => setPage("channels")} goEnergyUnits={() => setPage("energyUnits")} goDispatchTrace={() => setPage("dispatchTrace")} goAlarms={() => setPage("alarms")} dispatch={dispatch} latestAlarm={latestAlarm} tariff={tariff}
+        goRules={() => openPage("rules")} goHistory={() => setPage("history")} goChannels={() => openPage("channels")} goEnergyUnits={() => openPage("energyUnits")} goDispatchTrace={() => setPage("dispatchTrace")} goAlarms={() => setPage("alarms")} dispatch={dispatch} latestAlarm={latestAlarm} tariff={tariff}
         kpiConfig={kpiConfig}
         onError={setError}
       />}
@@ -676,7 +661,7 @@ export default function App() {
         openAlarms={() => setPage("alarms")}
       />}
 
-      {page === "ledger" && <DeviceLedgerView token={token} site={siteID} onError={setError} canConfigure={canConfigure && workbench === "delivery"} canOperate={canOperate && workbench === "delivery"} goChannels={() => setPage("channels")} goPoints={() => setPage("points")} goHistory={() => setPage("history")} goAlarms={() => setPage("alarms")} />}
+      {page === "ledger" && <DeviceLedgerView token={token} site={siteID} onError={setError} canConfigure={canConfigure && workbench === "delivery"} canOperate={canOperate && workbench === "delivery"} goChannels={() => openPage("channels")} goPoints={() => openPage("points")} goHistory={() => setPage("history")} goAlarms={() => setPage("alarms")} />}
 
       {page === "points" && canConfigure && <PointsView
         token={token} nodes={view.nodes} isAdmin={canConfigure} canOperate={canOperate} busy={busy} run={run}
@@ -708,7 +693,7 @@ export default function App() {
 
       {page === "health" && <HealthView token={token} onError={setError} />}
 
-      {page === "history" && <HistoryView key={historyPoint || "history"} token={token} points={points} initialPoint={historyPoint || undefined} onError={setError} isAdmin={canConfigure} onOpenPoints={() => setPage(canConfigure ? "points" : "health")} />}
+      {page === "history" && <HistoryView key={historyPoint || "history"} token={token} points={points} initialPoint={historyPoint || undefined} onError={setError} isAdmin={canConfigure} onOpenPoints={() => openPage(canConfigure ? "points" : "health")} />}
 
       {page === "rules" && canConfigure && <section className="rules-page">
         <div className="page-toolbar">

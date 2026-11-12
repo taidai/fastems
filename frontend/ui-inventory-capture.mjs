@@ -58,34 +58,52 @@ for (const role of roles) {
       await page.locator(".console-workbench button", { hasText: scope }).first().click()
       await page.waitForTimeout(400)
     }
-    const tabs = await page.locator(".console-topnav .topnav-trigger").allTextContents()
-    for (const tab of tabs) {
-      const label = tab.replace("▾", "").trim()
-      const trigger = () => page.locator(".console-topnav .topnav-trigger", { hasText: label }).first()
+    const groups = await page.locator(".console-topnav .topnav-trigger").allTextContents()
+    for (const groupText of groups) {
+      const group = groupText.trim()
+      const trigger = () => page.locator(".console-topnav .topnav-trigger", { hasText: group }).first()
       if (!(await trigger().count())) continue
       await trigger().click()
       await page.waitForTimeout(250)
-      const items = page.locator(".topnav-dropdown button")
-      const itemCount = await items.count()
-      const labels = itemCount ? await items.allTextContents() : [null]
-      if (itemCount) {
-        // 读取菜单项后先把菜单收起，随后每一项单独打开再点击。
-        await trigger().click()
-        await page.waitForTimeout(150)
-      }
+      const tabs = await page.locator(".console-subnav button").allTextContents()
+      const labels = tabs.length ? tabs.map((text) => text.trim()) : [null]
       for (const item of labels) {
         if (item !== null) {
-          await trigger().click()
-          await page.waitForTimeout(200)
-          await page.locator(".topnav-dropdown button", { hasText: item }).first().click()
+          await page.locator(".console-subnav button", { hasText: item }).first().click()
+          await page.waitForTimeout(300)
         }
         await page.waitForTimeout(600)
-        const title = (await page.locator(".console-page-head h1").first().textContent().catch(() => ""))?.trim() || label
-        const name = `${role.key}-${safe(scope)}-${safe(label)}${item ? "-" + safe(item) : ""}.png`
+        const title = (await page.locator(".console-page-head h1").first().textContent().catch(() => ""))?.trim() || group
+        const name = `${role.key}-${safe(scope)}-${safe(group)}${item ? "-" + safe(item) : ""}.png`
         const file = `${dir}/${name}`
         await page.screenshot({ path: file })
-        inventory.push({ role: role.key, workbench: scope, tab: label, item: item || label, title, file })
-        console.log(`${role.key} | ${scope} | ${label}${item ? " / " + item : ""} -> ${title}`)
+        inventory.push({ role: role.key, workbench: scope, tab: group, item: item || group, title, file })
+        console.log(`${role.key} | ${scope} | ${group}${item ? " / " + item : ""} -> ${title}`)
+      }
+    }
+
+    // 查证页不进一级导航，但仍是可访问界面：从运行总览的链接进入并留档。
+    const customerButton = page.locator(".console-workbench button", { hasText: "客户" })
+    if (await customerButton.count()) {
+      await customerButton.first().click()
+      await page.waitForTimeout(300)
+      const links = [
+        { trigger: () => page.locator(".flow-trend").first(), label: "历史与追溯" },
+        { trigger: () => page.getByRole("button", { name: /调度详情/ }).first(), label: "调度追溯" },
+        { trigger: () => page.getByRole("button", { name: /查看健康/ }).first(), label: "通信与健康" },
+      ]
+      for (const link of links) {
+        if (!(await link.trigger().count())) continue
+        await link.trigger().click()
+        await page.waitForTimeout(700)
+        const title = (await page.locator(".console-page-head h1").first().textContent().catch(() => ""))?.trim() || link.label
+        const file = `${dir}/${role.key}-客户-查证-${safe(link.label)}.png`
+        await page.screenshot({ path: file })
+        inventory.push({ role: role.key, workbench: "客户", tab: "查证", item: link.label, title, file })
+        console.log(`${role.key} | 客户 | 查证 / ${link.label} -> ${title}`)
+        // 回到总览，再点下一个链接。
+        const back = page.locator(".console-subnav button", { hasText: "总览" })
+        if (await back.count()) { await back.first().click(); await page.waitForTimeout(400) }
       }
     }
   }

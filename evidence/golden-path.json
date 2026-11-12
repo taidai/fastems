@@ -1,0 +1,129 @@
+{
+  "run": "20261112143823",
+  "base": "http://127.0.0.1:4412",
+  "generatedAt": "2026-11-12T14:38:36.323Z",
+  "totalMs": 5398,
+  "steps": [
+    {
+      "key": "landing",
+      "label": "登录后进入交付验收",
+      "ms": 136,
+      "ok": true,
+      "note": "交付验收任务清单"
+    },
+    {
+      "key": "preflight",
+      "label": "运行预检并读取门槛",
+      "ms": 1804,
+      "ok": true,
+      "note": "1 项阻断"
+    },
+    {
+      "key": "reuse",
+      "label": "复用预览（列出待确认项）",
+      "ms": 376,
+      "ok": true,
+      "note": "待确认清单已生成"
+    },
+    {
+      "key": "access",
+      "label": "接入：通道与点位表",
+      "ms": 984,
+      "ok": true,
+      "note": "通道、点位表可到达"
+    },
+    {
+      "key": "assets",
+      "label": "能源设备：储能柜",
+      "ms": 367,
+      "ok": true,
+      "note": "储能柜页可到达"
+    },
+    {
+      "key": "strategy",
+      "label": "策略：决策表",
+      "ms": 261,
+      "ok": true,
+      "note": "决策表可到达"
+    },
+    {
+      "key": "acceptance",
+      "label": "回到交付验收",
+      "ms": 100,
+      "ok": true,
+      "note": "验收清单可到达"
+    },
+    {
+      "key": "freeze",
+      "label": "冻结版本并留下证据",
+      "ms": 1370,
+      "ok": true,
+      "note": "版本已冻结"
+    }
+  ],
+  "gates": [
+    {
+      "key": "channels",
+      "title": "通道",
+      "status": "fail",
+      "detail": "1 条通道未启动"
+    },
+    {
+      "key": "points",
+      "title": "关键点位",
+      "status": "warn",
+      "detail": "关键点位全部正常；其他点位异常 1"
+    },
+    {
+      "key": "rules",
+      "title": "规则发布",
+      "status": "warn",
+      "detail": "还没有决策表"
+    },
+    {
+      "key": "commands",
+      "title": "命令结果",
+      "status": "pass",
+      "detail": "没有失败或结果未知的命令"
+    },
+    {
+      "key": "manual",
+      "title": "人工接管",
+      "status": "pass",
+      "detail": "当前没有点位处于人工接管"
+    },
+    {
+      "key": "disabled",
+      "title": "停用对象",
+      "status": "pass",
+      "detail": "当前没有对象被停用"
+    },
+    {
+      "key": "alarms",
+      "title": "活动报警",
+      "status": "pass",
+      "detail": "没有活动报警"
+    },
+    {
+      "key": "history",
+      "title": "历史记录",
+      "status": "warn",
+      "detail": "还没有历史点位"
+    },
+    {
+      "key": "backup",
+      "title": "备份",
+      "status": "warn",
+      "detail": "尚未验证离线完整备份"
+    },
+    {
+      "key": "permissions",
+      "title": "权限边界",
+      "status": "pass",
+      "detail": "服务端逐请求校验账号、角色与业务树范围"
+    }
+  ],
+  "blockingGates": 1,
+  "deliveryReady": false,
+  "status": "pass"
+}
