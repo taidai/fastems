@@ -16,7 +16,7 @@ import (
 	"github.com/simpleiot/simpleiot/data"
 	"github.com/simpleiot/simpleiot/server"
 
-	"easyems/internal/decision"
+	"fastiot/internal/decision"
 )
 
 // TestMultiTenantIsolation 验证多租户隔离：用户 A 的 anchor 是站点 A，
@@ -87,7 +87,7 @@ func TestMultiTenantIsolation(t *testing.T) {
 // deliberately skip its otherwise globally first Plant.
 func TestTreeScopeHTTPIsolation(t *testing.T) {
 	const password = "easyems-scope-admin"
-	t.Setenv("EASYEMS_ADMIN_PASSWORD", password)
+	t.Setenv("FASTIOT_ADMIN_PASSWORD", password)
 	dataDir := filepath.Join(t.TempDir(), "data")
 	ready := new(atomic.Bool)
 	var users api.UserAuthority

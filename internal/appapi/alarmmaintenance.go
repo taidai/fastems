@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"easyems/internal/ems/alarm"
+	"fastiot/internal/ems/alarm"
 )
 
 const alarmMaintenanceFile = "alarm-maintenance.json"

@@ -8,7 +8,7 @@ import (
 	siotclient "github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 
-	"easyems/internal/decision"
+	"fastiot/internal/decision"
 )
 
 // 站级计划（Site Scheduler）：单站内一个总功率目标先按能力分配到各 Plant，

@@ -13,9 +13,9 @@ import (
 	"sync"
 	"time"
 
-	"easyems/internal/ems/channel"
-	"easyems/internal/ems/runtime"
-	"easyems/internal/ems/signal"
+	"fastiot/internal/ems/channel"
+	"fastiot/internal/ems/runtime"
+	"fastiot/internal/ems/signal"
 )
 
 // BusConfig is one channel derived from persisted nodes.

@@ -7,8 +7,8 @@ import (
 	"github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 
-	"easyems/internal/decision"
-	"easyems/internal/ems/alarmtype"
+	"fastiot/internal/decision"
+	"fastiot/internal/ems/alarmtype"
 )
 
 const alarmTypePoint = "easyemsAlarmType"

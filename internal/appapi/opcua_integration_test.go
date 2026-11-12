@@ -14,8 +14,8 @@ import (
 	"github.com/simpleiot/simpleiot/data"
 	"github.com/simpleiot/simpleiot/server"
 
-	"easyems/internal/ems/opcua"
-	"easyems/internal/ems/signal"
+	"fastiot/internal/ems/opcua"
+	"fastiot/internal/ems/signal"
 )
 
 type fakeOpcuaConn struct{}

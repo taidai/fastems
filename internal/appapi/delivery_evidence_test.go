@@ -19,13 +19,13 @@ import (
 	"github.com/simpleiot/simpleiot/data"
 	"github.com/simpleiot/simpleiot/server"
 
-	"easyems/internal/ems/runtime"
-	"easyems/internal/emsapi"
+	"fastiot/internal/ems/runtime"
+	"fastiot/internal/emsapi"
 )
 
 func TestModbusCSVDiffAndDeliveryEvidence(t *testing.T) {
 	const password = "easyems-evidence-test"
-	t.Setenv("EASYEMS_ADMIN_PASSWORD", password)
+	t.Setenv("FASTIOT_ADMIN_PASSWORD", password)
 	dataDir := filepath.Join(t.TempDir(), "data")
 	ready := new(atomic.Bool)
 	options := server.Options{

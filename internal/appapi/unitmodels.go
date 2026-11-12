@@ -11,11 +11,11 @@ import (
 	"github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 
-	"easyems/internal/contract"
-	"easyems/internal/ems/command"
-	"easyems/internal/ems/device"
-	"easyems/internal/ems/profile"
-	"easyems/internal/ems/signal"
+	"fastiot/internal/contract"
+	"fastiot/internal/ems/command"
+	"fastiot/internal/ems/device"
+	"fastiot/internal/ems/profile"
+	"fastiot/internal/ems/signal"
 )
 
 const unitModelPoint = "easyemsUnitModel"

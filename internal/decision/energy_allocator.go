@@ -1,6 +1,6 @@
 package decision
 
-import "easyems/internal/ems/alloc"
+import "fastiot/internal/ems/alloc"
 
 // EnergyMember 是能力级分配的一个成员（一个 EnergyUnit）。能力不从成员
 // 声明，而是运行时从 EnergyUnit 的 CapabilityValues 读取——这就是 Q11=A

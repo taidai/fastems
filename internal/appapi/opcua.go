@@ -10,10 +10,10 @@ import (
 	siotclient "github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 
-	"easyems/internal/ems/channel"
-	"easyems/internal/ems/opcua"
-	"easyems/internal/ems/runtime"
-	"easyems/internal/ems/signal"
+	"fastiot/internal/ems/channel"
+	"fastiot/internal/ems/opcua"
+	"fastiot/internal/ems/runtime"
+	"fastiot/internal/ems/signal"
 )
 
 // OPC-UA 接入：每条 opcua 通道对应一个端点，子节点 opcuaPoint 映射完整

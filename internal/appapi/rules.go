@@ -9,7 +9,7 @@ import (
 	"github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 
-	"easyems/internal/decision"
+	"fastiot/internal/decision"
 )
 
 type RuleVersion struct {

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"easyems/internal/audit"
+	"fastiot/internal/audit"
 )
 
 var auditActions = []string{"登录", "端口配置", "点表配置", "设备模型", "命令执行", "控制写入", "能源调度", "决策表", "报警处理", "账号管理", "站点设置", "验收", "其他"}
@@ -222,7 +222,7 @@ func (h *Handler) auditExport(w http.ResponseWriter, r *http.Request, identity I
 		return
 	}
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
-	w.Header().Set("Content-Disposition", `attachment; filename="easyems-audit.csv"`)
+	w.Header().Set("Content-Disposition", `attachment; filename="fastiot-audit.csv"`)
 	writer := csv.NewWriter(w)
 	_ = h.audit.WriteCSV(writer, records)
 }

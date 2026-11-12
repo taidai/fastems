@@ -1,8 +1,8 @@
 import { readFile, writeFile } from "node:fs/promises"
 import path from "node:path"
 
-const base = process.env.EASYEMS_RESTORE_URL || "http://127.0.0.1:62944"
-const dataDir = path.resolve(process.env.EASYEMS_RESTORE_DATA || "data/restore")
+const base = process.env.FASTIOT_RESTORE_URL || "http://127.0.0.1:62944"
+const dataDir = path.resolve(process.env.FASTIOT_RESTORE_DATA || "data/restore")
 const initial = await readFile(path.join(dataDir, "initial-password.txt"), "utf8")
 const password = initial.match(/密码:\s*(\S+)/)?.[1] || ""
 if (!password) throw new Error("Restored initial credential is unavailable")

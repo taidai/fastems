@@ -15,7 +15,7 @@ const DEFAULT_ORDER: KpiKey[] = ["revenue", "ess-revenue", "efficiency", "fee", 
 
 export const DEFAULT_KPI_CONFIG: KpiConfig = { order: DEFAULT_ORDER, thresholds: {} }
 
-const STORAGE_KEY = "easyems-kpi-config"
+const STORAGE_KEY = "fastiot-kpi-config"
 
 export function loadKpiConfig(): KpiConfig {
   try {

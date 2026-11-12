@@ -13,9 +13,9 @@ import (
 	siotclient "github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 
-	"easyems/internal/ems/rule"
-	"easyems/internal/ems/safety"
-	"easyems/internal/ems/signal"
+	"fastiot/internal/ems/rule"
+	"fastiot/internal/ems/safety"
+	"fastiot/internal/ems/signal"
 )
 
 // DecisionTable is stored as a Simple IoT node. Only Applied is executed;

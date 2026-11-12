@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"easyems/internal/ems/channel"
-	"easyems/internal/ems/signal"
+	"fastiot/internal/ems/channel"
+	"fastiot/internal/ems/signal"
 
 	"github.com/simpleiot/simpleiot/modbus"
 	"github.com/simpleiot/simpleiot/respreader"

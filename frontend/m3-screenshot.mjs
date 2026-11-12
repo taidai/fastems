@@ -2,7 +2,7 @@ import { chromium } from "playwright-core"
 import path from "node:path"
 
 const base = process.argv[2] || "http://127.0.0.1:62951"
-const password = process.env.EASYEMS_PASSWORD || ""
+const password = process.env.FASTIOT_PASSWORD || ""
 let browser
 try {
   browser = await chromium.launch({ channel: "chrome", headless: true })

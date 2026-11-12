@@ -2,8 +2,8 @@ import { chromium } from "playwright-core"
 import { readFile } from "node:fs/promises"
 import path from "node:path"
 
-const base = process.env.EASYEMS_URL || "http://127.0.0.1:62943"
-const dataDir = path.resolve(process.env.EASYEMS_DATA || "data/preview")
+const base = process.env.FASTIOT_URL || "http://127.0.0.1:62943"
+const dataDir = path.resolve(process.env.FASTIOT_DATA || "data/preview")
 const evidence = path.resolve("evidence")
 const initial = await readFile(path.join(dataDir, "initial-password.txt"), "utf8")
 const password = initial.match(/密码:\s*(\S+)/)?.[1] || ""

@@ -38,14 +38,14 @@ export default function AllocatorsView({ token, nodes, groups, points, isAdmin, 
   run: Run
   onError: (message: string) => void
 }) {
-  const [nodeID, setNodeID] = useState(() => sessionStorage.getItem("easyems-allocator-node") || groups[0]?.id || "")
+  const [nodeID, setNodeID] = useState(() => sessionStorage.getItem("fastiot-allocator-node") || groups[0]?.id || "")
   const [saved, setSaved] = useState<AllocatorConfig>(emptyConfig)
   const [draft, setDraft] = useState<AllocatorConfig | null>(null)
   const selected = groups.find((group) => group.id === nodeID)
   const savedText = selected ? point(selected, "easyemsAllocator")?.text || "" : ""
 
   useEffect(() => {
-    sessionStorage.setItem("easyems-allocator-node", nodeID)
+    sessionStorage.setItem("fastiot-allocator-node", nodeID)
   }, [nodeID])
 
   useEffect(() => {

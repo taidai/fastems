@@ -1,12 +1,12 @@
 // 导航分组与角色可见性的浏览器检查：真实登录、真实角色，验证工作台切换与页面集合。
-// 运行：EASYEMS_NAV_URL=http://127.0.0.1:4411 EASYEMS_NAV_PASSWORD=... node navigation-browser-check.mjs
+// 运行：FASTIOT_NAV_URL=http://127.0.0.1:4411 FASTIOT_NAV_PASSWORD=... node navigation-browser-check.mjs
 import { chromium } from "playwright-core"
 
-const base = process.env.EASYEMS_NAV_URL || "http://127.0.0.1:4411"
-const password = process.env.EASYEMS_NAV_PASSWORD || ""
-if (!password) throw new Error("EASYEMS_NAV_PASSWORD is required")
+const base = process.env.FASTIOT_NAV_URL || "http://127.0.0.1:4411"
+const password = process.env.FASTIOT_NAV_PASSWORD || ""
+if (!password) throw new Error("FASTIOT_NAV_PASSWORD is required")
 
-const viewerEmail = process.env.EASYEMS_NAV_VIEWER || "nav-viewer@example.test"
+const viewerEmail = process.env.FASTIOT_NAV_VIEWER || "nav-viewer@example.test"
 const viewerPassword = "nav-viewer-pass-123"
 
 async function api(token, path, method = "GET", body) {
@@ -46,7 +46,7 @@ const ok = (condition, message) => { if (!condition) failures.push(message) }
 
 async function openAs(token) {
   const context = await browser.newContext({ viewport: { width: 1632, height: 1000 } })
-  await context.addInitScript((value) => sessionStorage.setItem("easyems-token", value), token)
+  await context.addInitScript((value) => sessionStorage.setItem("fastiot-token", value), token)
   const page = await context.newPage()
   await page.goto(base, { waitUntil: "domcontentloaded" })
   await page.waitForSelector(".console-topnav .topnav-trigger", { timeout: 15000 })
@@ -72,6 +72,7 @@ const title = async (page) => (await page.locator(".console-page-head h1").first
 
   // 项目复用：预览并创建新站。
   const siteSelect = page.getByLabel("源项目")
+  await page.waitForFunction(() => document.querySelectorAll('select[aria-label="源项目"] option').length > 1, null, { timeout: 8000 }).catch(() => {})
   ok(await siteSelect.locator("option").count() > 1, "应至少有一个已交付站点可选")
   const sourceValue = await siteSelect.locator("option").nth(1).getAttribute("value")
   await siteSelect.selectOption(sourceValue)

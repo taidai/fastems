@@ -1,5 +1,5 @@
-/easyems
-/easyems.exe
+/fastiot
+/fastiot.exe
 /data/
 /frontend/node_modules/
 /frontend/dist/
@@ -13,5 +13,5 @@ encore.gen.cue
 /evidence/*.png
 /evidence/verify/
 /evidence/verify-encore/
-/easyems-verify.exe
+/fastiot-verify.exe
 /modbus-simulator.exe

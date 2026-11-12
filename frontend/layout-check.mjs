@@ -2,10 +2,10 @@ import { chromium } from "playwright-core"
 import { readFile, writeFile } from "node:fs/promises"
 import path from "node:path"
 
-const base = process.env.EASYEMS_URL || "http://127.0.0.1:62943"
-const passwordFile = process.env.EASYEMS_PASSWORD_FILE || path.resolve("../data/preview/initial-password.txt")
+const base = process.env.FASTIOT_URL || "http://127.0.0.1:62943"
+const passwordFile = process.env.FASTIOT_PASSWORD_FILE || path.resolve("../data/preview/initial-password.txt")
 const password = (await readFile(passwordFile, "utf8")).match(/(?:密码|password)\s*[:：]\s*(\S+)/i)?.[1] || ""
-const evidenceDir = process.env.EASYEMS_EVIDENCE ? path.resolve(process.env.EASYEMS_EVIDENCE) : path.resolve("../evidence")
+const evidenceDir = process.env.FASTIOT_EVIDENCE ? path.resolve(process.env.FASTIOT_EVIDENCE) : path.resolve("../evidence")
 if (!password) throw new Error("password file is empty")
 
 let browser

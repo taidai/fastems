@@ -2,10 +2,10 @@ import { chromium } from "playwright-core"
 import { readFile, writeFile } from "node:fs/promises"
 import path from "node:path"
 
-const base = process.env.EASYEMS_URL || "http://127.0.0.1:62943"
-const passwordFile = process.env.EASYEMS_PASSWORD_FILE || path.resolve("../data/preview/initial-password.txt")
+const base = process.env.FASTIOT_URL || "http://127.0.0.1:62943"
+const passwordFile = process.env.FASTIOT_PASSWORD_FILE || path.resolve("../data/preview/initial-password.txt")
 const password = (await readFile(passwordFile, "utf8")).match(/(?:密码|password)\s*[:：]\s*(\S+)/i)?.[1] || ""
-const evidenceDir = process.env.EASYEMS_EVIDENCE ? path.resolve(process.env.EASYEMS_EVIDENCE) : path.resolve("../evidence")
+const evidenceDir = process.env.FASTIOT_EVIDENCE ? path.resolve(process.env.FASTIOT_EVIDENCE) : path.resolve("../evidence")
 if (!password) throw new Error("password file is empty")
 
 let browser
@@ -123,18 +123,18 @@ try {
   await page.keyboard.press("ArrowLeft")
   const expectedDisplay = initialDisplay.map((value) => value - 1)
   await page.waitForFunction(([background, glass]) => {
-    const saved = JSON.parse(localStorage.getItem("easyems-display") || "{}")
+    const saved = JSON.parse(localStorage.getItem("fastiot-display") || "{}")
     return saved.background === background && saved.glass === glass
   }, expectedDisplay)
   report.display = await page.evaluate(() => ({
-    saved: JSON.parse(localStorage.getItem("easyems-display") || "{}"),
+    saved: JSON.parse(localStorage.getItem("fastiot-display") || "{}"),
     brightness: document.documentElement.style.getPropertyValue("--bg-brightness"),
     glass: document.documentElement.style.getPropertyValue("--glass-a"),
   }))
   check("显示设置联动 CSS 变量", Number(report.display.brightness) === expectedDisplay[0] / 100 && Number(report.display.glass) === expectedDisplay[1] / 100, JSON.stringify(report.display))
   await displayPanel.getByRole("button", { name: "恢复默认", exact: true }).click()
   await page.waitForFunction(() => {
-    const saved = JSON.parse(localStorage.getItem("easyems-display") || "{}")
+    const saved = JSON.parse(localStorage.getItem("fastiot-display") || "{}")
     return saved.background === 78 && saved.glass === 62
   })
   check("显示设置恢复默认并收起", await displayPanel.count() === 0)

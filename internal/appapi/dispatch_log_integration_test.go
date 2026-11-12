@@ -15,7 +15,7 @@ import (
 	"github.com/simpleiot/simpleiot/data"
 	"github.com/simpleiot/simpleiot/server"
 
-	"easyems/internal/decision"
+	"fastiot/internal/decision"
 )
 
 // TestDispatchRecordTraceable 验证 OBS-01 追溯：一次调度生成带 dispatchID

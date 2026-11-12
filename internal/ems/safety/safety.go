@@ -7,8 +7,8 @@ import (
 	"math"
 	"time"
 
-	"easyems/internal/ems/rule"
-	"easyems/internal/ems/signal"
+	"fastiot/internal/ems/rule"
+	"fastiot/internal/ems/signal"
 )
 
 // Condition must hold before an output is written. Conditions reuse the typed

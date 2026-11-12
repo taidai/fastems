@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"easyems/internal/ems/runtime"
+	"fastiot/internal/ems/runtime"
 )
 
 const historyLimitFile = "history-limit"

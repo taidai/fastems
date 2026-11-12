@@ -8,7 +8,7 @@ import (
 	siotclient "github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 
-	"easyems/internal/decision"
+	"fastiot/internal/decision"
 )
 
 // PCC 反馈绑定的运行时读取：从 Plant 节点读绑定，再读主表点位的当前值，

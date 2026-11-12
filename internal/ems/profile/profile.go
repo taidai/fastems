@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"easyems/internal/ems/channel"
+	"fastiot/internal/ems/channel"
 )
 
 // Identity describes one register probe used to recognise a device. A probe

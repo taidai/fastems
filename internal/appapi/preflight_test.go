@@ -17,8 +17,8 @@ import (
 	"github.com/simpleiot/simpleiot/data"
 	"github.com/simpleiot/simpleiot/server"
 
-	"easyems/internal/ems/runtime"
-	"easyems/internal/emsapi"
+	"fastiot/internal/ems/runtime"
+	"fastiot/internal/emsapi"
 )
 
 func TestCriticalPointSet(t *testing.T) {

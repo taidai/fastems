@@ -8,7 +8,7 @@ import (
 	siotclient "github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 
-	"easyems/internal/decision"
+	"fastiot/internal/decision"
 )
 
 // 能力级规则与分配器存到 EnergyUnit 节点上的 point。这是破坏性切换里

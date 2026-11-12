@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"easyems/internal/ems/signal"
+	"fastiot/internal/ems/signal"
 )
 
 // Point is one value of a device model.

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"easyems/internal/ems/signal"
+	"fastiot/internal/ems/signal"
 )
 
 func TestConfigOutputAndConditions(t *testing.T) {

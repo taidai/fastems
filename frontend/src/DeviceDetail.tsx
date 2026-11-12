@@ -63,7 +63,7 @@ export default function DeviceDetail({ token, device, canConfigure, canOperate, 
   const [paramValues, setParamValues] = useState<Record<string, Record<string, number>>>({})
   const [pending, setPending] = useState<{ command: UnitCommand; params: Record<string, number> } | null>(null)
   const [presets, setPresets] = useState<Record<string, Record<string, number>>>(() => {
-    try { return JSON.parse(localStorage.getItem(`easyems-command-presets:${deviceID}`) || "{}") } catch { return {} }
+    try { return JSON.parse(localStorage.getItem(`fastiot-command-presets:${deviceID}`) || "{}") } catch { return {} }
   })
   const [preview, setPreview] = useState<UnitCommand | null>(null)
   const [historyPoint, setHistoryPoint] = useState("")
@@ -187,7 +187,7 @@ export default function DeviceDetail({ token, device, canConfigure, canOperate, 
   function savePreset(command: UnitCommand) {
     const next = { ...presets, [command.id]: commandParams(command) }
     setPresets(next)
-    localStorage.setItem(`easyems-command-presets:${deviceID}`, JSON.stringify(next))
+    localStorage.setItem(`fastiot-command-presets:${deviceID}`, JSON.stringify(next))
   }
 
   function applyPreset(command: UnitCommand) {
@@ -422,7 +422,7 @@ export default function DeviceDetail({ token, device, canConfigure, canOperate, 
 
         {!loading && tab === "verify" && <div className="device-tab-page device-verify-page">
           <section className="device-panel">
-            <div className="device-panel-head"><h3>验证清单</h3><button className="secondary-button" onClick={() => void downloadCSV(token, "/profile-verifications", "easyems-profile-verifications.csv").catch((cause) => report(cause, "验证记录导出失败"))}>导出验证记录</button></div>
+            <div className="device-panel-head"><h3>验证清单</h3><button className="secondary-button" onClick={() => void downloadCSV(token, "/profile-verifications", "fastiot-profile-verifications.csv").catch((cause) => report(cause, "验证记录导出失败"))}>导出验证记录</button></div>
             <div className="device-checklist">
               <Check ok={Boolean(profile)} label="Profile 已绑定" detail={profile ? `${profile.vendor} ${profile.model}` : "未绑定"} />
               <Check ok={Boolean(model?.model) && requiredMissing.length === 0} label="必填点位已映射" detail={requiredMissing.length ? `缺少 ${requiredMissing.join("、")}` : `${mappedCount} 个点位已映射`} />

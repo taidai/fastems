@@ -124,7 +124,7 @@ go test ./internal/appapi/ -run 'MultiPlantIndependentPCC|GroupDispatchRespectsS
 - 新 EMS 路由（能源设备、规则/模拟、设备、能力来源、追溯、电站 PCC/策略、资源集群、站点目标、OPC-UA）统一使用 `h.node`/`h.allows`；列表按可见范围过滤，创建校验可见父节点与所有引用。
 - `emsapi` 代理的 channels/state/history/quality/重启/创建/删除同样按节点可见性过滤；管理员也不能越过范围。
 - `TestTreeScopeHTTPIsolation`（真实 HTTP，端口 9810/9811）证明站点 A 用户对站点 B 的读取、写入、发布、组调度全部 403，且无点位/追溯副作用。
-- 生产新实例默认不生成演示站点；仅 `EASYEMS_SEED_DEMO=1` 显式启用，验收脚本已显式打开。
+- 生产新实例默认不生成演示站点；仅 `FASTIOT_SEED_DEMO=1` 显式启用，验收脚本已显式打开。
 
 ### 2. 动态能力：分方向、BMS 限制与时效
 

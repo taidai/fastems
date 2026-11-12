@@ -1,6 +1,6 @@
 package decision
 
-import "easyems/internal/ems/alloc"
+import "fastiot/internal/ems/alloc"
 
 // SitePlant 是站级调度的成员（一个电站 Plant）。能力是该电站下所有
 // EnergyUnit 能力的汇总，充/放分开，离线或互锁的成员不计入。

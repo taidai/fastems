@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"easyems/internal/ems/device"
-	"easyems/internal/ems/signal"
+	"fastiot/internal/ems/device"
+	"fastiot/internal/ems/signal"
 )
 
 // State is the lifecycle of one command request.

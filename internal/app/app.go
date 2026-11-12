@@ -1,4 +1,4 @@
-// Package app owns the easyems process lifecycle: Simple IoT, NATS/JetStream,
+// Package app owns the fastiot process lifecycle: Simple IoT, NATS/JetStream,
 // the EMS runtime, alarm watcher, bridge, and HTTP API.
 //
 // It is shared by the legacy single-binary command and the Encore service.
@@ -27,20 +27,20 @@ import (
 	"github.com/simpleiot/simpleiot/data"
 	"github.com/simpleiot/simpleiot/server"
 
-	"easyems/internal/appapi"
-	"easyems/internal/audit"
-	"easyems/internal/decision"
-	"easyems/internal/ems/alarmwatch"
-	"easyems/internal/ems/bridge"
-	"easyems/internal/ems/channel"
-	"easyems/internal/ems/modbusrt"
-	"easyems/internal/ems/profile"
-	"easyems/internal/ems/runtime"
-	"easyems/internal/emsapi"
-	"easyems/internal/web"
+	"fastiot/internal/appapi"
+	"fastiot/internal/audit"
+	"fastiot/internal/decision"
+	"fastiot/internal/ems/alarmwatch"
+	"fastiot/internal/ems/bridge"
+	"fastiot/internal/ems/channel"
+	"fastiot/internal/ems/modbusrt"
+	"fastiot/internal/ems/profile"
+	"fastiot/internal/ems/runtime"
+	"fastiot/internal/emsapi"
+	"fastiot/internal/web"
 )
 
-// Config describes one easyems instance.
+// Config describes one fastiot instance.
 type Config struct {
 	DataDir     string
 	HTTPPort    string
@@ -49,7 +49,7 @@ type Config struct {
 	DisableHTTP bool
 }
 
-// App is a running easyems instance. The embedding runtime owns the public
+// App is a running fastiot instance. The embedding runtime owns the public
 // listener; ServeHTTP serves the UI and the product API in-process.
 type App struct {
 	cancel  context.CancelFunc
@@ -89,17 +89,17 @@ func envCount(name string, def int) int {
 	return def
 }
 
-// Start boots easyems and returns once the HTTP listener is ready.
+// Start boots fastiot and returns once the HTTP listener is ready.
 // Closing the returned App (or canceling ctx) shuts it down.
 func Start(ctx context.Context, cfg Config) (*App, error) {
 	if cfg.DataDir == "" {
-		return nil, errors.New("easyems: data directory is required")
+		return nil, errors.New("fastiot: data directory is required")
 	}
 	if cfg.HTTPPort == "" && !cfg.DisableHTTP {
-		return nil, errors.New("easyems: HTTP port is required")
+		return nil, errors.New("fastiot: HTTP port is required")
 	}
 	if cfg.NATSPort == 0 {
-		return nil, errors.New("easyems: NATS port is required")
+		return nil, errors.New("fastiot: NATS port is required")
 	}
 	if cfg.Version == "" {
 		cfg.Version = "development"
@@ -117,7 +117,7 @@ func Start(ctx context.Context, cfg Config) (*App, error) {
 	emsHandler := emsapi.New(emsService, 15*time.Second)
 	emsHandler.Profiles = profile.Load(filepath.Join(cfg.DataDir, "profiles"))
 	for _, message := range emsHandler.Profiles.LoadErrors {
-		log.Println("easyems profiles:", message)
+		log.Println("fastiot profiles:", message)
 	}
 	handlerRef := new(atomic.Value)
 	var energyDispatch func(string) error
@@ -125,7 +125,7 @@ func Start(ctx context.Context, cfg Config) (*App, error) {
 	var forecastTick func(time.Time)
 	var opcuaManager *appapi.OpcuaManager
 	options := server.Options{
-		ID:           "easyems",
+		ID:           "easyems", // storage identity: renaming changes JetStream stream names
 		DataDir:      cfg.DataDir,
 		HTTPPort:     cfg.HTTPPort,
 		DisableHTTP:  cfg.DisableHTTP,
@@ -140,7 +140,7 @@ func Start(ctx context.Context, cfg Config) (*App, error) {
 			handler := appapi.New(nc, users, ready)
 			handler.SetAudit(audit.New(filepath.Join(cfg.DataDir, "audit.jsonl")))
 			handler.SetDataDir(cfg.DataDir)
-			handler.SetSessionPolicy(envMinutes("EASYEMS_SESSION_TIMEOUT_MINUTES", 30), envCount("EASYEMS_MAX_SESSIONS", 5))
+			handler.SetSessionPolicy(envMinutes("FASTIOT_SESSION_TIMEOUT_MINUTES", 30), envCount("FASTIOT_MAX_SESSIONS", 5))
 			emsHandler.PersistMaintenance = handler.PersistAlarmMaintenance
 			handler.SetEMS(emsHandler)
 			energyDispatch = func(id string) error {
@@ -168,7 +168,7 @@ func Start(ctx context.Context, cfg Config) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	clients := client.NewRunGroup("easyems clients")
+	clients := client.NewRunGroup("fastiot clients")
 	clients.Add(client.NewManager(nc, decision.NewDecisionTableClient, nil))
 	// 多协议接入：注册 SimpleIoT 的 MQTT 客户端，让 MQTT 设备可接入节点树。
 	// Modbus 走自建 bridge，MQTT 复用上游 client。CAN 需硬件，留作可选。
@@ -253,15 +253,15 @@ func Start(ctx context.Context, cfg Config) (*App, error) {
 				return reportStartup(err)
 			}
 		}
-		log.Printf("easyems %s ready", cfg.Version)
+		log.Printf("fastiot %s ready", cfg.Version)
 		readyOnce.Do(func() { close(readyCh) })
 
 		// 演示站点只在测试/本地显式启用，生产新实例默认不生成模拟资产。
-		if os.Getenv("EASYEMS_SEED_DEMO") == "1" {
+		if os.Getenv("FASTIOT_SEED_DEMO") == "1" {
 			go func() {
 				time.Sleep(3 * time.Second)
 				if err := appapi.SeedDemoSite(nc); err != nil {
-					log.Printf("easyems: seed demo site: %v", err)
+					log.Printf("fastiot: seed demo site: %v", err)
 				}
 			}()
 		}
@@ -323,12 +323,12 @@ func (a *App) Exited() <-chan struct{} { return a.exited }
 // The handler owns /api routing, authentication, scoping and response shape.
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if a.handler == nil {
-		http.Error(w, "easyems backend not initialized", http.StatusServiceUnavailable)
+		http.Error(w, "fastiot backend not initialized", http.StatusServiceUnavailable)
 		return
 	}
 	handler, _ := a.handler.Load().(http.Handler)
 	if handler == nil {
-		http.Error(w, "easyems backend not initialized", http.StatusServiceUnavailable)
+		http.Error(w, "fastiot backend not initialized", http.StatusServiceUnavailable)
 		return
 	}
 	handler.ServeHTTP(w, r)
@@ -345,7 +345,7 @@ func (a *App) Err() error {
 	return err
 }
 
-// Close stops easyems and waits for its subsystems to exit.
+// Close stops fastiot and waits for its subsystems to exit.
 func (a *App) Close() error {
 	a.cancel()
 	<-a.exited
@@ -370,7 +370,7 @@ func verifyHTTP(port string) error {
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	return fmt.Errorf("easyems HTTP listener did not become ready on port %s", port)
+	return fmt.Errorf("fastiot HTTP listener did not become ready on port %s", port)
 }
 
 // openEMSChannel opens a transport for a channel described by persisted nodes.

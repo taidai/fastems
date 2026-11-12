@@ -1,6 +1,6 @@
 package profile
 
-import "easyems/internal/ems/channel"
+import "fastiot/internal/ems/channel"
 
 // catalog is the built-in vendor library. Every entry is marked unverified
 // until the matching device has been read and, where applicable, written on

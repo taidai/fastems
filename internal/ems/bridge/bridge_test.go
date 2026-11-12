@@ -7,9 +7,9 @@ import (
 
 	"github.com/simpleiot/simpleiot/data"
 
-	"easyems/internal/ems/channel"
-	"easyems/internal/ems/runtime"
-	"easyems/internal/ems/signal"
+	"fastiot/internal/ems/channel"
+	"fastiot/internal/ems/runtime"
+	"fastiot/internal/ems/signal"
 )
 
 func node(id, typ string, numbers map[string]float64, texts map[string]string) data.NodeEdge {

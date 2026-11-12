@@ -1,11 +1,11 @@
-# easyems 领域模型重构 · 定案
+# FastIOT 领域模型重构 · 定案
 
 日期：2026-11-08
 状态：14 个决策经 grill 定案，作为重构实施的共识基线。
 
 ## 背景
 
-easyems 当前领域模型是「通道 → 站号 → 点位」的 Modbus 通道导向模型（设备 = 通道+站号隐式组合，无 EnergyUnit 抽象，无稳定资产 ID）。目标模型（领域模型图）是「Site → Plant → EnergyUnit → Device → Point」的能力/业务导向模型，核心原则「调度对象是 EnergyUnit，而不是具体设备型号」。
+FastIOT 当前领域模型是「通道 → 站号 → 点位」的 Modbus 通道导向模型（设备 = 通道+站号隐式组合，无 EnergyUnit 抽象，无稳定资产 ID）。目标模型（领域模型图）是「Site → Plant → EnergyUnit → Device → Point」的能力/业务导向模型，核心原则「调度对象是 EnergyUnit，而不是具体设备型号」。
 
 ## 目标数据模型
 

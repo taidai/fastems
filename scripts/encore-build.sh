@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-IMAGE="${EASYEMS_IMAGE:-easyems:latest}"
+IMAGE="${FASTIOT_IMAGE:-fastiot:latest}"
 ENCORE_BIN="${ENCORE_BIN:-encore}"
 # Repositories without a first commit cannot be VCS-stamped.
 export GOFLAGS="${GOFLAGS:--buildvcs=false}"

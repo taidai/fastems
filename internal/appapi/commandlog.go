@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"easyems/internal/ems/command"
+	"fastiot/internal/ems/command"
 )
 
 const (

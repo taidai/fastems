@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"easyems/internal/ems/alarm"
+	"fastiot/internal/ems/alarm"
 )
 
 // NodeView is the small part of a node that alarm evaluation needs.

@@ -8,7 +8,7 @@ import (
 	siotclient "github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 
-	"easyems/internal/ems/alloc"
+	"fastiot/internal/ems/alloc"
 )
 
 const allocHistoryPoint = "easyemsAllocHistory"

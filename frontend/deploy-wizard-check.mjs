@@ -5,11 +5,11 @@ import path from "node:path"
 // Feature check for the delivery P2 items: point-table diff, deploy wizard and
 // evidence package. Requires the modbus simulator on 127.0.0.1:1502.
 
-const base = process.env.EASYEMS_URL || "http://127.0.0.1:62943"
-const dataDir = path.resolve(process.env.EASYEMS_DATA || "data/preview")
-const evidence = path.resolve(process.env.EASYEMS_EVIDENCE || "evidence")
+const base = process.env.FASTIOT_URL || "http://127.0.0.1:62943"
+const dataDir = path.resolve(process.env.FASTIOT_DATA || "data/preview")
+const evidence = path.resolve(process.env.FASTIOT_EVIDENCE || "evidence")
 await mkdir(evidence, { recursive: true })
-let password = process.env.EASYEMS_ADMIN_PASSWORD || ""
+let password = process.env.FASTIOT_ADMIN_PASSWORD || ""
 if (!password) {
   const initial = await readFile(path.join(dataDir, "initial-password.txt"), "utf8")
   password = initial.match(/(?:密码|password)\s*[:：]\s*(\S+)/i)?.[1] || ""
@@ -28,7 +28,7 @@ page.on("pageerror", (error) => consoleErrors.push(error.message))
 page.on("console", (message) => { if (message.type() === "error") consoleErrors.push(message.text()) })
 
 async function api(url, method = "GET", body, raw = false) {
-  const token = await page.evaluate(() => sessionStorage.getItem("easyems-token"))
+  const token = await page.evaluate(() => sessionStorage.getItem("fastiot-token"))
   const response = await page.request.fetch(`${base}/api${url}`, {
     method,
     headers: { Authorization: `Bearer ${token}`, ...(body === undefined ? {} : { "Content-Type": "application/json" }) },
@@ -136,7 +136,7 @@ try {
   const download = await downloadEvent
   const file = await download.path()
   const payload = await readFile(file)
-  if (!download.suggestedFilename().startsWith("easyems-evidence-") || payload.length < 500) {
+  if (!download.suggestedFilename().startsWith("fastiot-evidence-") || payload.length < 500) {
     throw new Error(`evidence download invalid: ${download.suggestedFilename()} ${payload.length}B`)
   }
   if (payload.includes(Buffer.from(password))) throw new Error("evidence zip contains the admin password")

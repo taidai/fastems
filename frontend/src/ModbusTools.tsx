@@ -45,7 +45,7 @@ export default function ModbusTools({ token, buses, templates, busy, run }: {
             const url = URL.createObjectURL(blob)
             const link = document.createElement("a")
             link.href = url
-            link.download = "easyems-modbus-template.csv"
+            link.download = "fastiot-modbus-template.csv"
             link.click()
             URL.revokeObjectURL(url)
           }}>下载 CSV 模板</button>

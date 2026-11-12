@@ -57,13 +57,13 @@ import { visiblePagesFor, workbenchFullNames, workbenchNames, type Page, type Wo
 
 const emptyDocument: Document = { table: { rows: [] }, bindings: { points: {}, actions: {} } }
 const roleNames: Record<string, string> = { admin: "管理员", implementer: "实施", operator: "操作员", viewer: "查看者" }
-const workbenchStorageKey = "easyems-workbench"
+const workbenchStorageKey = "fastiot-workbench"
 type DisplaySettings = { background: number; glass: number }
 const defaultDisplay: DisplaySettings = { background: 78, glass: 62 }
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 function loadDisplay(): DisplaySettings {
   try {
-    const parsed = JSON.parse(localStorage.getItem("easyems-display") || "{}")
+    const parsed = JSON.parse(localStorage.getItem("fastiot-display") || "{}")
     return {
       background: clamp(Number(parsed.background) || defaultDisplay.background, 50, 110),
       glass: clamp(Number(parsed.glass) || defaultDisplay.glass, 30, 90),
@@ -94,7 +94,7 @@ function errorMessage(error: unknown) {
   if (error.message.startsWith("move_would_break_rule")) return "移动会使规则失去目标，请先调整绑定"
   const messages: Record<string, string> = {
     unauthorized: "登录已过期，请重新登录",
-    no_access: "此账号尚未分配 easyems 权限",
+    no_access: "此账号尚未分配 FastIOT 权限",
     forbidden: "没有执行此操作的权限",
     admin_required: "仅管理员可以配置",
     operation_not_allowed: "此账号只能查看，不能操作",
@@ -217,14 +217,14 @@ function siteSnapshot(snapshot: Snapshot, siteID: string): Snapshot {
 }
 
 export default function App() {
-  const [token, setToken] = useState(() => sessionStorage.getItem("easyems-token") || "")
+  const [token, setToken] = useState(() => sessionStorage.getItem("fastiot-token") || "")
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const [page, setPage] = useState<Page>("devices")
   const [workbench, setWorkbench] = useState<Workbench>(() => {
     const saved = window.localStorage.getItem(workbenchStorageKey)
     return saved === "delivery" || saved === "customer" ? saved : "customer"
   })
-  const [siteID, setSiteID] = useState(() => window.localStorage.getItem("easyems-site") || "")
+  const [siteID, setSiteID] = useState(() => window.localStorage.getItem("fastiot-site") || "")
   const [error, setError] = useState("")
   const [email, setEmail] = useState("admin")
   const [password, setPassword] = useState("")
@@ -295,7 +295,7 @@ export default function App() {
       setError("")
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 401) {
-        sessionStorage.removeItem("easyems-token")
+        sessionStorage.removeItem("fastiot-token")
         setToken("")
         setSnapshot(null)
       }
@@ -329,7 +329,7 @@ export default function App() {
     if (timeoutSeconds <= 0) return
     const timer = window.setInterval(() => {
       if (Date.now() - lastActivity.current > timeoutSeconds * 1000) {
-        sessionStorage.removeItem("easyems-token")
+        sessionStorage.removeItem("fastiot-token")
         window.location.reload()
       }
     }, 1000)
@@ -383,7 +383,7 @@ export default function App() {
     root.style.setProperty("--glass-a", glass.toFixed(2))
     root.style.setProperty("--glass-a-strong", Math.min(0.94, glass + 0.24).toFixed(2))
     root.style.setProperty("--glass-a-soft", Math.max(0.24, glass - 0.12).toFixed(2))
-    localStorage.setItem("easyems-display", JSON.stringify(display))
+    localStorage.setItem("fastiot-display", JSON.stringify(display))
   }, [display])
 
   useEffect(() => {
@@ -418,7 +418,7 @@ export default function App() {
     if (!siteNodes.some((node) => node.id === siteID)) {
       const first = siteNodes[0].id
       setSiteID(first)
-      window.localStorage.setItem("easyems-site", first)
+      window.localStorage.setItem("fastiot-site", first)
     }
   }, [snapshot, siteNodes, siteID])
 
@@ -428,7 +428,7 @@ export default function App() {
     setError("")
     try {
       const result = await login(email, password)
-      sessionStorage.setItem("easyems-token", result.token)
+      sessionStorage.setItem("fastiot-token", result.token)
       setToken(result.token)
       setPassword("")
     } catch (cause) {
@@ -455,7 +455,7 @@ export default function App() {
 
   if (!token) return <IonApp><IonContent fullscreen><main className="login-page">
     <section className="login-intro">
-      <div className="brand"><span className="brand-mark">e</span> easyEMS</div>
+      <div className="brand"><span className="brand-mark">F</span> FastIOT</div>
       <h1>让能源设备，<br />按清晰的规则运行。</h1>
       <p>设备接入、实时状态与有序决策表，收进同一个工作台。</p>
       <div className="login-proof"><span>一个应用</span><span>本地数据</span><span>无需编写代码</span></div>
@@ -559,14 +559,14 @@ export default function App() {
 
   return <IonApp><IonContent fullscreen><div className="console-viewport"><div className="console-shell" style={{ "--console-scale": String(stageScale) } as CSSProperties}>
     <header className="console-topbar">
-      <div className="console-brand"><img className="brand-mark" src="/zizu-brand.png" alt="" /><strong>自足能源AI <small>3.0</small></strong></div>
+      <div className="console-brand"><img className="brand-mark" src="/zizu-brand.png" alt="" /><strong>FastIOT <small>3.0</small></strong></div>
       {snapshot.roots.length > 1
         ? <select className="console-station" aria-label="当前项目" value={view.roots[0]} onChange={(event) => setStationID(event.target.value)}>
           {snapshot.roots.map((root) => <option key={root} value={root}>{labelForRoot(root)}</option>)}
         </select>
         : <span className="console-station-label" title="当前项目">{labelForRoot(view.roots[0])}</span>}
       {siteNodes.length > 1 && <select className="console-site" aria-label="当前站点" value={siteID}
-        onChange={(event) => { setSiteID(event.target.value); window.localStorage.setItem("easyems-site", event.target.value) }}>
+        onChange={(event) => { setSiteID(event.target.value); window.localStorage.setItem("fastiot-site", event.target.value) }}>
         {siteNodes.map((site) => <option key={site.id} value={site.id}>{nameOf(site)}</option>)}
       </select>}
       {canConfigure && <div className="console-workbench" role="group" aria-label="工作台">
@@ -624,7 +624,7 @@ export default function App() {
         <span className="console-user">楼顶 · {roleNames[view.user.policy.role] || "用户"}</span>
         <time>{clock.toLocaleTimeString("zh-CN", { hour12: false })}</time>
         {isAdmin && <button className="console-profile" aria-label="账号与权限" title={view.user.email || view.user.user_id} onClick={() => setPage("users")}><Icon name="user" size={23} /><span>{(view.user.email || view.user.user_id).split("@")[0]}</span></button>}
-        <button className="console-exit" title="退出登录" aria-label="退出登录" onClick={() => { sessionStorage.removeItem("easyems-token"); setToken(""); setSnapshot(null) }}>退出</button>
+        <button className="console-exit" title="退出登录" aria-label="退出登录" onClick={() => { sessionStorage.removeItem("fastiot-token"); setToken(""); setSnapshot(null) }}>退出</button>
       </div>
     </header>
 
@@ -770,7 +770,7 @@ function DevicesView({ snapshot, points, groups, rules, activeRules, errors, ala
   const [managedNode, setManagedNode] = useState<Node | null>(null)
   const [showDataNote, setShowDataNote] = useState(false)
   const [confirm, setConfirm] = useState<{ kind: "setpoint" | "manual"; node: Node; value?: number } | null>(null)
-  const token = sessionStorage.getItem("easyems-token") || ""
+  const token = sessionStorage.getItem("fastiot-token") || ""
 
   const activities = useMemo(() => snapshot.nodes.flatMap((node) => node.points
     .filter((item) => ["value", "valueSet", "applied", "enabled", "lastMatch"].includes(item.type))
@@ -935,7 +935,7 @@ function ChannelWorkspace({ token, channels, ioCounts, isAdmin, canOperate, node
       const url = URL.createObjectURL(new Blob([String.fromCharCode(0xFEFF) + csv], { type: "text/csv;charset=utf-8" }))
       const link = document.createElement("a")
       link.href = url
-      link.download = `easyems-通信报告-${new Date().toISOString().slice(0, 10)}.csv`
+      link.download = `fastiot-通信报告-${new Date().toISOString().slice(0, 10)}.csv`
       link.click()
       URL.revokeObjectURL(url)
     } catch {
@@ -1031,7 +1031,7 @@ function UsersView({ snapshot, groups, busy, run }: { snapshot: Snapshot; groups
   const [actions, setActions] = useState<string[]>([])
   const [accounts, setAccounts] = useState<UserAccount[]>([])
   const [notice, setNotice] = useState("")
-  const token = sessionStorage.getItem("easyems-token") || ""
+  const token = sessionStorage.getItem("fastiot-token") || ""
 
   const load = useCallback(async () => {
     setAccounts((await listUsers(token)).users || [])

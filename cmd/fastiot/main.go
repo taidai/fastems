@@ -7,7 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"easyems/internal/app"
+	"fastiot/internal/app"
 )
 
 var version = "development"

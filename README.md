@@ -1,4 +1,4 @@
-# easyems
+# FastIOT
 
 面向光储充 EMS 的单机产品底座：用业务树组织现场，用有序决策表表达控制与联动，在一台工控机上完成采集、控制、报警、历史与交付。生产运行时由 Encore 服务承载，内嵌 Simple IoT、NATS/JetStream、EMS 运行时和前端；不依赖外部数据库或第二业务服务。
 
@@ -39,7 +39,7 @@
 ### Encore（生产）
 
 ```bash
-export EASYEMS_DATA="$PWD/data/encore"
+export FASTIOT_DATA="$PWD/data/encore"
 encore run --port 4000
 ```
 
@@ -54,7 +54,7 @@ encore run --port 4000
 镜像运行：
 
 ```bash
-docker run -d --name easyems -p 8080:8080 -v easyems-data:/data -e EASYEMS_DATA=/data easyems:latest
+docker run -d --name fastiot -p 8080:8080 -v fastiot-data:/data -e FASTIOT_DATA=/data fastiot:latest
 ```
 
 ### 旧单 exe（仅本地调试/回滚）
@@ -65,7 +65,7 @@ cd frontend && npm ci && npm run build
 
 ```bash
 go test ./...
-go build -o easyems.exe ./cmd/easyems
+go build -o fastiot.exe ./cmd/fastiot
 ```
 
 ### 本地开发热更新
@@ -80,23 +80,23 @@ go build -o easyems.exe ./cmd/easyems
 ./scripts/dev.sh
 ```
 
-脚本启动旧 Go 后端（安装 `air` 时自动热重载）和 Vite（`http://127.0.0.1:5173`，`/api` 代理到后端）。没有 `air` 时使用现有 `easyems.exe`，只热更新前端。Encore 开发时把 `EASYEMS_API` 指到 `http://127.0.0.1:4000`。生产由 `npm run build` + `encore build docker` 提供。
+脚本启动旧 Go 后端（安装 `air` 时自动热重载）和 Vite（`http://127.0.0.1:5173`，`/api` 代理到后端）。没有 `air` 时使用现有 `fastiot.exe`，只热更新前端。Encore 开发时把 `FASTIOT_API` 指到 `http://127.0.0.1:4000`。生产由 `npm run build` + `encore build docker` 提供。
 
 首次运行前设置仅用于本机的管理员密码（至少 12 位）：
 
 ```bash
-EASYEMS_ADMIN_PASSWORD='replace-with-a-local-password' encore run --port 4000
+FASTIOT_ADMIN_PASSWORD='replace-with-a-local-password' encore run --port 4000
 ```
 
-Windows PowerShell 使用 `$env:EASYEMS_ADMIN_PASSWORD='replace-with-a-local-password'`。如果未设置，应用生成随机密码并写入数据目录的 `initial-password.txt`（权限 0600），不会打印到日志。已有数据目录不会重置密码。
+Windows PowerShell 使用 `$env:FASTIOT_ADMIN_PASSWORD='replace-with-a-local-password'`。如果未设置，应用生成随机密码并写入数据目录的 `initial-password.txt`（权限 0600），不会打印到日志。已有数据目录不会重置密码。
 
 访问 `http://localhost:4000`，账号为 `admin`。当前 HTTP 监听适用于本机或受信网络验收，不宣称可直接暴露公网。
 
-演示数据默认关闭：生产实例不会生成演示站点。仅在本地/测试需要时设置 `EASYEMS_SEED_DEMO=1`，演示资产均带“演示”标识，不能当作真实设备或验收证据。
+演示数据默认关闭：生产实例不会生成演示站点。仅在本地/测试需要时设置 `FASTIOT_SEED_DEMO=1`，演示资产均带“演示”标识，不能当作真实设备或验收证据。
 
 ## 完整备份与恢复
 
-已验证的支持方式是**离线复制整个数据目录**：停止 easyems，复制 `data`（包括 JetStream、设备密钥和初始化标记），恢复时停止目标实例并用备份替换其数据目录，再启动同一个应用。不要只复制 YAML 或部分文件。
+已验证的支持方式是**离线复制整个数据目录**：停止 FastIOT，复制 `data`（包括 JetStream、设备密钥和初始化标记），恢复时停止目标实例并用备份替换其数据目录，再启动同一个应用。不要只复制 YAML 或部分文件。
 
 备份包含账号哈希和设备密钥，应按敏感数据保管；不再需要本地初始密码文件时应先删除它。当前不支持也不宣称在线热备份。`frontend/restore-check.mjs` 是本机恢复验收脚本。
 
@@ -108,4 +108,4 @@ Encore 生产验证使用 `./scripts/verify-encore.sh`（构建容器、健康�
 
 真实物理设备、真实品牌 A/B 硬件更换、独立目标用户和公网部署仍需现场验收，不能用模拟或单元测试替代。
 
-`third_party/simpleiot` 是固定上游源码及 easyems 集成补丁，详见 `third_party/README.md`。
+`third_party/simpleiot` 是固定上游源码及 FastIOT 集成补丁，详见 `third_party/README.md`。

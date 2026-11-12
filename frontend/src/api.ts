@@ -160,7 +160,7 @@ export async function importCSV(token: string, path: string, csv: string) {
   return (await response.json()) as { imported?: number; preview?: boolean; count?: number }
 }
 
-export async function downloadCSV(token: string, path: string, filename = "easyems-modbus-points.csv") {
+export async function downloadCSV(token: string, path: string, filename = "fastiot-modbus-points.csv") {
   const response = await fetch(`/api${path}`, { headers: { Authorization: `Bearer ${token}` } })
   if (!response.ok) throw new ApiError("CSV 导出失败", response.status)
   const url = URL.createObjectURL(await response.blob())
@@ -252,7 +252,7 @@ export async function downloadHistory(token: string, nodeId: string, start: Date
   const url = URL.createObjectURL(await response.blob())
   const link = document.createElement("a")
   link.href = url
-  link.download = "easyems-history.csv"
+  link.download = "fastiot-history.csv"
   link.click()
   URL.revokeObjectURL(url)
 }

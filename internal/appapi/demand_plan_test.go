@@ -7,11 +7,11 @@ import (
 
 	"github.com/simpleiot/simpleiot/data"
 
-	"easyems/internal/decision"
-	"easyems/internal/ems/history"
-	"easyems/internal/ems/runtime"
-	"easyems/internal/ems/signal"
-	"easyems/internal/emsapi"
+	"fastiot/internal/decision"
+	"fastiot/internal/ems/history"
+	"fastiot/internal/ems/runtime"
+	"fastiot/internal/ems/signal"
+	"fastiot/internal/emsapi"
 )
 
 func TestPlan96TargetAt(t *testing.T) {

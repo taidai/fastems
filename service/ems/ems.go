@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"os"
 
-	"easyems/internal/app"
+	"fastiot/internal/app"
 )
 
 //encore:service
@@ -21,11 +21,11 @@ type Service struct {
 }
 
 func initService() (*Service, error) {
-	dataDir := os.Getenv("EASYEMS_DATA")
+	dataDir := os.Getenv("FASTIOT_DATA")
 	if dataDir == "" {
 		dataDir = "data"
 	}
-	version := os.Getenv("EASYEMS_VERSION")
+	version := os.Getenv("FASTIOT_VERSION")
 	if version == "" {
 		version = "development"
 	}

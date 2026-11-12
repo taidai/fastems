@@ -7,8 +7,8 @@ import (
 	"github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 
-	"easyems/internal/decision"
-	"easyems/internal/ems/safety"
+	"fastiot/internal/decision"
+	"fastiot/internal/ems/safety"
 )
 
 func (h *Handler) putSafety(w http.ResponseWriter, r *http.Request, identity Identity) {

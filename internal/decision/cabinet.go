@@ -1,6 +1,6 @@
 package decision
 
-import "easyems/internal/ems/alloc"
+import "fastiot/internal/ems/alloc"
 
 // CabinetController 是能力级调度的下游执行层：把分给一个 EnergyUnit 的
 // 功率请求，按柜内各 Device 的能力拆成每台 PCS 的功率设定。设备差异由

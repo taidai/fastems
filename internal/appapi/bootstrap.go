@@ -24,7 +24,7 @@ func Bootstrap(nc *nats.Conn, dataDir string) error {
 		return err
 	}
 
-	password := os.Getenv("EASYEMS_ADMIN_PASSWORD")
+	password := os.Getenv("FASTIOT_ADMIN_PASSWORD")
 	generated := password == ""
 	if generated {
 		bytes := make([]byte, 24)
@@ -34,7 +34,7 @@ func Bootstrap(nc *nats.Conn, dataDir string) error {
 		password = base64.RawURLEncoding.EncodeToString(bytes)
 	}
 	if len(password) < 12 {
-		return fmt.Errorf("EASYEMS_ADMIN_PASSWORD must contain at least 12 characters")
+		return fmt.Errorf("FASTIOT_ADMIN_PASSWORD must contain at least 12 characters")
 	}
 
 	deadline := time.Now().Add(10 * time.Second)

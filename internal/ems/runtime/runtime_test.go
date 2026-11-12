@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"easyems/internal/ems/alarm"
-	"easyems/internal/ems/channel"
-	"easyems/internal/ems/command"
-	"easyems/internal/ems/device"
-	"easyems/internal/ems/signal"
+	"fastiot/internal/ems/alarm"
+	"fastiot/internal/ems/channel"
+	"fastiot/internal/ems/command"
+	"fastiot/internal/ems/device"
+	"fastiot/internal/ems/signal"
 )
 
 var t0 = time.Date(2026, 11, 4, 12, 0, 0, 0, time.UTC)

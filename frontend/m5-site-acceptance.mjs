@@ -13,13 +13,13 @@ import path from "node:path"
  * at the site and recorded in the final acceptance report.
  */
 
-const base = process.env.EASYEMS_URL || "http://127.0.0.1:62943"
-const password = process.env.EASYEMS_ADMIN_PASSWORD || ""
+const base = process.env.FASTIOT_URL || "http://127.0.0.1:62943"
+const password = process.env.FASTIOT_ADMIN_PASSWORD || ""
 const configPath = process.env.M5_CONFIG || ""
 const allowWrite = process.env.M5_ALLOW_WRITE === "1"
 const maxAgeMS = Number(process.env.M5_MAX_AGE_MS || 15000)
 
-if (!password) throw new Error("EASYEMS_ADMIN_PASSWORD is required")
+if (!password) throw new Error("FASTIOT_ADMIN_PASSWORD is required")
 if (!configPath) throw new Error("M5_CONFIG is required (see docs/m5-site-acceptance.md)")
 const config = JSON.parse(await readFile(configPath, "utf8"))
 if (!Array.isArray(config.devices) || config.devices.length === 0) throw new Error("M5_CONFIG.devices is empty")

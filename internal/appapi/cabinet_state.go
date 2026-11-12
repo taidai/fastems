@@ -5,7 +5,7 @@ import (
 	siotclient "github.com/simpleiot/simpleiot/client"
 	"github.com/simpleiot/simpleiot/data"
 
-	"easyems/internal/decision"
+	"fastiot/internal/decision"
 )
 
 // EnergyUnit 运行状态的读写与调度闸门（CTL-01）。状态存 cabinetState 点，
