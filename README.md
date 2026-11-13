@@ -2,7 +2,7 @@
 
 项目正式名称为 `fastiot`（展示名 FastIOT），远程仓库为 [taidai/fastiot](https://github.com/taidai/fastiot)。原 FastEMS 名称停止用于当前品牌；EMS 保留为行业能力名称。
 
-产品目标是开源 IoT/SCADA 底座与付费 EMS 行业包，完整目标与验收以[产品规格](https://github.com/taidai/fastiot/issues/1)为准。下文已有能力与历史验收记录不代表新目标已经实现。
+产品目标是开源 IoT/SCADA 底座与付费 EMS 行业包，完整目标与验收以[本地产品规格](docs/specs/2026-11-13-open-scada-paid-ems.md)为准。本地评审修订暂未同步到 [GitHub Issue](https://github.com/taidai/fastiot/issues/1)，两者当前不是同一版本。下文已有能力与历史验收记录不代表新目标已经实现。
 
 ### 改名兼容性
 
@@ -18,12 +18,13 @@
 
 ## 目标与规格
 
-- 产品目标、v1 范围与验收标准：[`docs/product-spec-v1.md`](docs/product-spec-v1.md)（2026-11-04 冻结）。
+- 当前产品目标与验收：[`docs/specs/2026-11-13-open-scada-paid-ems.md`](docs/specs/2026-11-13-open-scada-paid-ems.md)（本地评审修订）。
+- 旧 EMS 阶段范围：[`docs/product-spec-v1.md`](docs/product-spec-v1.md)（2026-11-04 历史冻结规格，不覆盖当前目标）。
 - M4 部署与验收步骤：[`docs/m4-acceptance.md`](docs/m4-acceptance.md)。
 - 一页看懂的总图：[`docs/master-map.html`](docs/master-map.html)。
 - 厂商 Profile 库：[`docs/vendor-profiles.md`](docs/vendor-profiles.md)；自定义 Profile（无需改代码）：[`docs/custom-profiles.md`](docs/custom-profiles.md)；M5 现场执行：[`docs/m5-site-acceptance.md`](docs/m5-site-acceptance.md)。
 - 最终验收状态：[`evidence/final-acceptance.md`](evidence/final-acceptance.md)。
-- 新需求进入 v1.1 候选；冻结期内只修缺陷，不扩大范围。
+- 新工作按当前规格的用户旅程、样板验收和明确非目标拆分；旧冻结期规则不阻止已确认的底座与行业包目标。
 
 ## 当前代码状态
 
