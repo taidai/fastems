@@ -4,6 +4,8 @@
 
 ## 1. 平台提供 Unit，行业包定义它的业务含义
 
+本文承接[通用物模型](2026-11-13-generic-thing-model.md)：Site 表达现场，Area 表达组织容器，Group 表达横向集合，Unit 表达功能对象。Plant、EnergyUnit 和 ResourceGroup 是 EMS 专业类型，不是强制所有项目采用的固定层级。本文进一步细化 Unit 组合及 EMS 能力与目标语义。
+
 **Unit（业务单元）**是具有独立业务身份、对外属性／命令／事件和成员绑定的功能对象。它可以组合一台或多台 Device；普通 Device 也可直接用于画面和逻辑，不强制创建 Unit。
 
 **EnergyUnit**是满足 EMS 能源模型与约束的 Unit，用来表达最小可独立受控的能源能力。不是把所有 Unit 都附上 SOC，也不是仅把现有 energyUnit 类型全局改名。
